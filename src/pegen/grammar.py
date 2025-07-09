@@ -53,7 +53,7 @@ class Grammar:
         for rule in self.rules.values():
             lines.append(f"    {repr(rule)},")
         lines.append("  ],")
-        lines.append("  {repr(list(self.metas.items()))}")
+        lines.append(f"  {repr(list(self.metas.items()))}")
         lines.append(")")
         return "\n".join(lines)
 
