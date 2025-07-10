@@ -27,12 +27,14 @@ def import_file(full_name: str, path: str) -> Any:
 
 
 def generate_parser(
-    grammar: Grammar, parser_path: Optional[str] = None, parser_name: str = "GeneratedParser"
+    grammar: Grammar, parser_path: Optional[str] = None, parser_name: str = "GeneratedParser",
+    # Added as keyword argument for maximum compatibility
+    *, source_name: str = "<string>"
 ) -> Type[Parser]:
     # Generate a parser.
     out = io.StringIO()
     genr = PythonParserGenerator(grammar, out)
-    genr.generate("<string>")
+    genr.generate(source_name)
 
     # Load the generated parser class.
     ns: Dict[str, Any] = {}

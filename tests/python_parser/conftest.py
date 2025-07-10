@@ -12,7 +12,7 @@ def python_parser_cls():
     grammar_path = Path(__file__).parent.parent.parent / "data/python.gram"
     grammar = build_parser(grammar_path)[0]
     source_path = str(Path(__file__).parent / "parser_cache" / "py_parser.py")
-    parser_cls = generate_parser(grammar, source_path, "PythonParser")
+    parser_cls = generate_parser(grammar, source_path, "PythonParser", source_name=str(grammar_path))
 
     return parser_cls
 
@@ -22,7 +22,7 @@ def python_parse_file():
     grammar_path = Path(__file__).parent.parent.parent / "data/python.gram"
     grammar = build_parser(grammar_path)[0]
     source_path = str(Path(__file__).parent / "parser_cache" / "py_parser.py")
-    parser_cls = generate_parser(grammar, source_path, "parse_file")
+    parser_cls = generate_parser(grammar, source_path, "parse_file", source_name=str(grammar_path))
 
     return parser_cls
 
@@ -32,6 +32,6 @@ def python_parse_str():
     grammar_path = Path(__file__).parent.parent.parent / "data/python.gram"
     grammar = build_parser(grammar_path)[0]
     source_path = str(Path(__file__).parent / "parser_cache" / "py_parser.py")
-    parser_cls = generate_parser(grammar, source_path, "parse_string")
+    parser_cls = generate_parser(grammar, source_path, "parse_string", source_name=str(grammar_path))
 
     return parser_cls
