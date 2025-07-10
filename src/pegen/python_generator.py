@@ -313,7 +313,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 self.print("self.call_invalid_rules = False")
                 self.cleanup_statements.append("self.call_invalid_rules = _prev_call_invalid")
 
-            self.print("mark = self._mark()")
+            self.print("mark = self.mark()")
             if self.alts_uses_locations(node.rhs.alts):
                 self.print("tok = self._tokenizer.peek()")
                 self.print("start_lineno, start_col_offset = tok.start")
@@ -382,7 +382,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
         if is_loop:
             self.print(f"children.append({action})")
-            self.print("mark = self._mark()")
+            self.print("mark = self.mark()")
         else:
             self.add_return(f"{action}")
 
@@ -437,7 +437,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
                 self.print_action(action, locations, unreachable, is_gather, is_loop, has_invalid)
 
-            self.print("self._reset(mark)")
+            self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.
             if has_cut:
                 self.print("if cut:")

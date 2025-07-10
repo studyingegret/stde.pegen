@@ -48,12 +48,12 @@ def memoize(method: F) -> F:
     method_name = method.__name__
 
     def memoize_wrapper(self: P, *args: object) -> F:
-        mark = self._mark()
+        mark = self.mark()
         key = mark, method_name, args
         # Fast path: cache hit, and not verbose.
         if key in self._cache and not self._verbose:
             tree, endmark = self._cache[key]
-            self._reset(endmark)
+            self.reset(endmark)
             return tree
         # Slow path: no cache hit, or verbose.
         verbose = self._verbose
@@ -67,13 +67,13 @@ def memoize(method: F) -> F:
             self._level -= 1
             if verbose:
                 print(f"{fill}... {method_name}({argsr}) -> {tree!s:.200}")
-            endmark = self._mark()
+            endmark = self.mark()
             self._cache[key] = tree, endmark
         else:
             tree, endmark = self._cache[key]
             if verbose:
                 print(f"{fill}{method_name}({argsr}) -> {tree!s:.200}")
-            self._reset(endmark)
+            self.reset(endmark)
         return tree
 
     memoize_wrapper.__wrapped__ = method  # type: ignore
@@ -85,12 +85,12 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
     method_name = method.__name__
 
     def memoize_left_rec_wrapper(self: P) -> Optional[T]:
-        mark = self._mark()
+        mark = self.mark()
         key = mark, method_name, ()
         # Fast path: cache hit, and not verbose.
         if key in self._cache and not self._verbose:
             tree, endmark = self._cache[key]
-            self._reset(endmark)
+            self.reset(endmark)
             return tree
         # Slow path: no cache hit, or verbose.
         verbose = self._verbose
@@ -116,13 +116,13 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
                 print(f"{fill}Recursive {method_name} at {mark} depth {depth}")
 
             while True:
-                self._reset(mark)
+                self.reset(mark)
                 self.in_recursive_rule += 1
                 try:
                     result = method(self)
                 finally:
                     self.in_recursive_rule -= 1
-                endmark = self._mark()
+                endmark = self.mark()
                 depth += 1
                 if verbose:
                     print(
@@ -138,24 +138,24 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
                     break
                 self._cache[key] = lastresult, lastmark = result, endmark
 
-            self._reset(lastmark)
+            self.reset(lastmark)
             tree = lastresult
 
             self._level -= 1
             if verbose:
                 print(f"{fill}{method_name}() -> {tree!s:.200} [cached]")
             if tree:
-                endmark = self._mark()
+                endmark = self.mark()
             else:
                 endmark = mark
-                self._reset(endmark)
+                self.reset(endmark)
             self._cache[key] = tree, endmark
         else:
             tree, endmark = self._cache[key]
             if verbose:
                 print(f"{fill}{method_name}() -> {tree!s:.200} [fresh]")
             if tree:
-                self._reset(endmark)
+                self.reset(endmark)
         return tree
 
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
@@ -179,12 +179,15 @@ class Parser:
         # for error reporting.
         self.in_recursive_rule = 0
 
-        # Pass through common tokenizer methods.
-        self._mark = self._tokenizer.mark
-        self._reset = self._tokenizer.reset
-
         # Are we looking for syntax error ? When true enable matching on invalid rules
         self.call_invalid_rules = False
+
+    # Pass through common tokenizer methods.
+    def mark(self) -> Mark:
+        return self._tokenizer.mark()
+
+    def reset(self, index: Mark) -> None:
+        return self._tokenizer.reset(index)
 
     @abstractmethod
     def start(self) -> Any:
@@ -284,15 +287,15 @@ class Parser:
         return res
 
     def positive_lookahead(self, func: Callable[..., T], *args: object) -> T:
-        mark = self._mark()
+        mark = self.mark()
         ok = func(*args)
-        self._reset(mark)
+        self.reset(mark)
         return ok
 
     def negative_lookahead(self, func: Callable[..., object], *args: object) -> bool:
-        mark = self._mark()
+        mark = self.mark()
         ok = func(*args)
-        self._reset(mark)
+        self.reset(mark)
         return not ok
 
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:

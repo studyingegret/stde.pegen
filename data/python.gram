@@ -134,7 +134,7 @@ class Parser(Parser):
 
                 # Reset the parser cache to be able to restart parsing from the
                 # beginning.
-                self._reset(0)  # type: ignore
+                self.reset(0)  # type: ignore
                 self._cache.clear()
 
                 res = getattr(self, rule)()
