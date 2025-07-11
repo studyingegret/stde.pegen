@@ -22,8 +22,8 @@ from pegen.grammar import (
     MetaTuple,
     MetaList,
     NameLeaf,
-    NamedItem,
-    NamedItemList,
+    TopLevelItem,
+    TopLevelItemList,
     NegativeLookahead,
     Opt,
     Plain,
@@ -163,6 +163,24 @@ class GeneratedParser(Parser):
         return None
 
     @memoize
+    def rulename(self) -> Optional[RuleName]:
+        # rulename: NAME annotation | NAME
+        mark = self.mark()
+        if (
+            (name := self.name())
+            and
+            (annotation := self.annotation())
+        ):
+            return ( name . string , annotation )
+        self.reset(mark)
+        if (
+            (name := self.name())
+        ):
+            return ( name . string , None )
+        self.reset(mark)
+        return None
+
+    @memoize
     def rule_rhs(self) -> Optional[Rhs]:
         # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | alts NEWLINE
         mark = self.mark()
@@ -185,24 +203,6 @@ class GeneratedParser(Parser):
             (self.expect('NEWLINE'))
         ):
             return alts
-        self.reset(mark)
-        return None
-
-    @memoize
-    def rulename(self) -> Optional[RuleName]:
-        # rulename: NAME annotation | NAME
-        mark = self.mark()
-        if (
-            (name := self.name())
-            and
-            (annotation := self.annotation())
-        ):
-            return ( name . string , annotation )
-        self.reset(mark)
-        if (
-            (name := self.name())
-        ):
-            return ( name . string , None )
         self.reset(mark)
         return None
 
@@ -278,14 +278,14 @@ class GeneratedParser(Parser):
             and
             (action := self.action())
         ):
-            return Alt ( items + [NamedItem ( None , NameLeaf ( 'ENDMARKER' ) )] , action = action )
+            return Alt ( items + [TopLevelItem ( None , NameLeaf ( 'ENDMARKER' ) )] , action = action )
         self.reset(mark)
         if (
             (items := self.items())
             and
             (self.expect('$'))
         ):
-            return Alt ( items + [NamedItem ( None , NameLeaf ( 'ENDMARKER' ) )] , action = None )
+            return Alt ( items + [TopLevelItem ( None , NameLeaf ( 'ENDMARKER' ) )] , action = None )
         self.reset(mark)
         if (
             (items := self.items())
@@ -302,26 +302,26 @@ class GeneratedParser(Parser):
         return None
 
     @memoize
-    def items(self) -> Optional[NamedItemList]:
-        # items: named_item items | named_item
+    def items(self) -> Optional[TopLevelItemList]:
+        # items: top_level_item items | top_level_item
         mark = self.mark()
         if (
-            (named_item := self.named_item())
+            (top_level_item := self.top_level_item())
             and
             (items := self.items())
         ):
-            return [named_item] + items
+            return [top_level_item] + items
         self.reset(mark)
         if (
-            (named_item := self.named_item())
+            (top_level_item := self.top_level_item())
         ):
-            return [named_item]
+            return [top_level_item]
         self.reset(mark)
         return None
 
     @memoize
-    def named_item(self) -> Optional[NamedItem]:
-        # named_item: NAME annotation '=' ~ item | NAME '=' ~ item | item | forced_atom | lookahead
+    def top_level_item(self) -> Optional[TopLevelItem]:
+        # top_level_item: NAME annotation '=' ~ item | NAME '=' ~ item | item | top_level_others
         mark = self.mark()
         cut = False
         if (
@@ -335,7 +335,7 @@ class GeneratedParser(Parser):
             and
             (item := self.item())
         ):
-            return NamedItem ( name . string , item , annotation )
+            return TopLevelItem ( name . string , item , annotation )
         self.reset(mark)
         if cut:
             return None
@@ -349,30 +349,25 @@ class GeneratedParser(Parser):
             and
             (item := self.item())
         ):
-            return NamedItem ( name . string , item )
+            return TopLevelItem ( name . string , item )
         self.reset(mark)
         if cut:
             return None
         if (
             (item := self.item())
         ):
-            return NamedItem ( None , item )
+            return TopLevelItem ( None , item )
         self.reset(mark)
         if (
-            (it := self.forced_atom())
+            (it := self.top_level_others())
         ):
-            return NamedItem ( None , it )
-        self.reset(mark)
-        if (
-            (it := self.lookahead())
-        ):
-            return NamedItem ( None , it )
+            return TopLevelItem ( None , it )
         self.reset(mark)
         return None
 
     @memoize
-    def forced_atom(self) -> Optional[LookaheadOrCut]:
-        # forced_atom: '&' '&' ~ atom
+    def top_level_others(self) -> Optional[LookaheadOrCut]:
+        # top_level_others: '&' '&' ~ atom | '&' ~ atom | '!' ~ atom | '~'
         mark = self.mark()
         cut = False
         if (
@@ -388,12 +383,6 @@ class GeneratedParser(Parser):
         self.reset(mark)
         if cut:
             return None
-        return None
-
-    @memoize
-    def lookahead(self) -> Optional[LookaheadOrCut]:
-        # lookahead: '&' ~ atom | '!' ~ atom | '~'
-        mark = self.mark()
         cut = False
         if (
             (self.expect('&'))

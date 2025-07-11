@@ -203,6 +203,8 @@ class Parser:
         tok = self._tokenizer.peek()
         return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
 
+    # Begin tokens
+
     @memoize
     def name(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
@@ -280,6 +282,8 @@ class Parser:
         if tok.type == token.OP and tok.string == type:
             return self._tokenizer.getnext()
         return None
+
+    # End tokens
 
     def expect_forced(self, res: Any, expectation: str) -> Optional[tokenize.TokenInfo]:
         if res is None:

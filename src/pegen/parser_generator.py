@@ -13,7 +13,7 @@ from pegen.grammar import (
     GrammarVisitor,
     Group,
     Lookahead,
-    NamedItem,
+    TopLevelItem,
     NameLeaf,
     Opt,
     Plain,
@@ -35,7 +35,7 @@ class RuleCheckingVisitor(GrammarVisitor):
             # TODO: Add line/col info to (leaf) nodes
             raise GrammarError(f"Dangling reference to rule {node.value!r}")
 
-    def visit_NamedItem(self, node: NamedItem) -> None:
+    def visit_TopLevelItem(self, node: TopLevelItem) -> None:
         if node.name and node.name.startswith("_"):
             raise GrammarError(f"Variable names cannot start with underscore: '{node.name}'")
         self.visit(node.item)
@@ -101,7 +101,10 @@ class ParserGenerator:
         for line in lines.splitlines():
             self.print(line)
 
+    #XXX: What does this do?
     def collect_todo(self) -> None:
+        # I've tested that it is not invoked by the tests.
+        raise NotImplementedError("collect_todo looks like a TODO feature.")
         done: Set[str] = set()
         while True:
             alltodo = list(self.todo)
@@ -126,7 +129,7 @@ class ParserGenerator:
         else:
             prefix = "_loop0_"
         name = f"{prefix}{self.counter}"  # TODO: It's ugly to signal via the name.
-        self.todo[name] = Rule(name, None, Rhs([Alt([NamedItem(None, node)])]))
+        self.todo[name] = Rule(name, None, Rhs([Alt([TopLevelItem(None, node)])]))
         return name
 
     def artificial_rule_from_gather(self, node: Gather) -> str:
@@ -135,7 +138,7 @@ class ParserGenerator:
         self.counter += 1
         extra_function_name = f"_loop0_{self.counter}"
         extra_function_alt = Alt(
-            [NamedItem(None, node.separator), NamedItem("elem", node.node)],
+            [TopLevelItem(None, node.separator), TopLevelItem("elem", node.node)],
             action="elem",
         )
         self.todo[extra_function_name] = Rule(
@@ -144,7 +147,7 @@ class ParserGenerator:
             Rhs([extra_function_alt]),
         )
         alt = Alt(
-            [NamedItem("elem", node.node), NamedItem("seq", NameLeaf(extra_function_name))],
+            [TopLevelItem("elem", node.node), TopLevelItem("seq", NameLeaf(extra_function_name))],
         )
         self.todo[name] = Rule(
             name,
@@ -212,7 +215,7 @@ class NullableVisitor(GrammarVisitor):
     def visit_Group(self, group: Group) -> bool:
         return self.visit(group.rhs)
 
-    def visit_NamedItem(self, item: NamedItem) -> bool:
+    def visit_TopLevelItem(self, item: TopLevelItem) -> bool:
         if self.visit(item.item):
             item.nullable = True
         return item.nullable

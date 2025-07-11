@@ -22,9 +22,9 @@ def test_simple_rule() -> None:
     └──Rule
        └──Rhs
           └──Alt
-             ├──NamedItem
+             ├──TopLevelItem
              │  └──StringLeaf("'a'")
-             └──NamedItem
+             └──TopLevelItem
                 └──StringLeaf("'b'")
     """
     )
@@ -50,21 +50,21 @@ def test_multiple_rules() -> None:
     └──Rule
        └──Rhs
           └──Alt
-             ├──NamedItem
+             ├──TopLevelItem
              │  └──NameLeaf('a')
-             └──NamedItem
+             └──TopLevelItem
                 └──NameLeaf('b')
 
     └──Rule
        └──Rhs
           └──Alt
-             └──NamedItem
+             └──TopLevelItem
                 └──StringLeaf("'a'")
 
     └──Rule
        └──Rhs
           └──Alt
-             └──NamedItem
+             └──TopLevelItem
                 └──StringLeaf("'b'")
                     """
     )
@@ -90,25 +90,25 @@ def test_deep_nested_rule() -> None:
     └──Rule
        └──Rhs
           └──Alt
-             ├──NamedItem
+             ├──TopLevelItem
              │  └──StringLeaf("'a'")
-             └──NamedItem
+             └──TopLevelItem
                 └──Opt
                    └──Rhs
                       └──Alt
-                         ├──NamedItem
+                         ├──TopLevelItem
                          │  └──StringLeaf("'b'")
-                         └──NamedItem
+                         └──TopLevelItem
                             └──Opt
                                └──Rhs
                                   └──Alt
-                                     ├──NamedItem
+                                     ├──TopLevelItem
                                      │  └──StringLeaf("'c'")
-                                     └──NamedItem
+                                     └──TopLevelItem
                                         └──Opt
                                            └──Rhs
                                               └──Alt
-                                                 └──NamedItem
+                                                 └──TopLevelItem
                                                     └──StringLeaf("'d'")
                             """
     )

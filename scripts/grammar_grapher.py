@@ -33,7 +33,7 @@ from pegen.grammar import (
     Group,
     Leaf,
     Lookahead,
-    NamedItem,
+    TopLevelItem,
     NameLeaf,
     Opt,
     Repeat,
@@ -59,7 +59,7 @@ def references_for_item(item: Any) -> List[Any]:
         return references_for_item(item.rhs)
     elif isinstance(item, Lookahead):
         return references_for_item(item.node)
-    elif isinstance(item, NamedItem):
+    elif isinstance(item, TopLevelItem):
         return references_for_item(item.item)
 
     # NOTE NameLeaf must be before Leaf

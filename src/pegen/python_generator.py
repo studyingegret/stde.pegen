@@ -12,7 +12,7 @@ from pegen.grammar import (
     GrammarVisitor,
     Group,
     Lookahead,
-    NamedItem,
+    TopLevelItem,
     NameLeaf,
     NegativeLookahead,
     Opt,
@@ -47,6 +47,7 @@ if __name__ == '__main__':
 
 
 class InvalidNodeVisitor(GrammarVisitor):
+    """TODO: Docstring"""
     def visit_NameLeaf(self, node: NameLeaf) -> bool:
         name = node.value
         return name.startswith("invalid")
@@ -54,7 +55,7 @@ class InvalidNodeVisitor(GrammarVisitor):
     def visit_StringLeaf(self, node: StringLeaf) -> bool:
         return False
 
-    def visit_NamedItem(self, node: NamedItem) -> bool:
+    def visit_TopLevelItem(self, node: TopLevelItem) -> bool:
         return self.visit(node.item)
 
     def visit_Rhs(self, node: Rhs) -> bool:
@@ -92,13 +93,21 @@ class InvalidNodeVisitor(GrammarVisitor):
 
 
 class PythonCallMakerVisitor(GrammarVisitor):
+    """Translates grammar items to a 2-tuple of
+    - Capture variable name (None for no capture variable name) (`str | None`)
+    - Matching code (`str`)
+
+    Tuple[str | None, str] is the return type of all visitors.
+
+    The capture variable name "cut" is special.
+    """
     def __init__(self, parser_generator: ParserGenerator):
         self.gen = parser_generator
         self.cache: Dict[Any, Any] = {}
         self.keywords: Set[str] = set()
         self.soft_keywords: Set[str] = set()
 
-    def visit_NameLeaf(self, node: NameLeaf) -> Tuple[Optional[str], str]:
+    def visit_NameLeaf(self, node: NameLeaf) -> Tuple[str, str]:
         name = node.value
         if name == "SOFT_KEYWORD":
             return "soft_keyword", "self.soft_keyword()"
@@ -138,7 +147,7 @@ class PythonCallMakerVisitor(GrammarVisitor):
             self.cache[node] = name, f"self.{name}()"
         return self.cache[node]
 
-    def visit_NamedItem(self, node: NamedItem) -> Tuple[Optional[str], str]:
+    def visit_TopLevelItem(self, node: TopLevelItem) -> Tuple[Optional[str], str]:
         name, call = self.visit(node.item)
         if node.name:
             name = node.name
@@ -208,6 +217,7 @@ class PythonCallMakerVisitor(GrammarVisitor):
 
 
 class UsedNamesVisitor(ast.NodeVisitor):
+    """TODO: Docstring"""
     def generic_visit(self, node: ast.AST) -> Set[str]:
         result = set()
         for _, value in ast.iter_fields(node):
@@ -224,6 +234,7 @@ class UsedNamesVisitor(ast.NodeVisitor):
 
 
 class PythonParserGenerator(ParserGenerator, GrammarVisitor):
+    """TODO: Docstring"""
     def __init__(
         self,
         grammar: grammar.Grammar,
@@ -242,11 +253,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
         self.usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
         self.unreachable_formatting = unreachable_formatting or "None  # pragma: no cover"
-        self.location_formatting = (
-            location_formatting
-            or "lineno=start_lineno, col_offset=start_col_offset, "
-            "end_lineno=end_lineno, end_col_offset=end_col_offset"
-        )
+        self.location_formatting = location_formatting or (
+            "lineno=start_lineno, col_offset=start_col_offset, "
+            "end_lineno=end_lineno, end_col_offset=end_col_offset")
         self.cleanup_statements: List[str] = []
 
     def generate(self, filename: str) -> None:
@@ -329,8 +338,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         if node.name.endswith("without_invalid"):
             self.cleanup_statements.pop()
 
-    def visit_NamedItem(
-        self, node: NamedItem, used: Optional[Set[str]], unreachable: bool
+    def visit_TopLevelItem(
+        self, node: TopLevelItem, used: Optional[Set[str]], unreachable: bool
     ) -> None:
         name, call = self.callmakervisitor.visit(node.item)
         if unreachable:

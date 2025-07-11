@@ -14,7 +14,7 @@ from pegen.grammar import (
     GrammarVisitor,
     Group,
     Lookahead,
-    NamedItem,
+    TopLevelItem,
     NameLeaf,
     NegativeLookahead,
     Opt,
@@ -83,7 +83,7 @@ class FirstSetCalculator(GrammarVisitor):
     def visit_NegativeLookahead(self, item: NegativeLookahead) -> Set[str]:
         return self.visit(item.node)
 
-    def visit_NamedItem(self, item: NamedItem) -> Set[str]:
+    def visit_TopLevelItem(self, item: TopLevelItem) -> Set[str]:
         return self.visit(item.item)
 
     def visit_Opt(self, item: Opt) -> Set[str]:

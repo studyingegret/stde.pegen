@@ -36,10 +36,10 @@ def test_parse_or_grammar() -> None:
 
     visitor.visit(rules)
 
-    # Grammar/Rule/Rhs/Alt/NamedItem/NameLeaf   -> 6
-    #         Rule/Rhs/                         -> 2
-    #                  Alt/NamedItem/StringLeaf -> 3
-    #                  Alt/NamedItem/StringLeaf -> 3
+    # Grammar/Rule/Rhs/Alt/TopLevelItem/NameLeaf   -> 6
+    #         Rule/Rhs/                            -> 2
+    #                  Alt/TopLevelItem/StringLeaf -> 3
+    #                  Alt/TopLevelItem/StringLeaf -> 3
 
     assert visitor.n_nodes == 14
 
@@ -53,7 +53,7 @@ def test_parse_repeat1_grammar() -> None:
 
     visitor.visit(rules)
 
-    # Grammar/Rule/Rhs/Alt/NamedItem/Repeat1/StringLeaf -> 6
+    # Grammar/Rule/Rhs/Alt/TopLevelItem/Repeat1/StringLeaf -> 6
     assert visitor.n_nodes == 7
 
 
@@ -66,7 +66,7 @@ def test_parse_repeat0_grammar() -> None:
 
     visitor.visit(rules)
 
-    # Grammar/Rule/Rhs/Alt/NamedItem/Repeat0/StringLeaf -> 6
+    # Grammar/Rule/Rhs/Alt/TopLevelItem/Repeat0/StringLeaf -> 6
 
     assert visitor.n_nodes == 7
 
@@ -80,7 +80,7 @@ def test_parse_optional_grammar() -> None:
 
     visitor.visit(rules)
 
-    # Grammar/Rule/Rhs/Alt/NamedItem/StringLeaf                       -> 6
-    #                      NamedItem/Opt/Rhs/Alt/NamedItem/Stringleaf -> 6
+    # Grammar/Rule/Rhs/Alt/TopLevelItem/StringLeaf                          -> 6
+    #                      TopLevelItem/Opt/Rhs/Alt/TopLevelItem/Stringleaf -> 6
 
     assert visitor.n_nodes == 12

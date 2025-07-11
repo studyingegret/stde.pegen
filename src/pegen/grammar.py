@@ -23,14 +23,29 @@ class GrammarError(Exception):
 
 
 class GrammarVisitor:
+    """Code structure that traverses a node in depth-first order.
+    It is intended to be used to traverse a Grammar but is not limited
+    to Grammars.
+
+    Supports specializing visiting a `node` by its `node.__class__.__name__`
+    (see implementation for how to do it).
+
+    Note: The default visitor, generic_visit, flattens items of 
+    iterable nodes that are `list`s.
+    """
     def visit(self, node: Any, *args: Any, **kwargs: Any) -> Any:
         """Visit a node."""
         method = "visit_" + node.__class__.__name__
+        #XXX: Viewing a node as non-scalar by whether it is not iterable?
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node, *args, **kwargs)
 
     def generic_visit(self, node: Iterable[Any], *args: Any, **kwargs: Any) -> None:
         """Called if no explicit visitor function exists for a node."""
+        #XXX: Viewing a node as non-scalar by whether it is not iterable?
+        if not hasattr(node, "__iter__"):
+            raise ValueError("Doesn't know how to handle non-iterable node "
+                             f"(type: {node.__class__.__name__}): {node!r}")
         for value in node:
             if isinstance(value, list):
                 for item in value:
@@ -40,7 +55,8 @@ class GrammarVisitor:
 
 
 class Grammar:
-    def __init__(self, rules: Iterable[Rule], metas: Iterable[Tuple[str, Optional[str]]]):
+    #def __init__(self, rules: Iterable[Rule], metas: Iterable[Tuple[str, Optional[str]]]):
+    def __init__(self, rules: Iterable[Rule], metas: Any): #?
         self.rules = {rule.name: rule for rule in rules}
         self.metas = dict(metas)
 
@@ -48,17 +64,17 @@ class Grammar:
         return "\n".join(str(rule) for name, rule in self.rules.items())
 
     def __repr__(self) -> str:
-        lines = ["Grammar("]
-        lines.append("  [")
-        for rule in self.rules.values():
-            lines.append(f"    {repr(rule)},")
-        lines.append("  ],")
-        lines.append(f"  {repr(list(self.metas.items()))}")
-        lines.append(")")
-        return "\n".join(lines)
+        return "\n".join([
+            "Grammar(",
+            "  ["
+        ] + [f"    {repr(rule)}," for rule in self.rules.values()] + [
+            "  ],",
+            f"  {repr(list(self.metas.items()))}",
+            ")"
+        ])
 
     def __iter__(self) -> Iterator[Rule]:
-        yield from self.rules.values()
+        return iter(self.rules.values())
 
 
 # Global flag whether we want actions in __str__() -- default off.
@@ -97,7 +113,7 @@ class Rule:
         return f"Rule({self.name!r}, {self.type!r}, {self.rhs!r})"
 
     def __iter__(self) -> Iterator[Rhs]:
-        yield self.rhs
+        return iter([self.rhs])
 
     def initial_names(self) -> AbstractSet[str]:
         return self.rhs.initial_names()
@@ -114,6 +130,7 @@ class Rule:
             rhs = rhs.alts[0].items[0].item.rhs
         return rhs
 
+    #XXX: What does this do?
     def collect_todo(self, gen: ParserGenerator) -> None:
         rhs = self.flatten()
         rhs.collect_todo(gen)
@@ -172,7 +189,7 @@ class Rhs:
         return f"Rhs({self.alts!r})"
 
     def __iter__(self) -> Iterator[List[Alt]]:
-        yield self.alts
+        return iter([self.alts])
 
     def initial_names(self) -> AbstractSet[str]:
         names: Set[str] = set()
@@ -180,13 +197,14 @@ class Rhs:
             names |= alt.initial_names()
         return names
 
+    #XXX: What does this do?
     def collect_todo(self, gen: ParserGenerator) -> None:
         for alt in self.alts:
             alt.collect_todo(gen)
 
 
 class Alt:
-    def __init__(self, items: List[NamedItem], *, icut: int = -1, action: Optional[str] = None):
+    def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
         self.items = items
         self.icut = icut
         self.action = action
@@ -206,8 +224,8 @@ class Alt:
             args.append(f"action={self.action!r}")
         return f"Alt({', '.join(args)})"
 
-    def __iter__(self) -> Iterator[List[NamedItem]]:
-        yield self.items
+    def __iter__(self) -> Iterator[List[TopLevelItem]]:
+        return iter([self.items])
 
     def initial_names(self) -> AbstractSet[str]:
         names: Set[str] = set()
@@ -217,17 +235,19 @@ class Alt:
                 break
         return names
 
+    #XXX: What does this do?
     def collect_todo(self, gen: ParserGenerator) -> None:
         for item in self.items:
             item.collect_todo(gen)
 
 
-class NamedItem:
+class TopLevelItem:
+    """An Item, possibly named, and possibly with a type when named"""
     def __init__(self, name: Optional[str], item: Item, type: Optional[str] = None):
         self.name = name
         self.item = item
         self.type = type
-        self.nullable = False
+        self.nullable = False #TODO: Doc
 
     def __str__(self) -> str:
         if not SIMPLE_STR and self.name:
@@ -236,15 +256,18 @@ class NamedItem:
             return str(self.item)
 
     def __repr__(self) -> str:
-        return f"NamedItem({self.name!r}, {self.item!r})"
+        return f"TopLevelItem({self.name!r}, {self.item!r})"
 
     def __iter__(self) -> Iterator[Item]:
-        yield self.item
+        return iter([self.item])
 
     def initial_names(self) -> AbstractSet[str]:
         return self.item.initial_names()
 
+    #XXX: What does this do?
     def collect_todo(self, gen: ParserGenerator) -> None:
+        # I've tested that it is not invoked by the tests.
+        raise NotImplementedError("collect_todo looks like a TODO feature.")
         gen.callmakervisitor.visit(self.item)
 
 
@@ -256,7 +279,7 @@ class Forced:
         return f"&&{self.node}"
 
     def __iter__(self) -> Iterator[Plain]:
-        yield self.node
+        return iter([self.node])
 
     def initial_names(self) -> AbstractSet[str]:
         return set()
@@ -271,7 +294,7 @@ class Lookahead:
         return f"{self.sign}{self.node}"
 
     def __iter__(self) -> Iterator[Plain]:
-        yield self.node
+        return iter([self.node])
 
     def initial_names(self) -> AbstractSet[str]:
         return set()
@@ -309,7 +332,7 @@ class Opt:
         return f"Opt({self.node!r})"
 
     def __iter__(self) -> Iterator[Item]:
-        yield self.node
+        return iter([self.node])
 
     def initial_names(self) -> AbstractSet[str]:
         return self.node.initial_names()
@@ -323,13 +346,14 @@ class Repeat:
         self.memo: Optional[Tuple[Optional[str], str]] = None
 
     def __iter__(self) -> Iterator[Plain]:
-        yield self.node
+        return iter([self.node])
 
     def initial_names(self) -> AbstractSet[str]:
         return self.node.initial_names()
 
 
 class Repeat0(Repeat):
+    """node*"""
     def __str__(self) -> str:
         s = str(self.node)
         # TODO: Decide whether to use (X)* or X* based on type of X
@@ -343,6 +367,7 @@ class Repeat0(Repeat):
 
 
 class Repeat1(Repeat):
+    """node+"""
     def __str__(self) -> str:
         s = str(self.node)
         # TODO: Decide whether to use (X)+ or X+ based on type of X
@@ -356,6 +381,7 @@ class Repeat1(Repeat):
 
 
 class Gather(Repeat):
+    """separator.node+"""
     def __init__(self, separator: Plain, node: Plain):
         self.separator = separator
         self.node = node
@@ -378,7 +404,7 @@ class Group:
         return f"Group({self.rhs!r})"
 
     def __iter__(self) -> Iterator[Rhs]:
-        yield self.rhs
+        return iter([self.rhs])
 
     def initial_names(self) -> AbstractSet[str]:
         return self.rhs.initial_names()
@@ -395,8 +421,7 @@ class Cut:
         return "~"
 
     def __iter__(self) -> Iterator[Tuple[str, str]]:
-        if False:
-            yield
+        return iter([])
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Cut):
@@ -413,5 +438,5 @@ RuleName = Tuple[str, str]
 MetaTuple = Tuple[str, Optional[str]]
 MetaList = List[MetaTuple]
 RuleList = List[Rule]
-NamedItemList = List[NamedItem]
+TopLevelItemList = List[TopLevelItem]
 LookaheadOrCut = Union[Lookahead, Forced, Cut]

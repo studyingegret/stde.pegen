@@ -13,8 +13,8 @@ from pegen.grammar import (
     MetaTuple,
     MetaList,
     NameLeaf,
-    NamedItem,
-    NamedItemList,
+    TopLevelItem,
+    TopLevelItemList,
     NegativeLookahead,
     Opt,
     Plain,
@@ -52,20 +52,21 @@ rules[RuleList]:
 rule[Rule]:
     | rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
 
-rule_rhs[Rhs]:
-    | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
-    | alts NEWLINE { alts }
-
 rulename[RuleName]:
     | NAME annotation { (name.string, annotation) }
     | NAME { (name.string, None) }
+    #| NAME annotation=annotation? { (name.string, annotation) } #XXX: ?
+
+rule_rhs[Rhs]:
+    | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
+    | alts NEWLINE { alts }
 
 # In the future this may return something more complicated
 memoflag[str]:
     | '(' "memo" ')' { "memo" }
 
 alts[Rhs]:
-    | alt "|" alts { Rhs([alt] + alts.alts)}
+    | alt "|" alts { Rhs([alt] + alts.alts) }
     | alt { Rhs([alt]) }
 
 more_alts[Rhs]:
@@ -73,37 +74,37 @@ more_alts[Rhs]:
     | "|" alts NEWLINE { Rhs(alts.alts) }
 
 alt[Alt]:
-    | items '$' action { Alt(items + [NamedItem(None, NameLeaf('ENDMARKER'))], action=action) }
-    | items '$' { Alt(items + [NamedItem(None, NameLeaf('ENDMARKER'))], action=None) }
+    | items '$' action { Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action) }
+    | items '$' { Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None) }
     | items action { Alt(items, action=action) }
     | items { Alt(items, action=None) }
+    #| items e='$'? action=action? {
+    #    Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
 
-items[NamedItemList]:
-    | named_item items { [named_item] + items }
-    | named_item { [named_item] }
+items[TopLevelItemList]:
+    | top_level_item items { [top_level_item] + items }
+    | top_level_item { [top_level_item] }
 
-named_item[NamedItem]:
-    | NAME annotation '=' ~ item {NamedItem(name.string, item, annotation)}
-    | NAME '=' ~ item {NamedItem(name.string, item)}
-    | item {NamedItem(None, item)}
-    | it=forced_atom {NamedItem(None, it)}
-    | it=lookahead {NamedItem(None, it)}
+# Possibly named item (possibly with a type when named)
+top_level_item[TopLevelItem]:
+    | NAME annotation '=' ~ item {TopLevelItem(name.string, item, annotation)}
+    | NAME '=' ~ item {TopLevelItem(name.string, item)}
+    | item {TopLevelItem(None, item)}
+    | it=top_level_others {TopLevelItem(None, it)}
 
-forced_atom[LookaheadOrCut]:
+top_level_others[LookaheadOrCut]:
     | '&''&' ~ atom {Forced(atom)}
-
-lookahead[LookaheadOrCut]:
     | '&' ~ atom {PositiveLookahead(atom)}
     | '!' ~ atom {NegativeLookahead(atom)}
     | '~' {Cut()}
 
 item[Item]:
     | '[' ~ alts ']' {Opt(alts)}
-    |  atom '?' {Opt(atom)}
-    |  atom '*' {Repeat0(atom)}
-    |  atom '+' {Repeat1(atom)}
-    |  sep=atom '.' node=atom '+' {Gather(sep, node)}
-    |  atom {atom}
+    | atom '?' {Opt(atom)}
+    | atom '*' {Repeat0(atom)}
+    | atom '+' {Repeat1(atom)}
+    | sep=atom '.' node=atom '+' {Gather(sep, node)}
+    | atom {atom}
 
 atom[Plain]:
     | '(' ~ alts ')' {Group(alts)}

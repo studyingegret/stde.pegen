@@ -64,8 +64,8 @@ def parse_string(
     # Run the parser on a string.
     if dedent:
         source = textwrap.dedent(source)
-    file = io.StringIO(source)
-    return run_parser(file, parser_class, verbose=verbose)  # type: ignore # typeshed issue #3515
+    with io.StringIO(source) as file:
+        return run_parser(file, parser_class, verbose=verbose)  # type: ignore # typeshed issue #3515
 
 
 def generate_parser_from_string(
