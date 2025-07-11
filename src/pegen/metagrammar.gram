@@ -50,11 +50,13 @@ rules[RuleList]:
     | rule { [rule] }
 
 rule[Rule]:
-    | rulename memoflag? ":" alts NEWLINE INDENT more_alts DEDENT {
-          Rule(rulename[0], rulename[1], Rhs(alts.alts + more_alts.alts), memo=opt) }
-    | rulename memoflag? ":" NEWLINE INDENT more_alts DEDENT {
-          Rule(rulename[0], rulename[1], more_alts, memo=opt) }
-    | rulename memoflag? ":" alts NEWLINE { Rule(rulename[0], rulename[1], alts, memo=opt) }
+    | rulename opt=memoflag? ":" rule_rhs {
+        Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
+
+rule_rhs[Rhs]:
+    #| alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
+    | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
+    | alts NEWLINE { alts }
 
 rulename[RuleName]:
     | NAME annotation { (name.string, annotation) }

@@ -147,7 +147,7 @@ class GeneratedParser(Parser):
 
     @memoize
     def rule(self) -> Optional[Rule]:
-        # rule: rulename memoflag? ":" alts NEWLINE INDENT more_alts DEDENT | rulename memoflag? ":" NEWLINE INDENT more_alts DEDENT | rulename memoflag? ":" alts NEWLINE
+        # rule: rulename memoflag? ":" rule_rhs
         mark = self.mark()
         if (
             (rulename := self.rulename())
@@ -156,7 +156,18 @@ class GeneratedParser(Parser):
             and
             (self.expect(":"))
             and
-            (alts := self.alts())
+            (rule_rhs := self.rule_rhs())
+        ):
+            return Rule ( rulename [0] , rulename [1] , rule_rhs , memo = opt )
+        self.reset(mark)
+        return None
+
+    @memoize
+    def rule_rhs(self) -> Optional[Rhs]:
+        # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | alts NEWLINE
+        mark = self.mark()
+        if (
+            (alts := self.alts(),)
             and
             (self.expect('NEWLINE'))
             and
@@ -166,37 +177,14 @@ class GeneratedParser(Parser):
             and
             (self.expect('DEDENT'))
         ):
-            return Rule ( rulename [0] , rulename [1] , Rhs ( alts . alts + more_alts . alts ) , memo = opt )
+            return Rhs ( alts . alts + more_alts . alts ) if alts else more_alts
         self.reset(mark)
         if (
-            (rulename := self.rulename())
-            and
-            (opt := self.memoflag(),)
-            and
-            (self.expect(":"))
-            and
-            (self.expect('NEWLINE'))
-            and
-            (self.expect('INDENT'))
-            and
-            (more_alts := self.more_alts())
-            and
-            (self.expect('DEDENT'))
-        ):
-            return Rule ( rulename [0] , rulename [1] , more_alts , memo = opt )
-        self.reset(mark)
-        if (
-            (rulename := self.rulename())
-            and
-            (opt := self.memoflag(),)
-            and
-            (self.expect(":"))
-            and
             (alts := self.alts())
             and
             (self.expect('NEWLINE'))
         ):
-            return Rule ( rulename [0] , rulename [1] , alts , memo = opt )
+            return alts
         self.reset(mark)
         return None
 
