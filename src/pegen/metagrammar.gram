@@ -50,11 +50,9 @@ rules[RuleList]:
     | rule { [rule] }
 
 rule[Rule]:
-    | rulename opt=memoflag? ":" rule_rhs {
-        Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
+    | rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
 
 rule_rhs[Rhs]:
-    #| alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
     | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
     | alts NEWLINE { alts }
 

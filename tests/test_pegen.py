@@ -10,7 +10,7 @@ from pegen.grammar import Grammar, GrammarError
 from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.parser import Parser
 from pegen.python_generator import PythonParserGenerator
-from pegen.utils import generate_parser, make_parser, parse_string
+from pegen.utils import generate_parser, generate_parser_from_string, parse_string
 
 
 def test_parse_grammar() -> None:
@@ -95,7 +95,7 @@ def test_gather() -> None:
         "Rule('start', None, Rhs([Alt([NamedItem(None, Gather(StringLeaf(\"','\"), NameLeaf('thing'"
     )
     assert str(rules["thing"]) == "thing: NUMBER"
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("42\n", parser_class)
     assert node == [
         [TokenInfo(NUMBER, string="42", start=(1, 0), end=(1, 2), line="42\n")],
@@ -117,7 +117,7 @@ def test_expr_grammar() -> None:
     sum: term '+' term | term
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("42\n", parser_class)
     assert node == [
         TokenInfo(NUMBER, string="42", start=(1, 0), end=(1, 2), line="42\n"),
@@ -131,7 +131,7 @@ def test_optional_operator() -> None:
     sum: term ('+' term)?
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1+2\n", parser_class)
     assert node == [
         [
@@ -156,7 +156,7 @@ def test_optional_literal() -> None:
     sum: term '+' ?
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1+\n", parser_class)
     assert node == [
         [
@@ -178,7 +178,7 @@ def test_alt_optional_operator() -> None:
     sum: term ['+' term]
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1 + 2\n", parser_class)
     assert node == [
         [
@@ -202,7 +202,7 @@ def test_repeat_0_simple() -> None:
     start: thing thing* NEWLINE
     thing: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1 2 3\n", parser_class)
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 2 3\n"),
@@ -225,7 +225,7 @@ def test_repeat_0_complex() -> None:
     start: term ('+' term)* NEWLINE
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1 + 2 + 3\n", parser_class)
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 + 2 + 3\n"),
@@ -248,7 +248,7 @@ def test_repeat_1_simple() -> None:
     start: thing thing+ NEWLINE
     thing: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1 2 3\n", parser_class)
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 2 3\n"),
@@ -267,7 +267,7 @@ def test_repeat_1_complex() -> None:
     start: term ('+' term)+ NEWLINE
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1 + 2 + 3\n", parser_class)
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 + 2 + 3\n"),
@@ -292,7 +292,7 @@ def test_repeat_with_sep_simple() -> None:
     start: ','.thing+ NEWLINE
     thing: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("1, 2, 3\n", parser_class)
     assert node == [
         [
@@ -355,7 +355,7 @@ def test_python_expr() -> None:
           | n=NUMBER { ast.Constant(value=ast.literal_eval(n.string), LOCATIONS) }
           )
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("(1 + 2*3 + 5)/(6 - 2)\n", parser_class)
     code = compile(node, "", "eval")
     val = eval(code)
@@ -472,7 +472,7 @@ def test_lookahead() -> None:
     target: NAME
     term: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("foo = 12 + 12 .", parser_class)
     assert node == [
         TokenInfo(NAME, string="foo", start=(1, 0), end=(1, 3), line="foo = 12 + 12 ."),
@@ -496,7 +496,7 @@ def test_named_lookahead_error() -> None:
     start: foo=!'x' NAME
     """
     with pytest.raises(SyntaxError):
-        make_parser(grammar)
+        generate_parser_from_string(grammar)
 
 
 def test_start_leader() -> None:
@@ -505,7 +505,7 @@ def test_start_leader() -> None:
     attr: start '.' NAME
     """
     # Would assert False without a special case in compute_left_recursives().
-    make_parser(grammar)
+    generate_parser_from_string(grammar)
 
 
 def test_left_recursion_too_complex() -> None:
@@ -516,7 +516,7 @@ def test_left_recursion_too_complex() -> None:
     baz: foo '*' | bar '*' | '*'
     """
     with pytest.raises(ValueError) as errinfo:
-        make_parser(grammar)
+        generate_parser_from_string(grammar)
     assert "no leader" in str(errinfo.value)
 
 
@@ -525,7 +525,7 @@ def test_cut() -> None:
     start: '(' ~ expr ')'
     expr: NUMBER
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     node = parse_string("(1)", parser_class, verbose=True)
     assert node == [
         TokenInfo(OP, string="(", start=(1, 0), end=(1, 1), line="(1)"),
@@ -540,7 +540,7 @@ def test_cut_early_exit() -> None:
     expr: NUMBER
     name: NAME
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     with pytest.raises(SyntaxError):
         parse_string("(a)", parser_class, verbose=True)
 
@@ -551,7 +551,7 @@ def test_dangling_reference() -> None:
     foo: bar NAME
     """
     with pytest.raises(GrammarError):
-        make_parser(grammar)
+        generate_parser_from_string(grammar)
 
 
 def test_bad_token_reference() -> None:
@@ -560,7 +560,7 @@ def test_bad_token_reference() -> None:
     foo: NAMEE
     """
     with pytest.raises(GrammarError):
-        make_parser(grammar)
+        generate_parser_from_string(grammar)
 
 
 def test_missing_start() -> None:
@@ -568,7 +568,7 @@ def test_missing_start() -> None:
     foo: NAME
     """
     with pytest.raises(GrammarError):
-        make_parser(grammar)
+        generate_parser_from_string(grammar)
 
 
 def test_soft_keyword() -> None:
@@ -578,7 +578,7 @@ def test_soft_keyword() -> None:
         | "string" n=STRING { n.string }
         | SOFT_KEYWORD l=NAME n=(NUMBER | NAME | STRING) { f"{l.string} = {n.string}"}
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     assert parse_string("number 1", parser_class, verbose=True) == 1
     assert parse_string("string 'b'", parser_class, verbose=True) == "'b'"
     assert parse_string("number test 1", parser_class, verbose=True) == "test = 1"
@@ -591,7 +591,7 @@ def test_forced() -> None:
     grammar = """
     start: NAME &&':' | NAME
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     assert parse_string("number :", parser_class, verbose=True)
     with pytest.raises(SyntaxError) as e:
         parse_string("a", parser_class, verbose=True)
@@ -603,7 +603,7 @@ def test_forced_with_group() -> None:
     grammar = """
     start: NAME &&(':' | ';') | NAME
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     assert parse_string("number :", parser_class, verbose=True)
     assert parse_string("number ;", parser_class, verbose=True)
     with pytest.raises(SyntaxError) as e:
@@ -675,7 +675,7 @@ def test_locations_in_alt_action_and_group() -> None:
             n=NUMBER { ast.Constant(value=ast.literal_eval(n.string), LOCATIONS) }
          )
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     source = "2*3\n"
     o = ast.dump(parse_string(source, parser_class).body, include_attributes=True)
     p = ast.dump(ast.parse(source).body[0].value, include_attributes=True).replace(
@@ -691,6 +691,6 @@ def test_keywords() -> None:
     grammar = """
     start: 'one' 'two' 'three' 'four' 'five' "six" "seven" "eight" "nine" "ten"
     """
-    parser_class = make_parser(grammar)
+    parser_class = generate_parser_from_string(grammar)
     assert parser_class.KEYWORDS == ("five", "four", "one", "three", "two")
     assert parser_class.SOFT_KEYWORDS == ("eight", "nine", "seven", "six", "ten")

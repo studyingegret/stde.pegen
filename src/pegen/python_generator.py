@@ -232,10 +232,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         location_formatting: Optional[str] = None,
         unreachable_formatting: Optional[str] = None,
     ):
-        tokens.add("SOFT_KEYWORD")
-        tokens.update(
-            ["FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END"]
-        )  # used in metagrammar to support Python 3.12 f-strings; don't exist in 3.11
+        tokens.update([
+            "SOFT_KEYWORD",
+            # used in metagrammar to support Python 3.12 f-strings; don't exist in 3.11
+            "FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END"
+        ])
         super().__init__(grammar, tokens, file)
         self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self)
         self.invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()

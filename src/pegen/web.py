@@ -6,7 +6,7 @@ from flask_wtf import FlaskForm  # type: ignore
 from wtforms import SubmitField, TextAreaField  # type: ignore
 from wtforms.validators import DataRequired  # type: ignore
 
-from pegen.utils import make_parser, parse_string
+from pegen.utils import generate_parser_from_string, parse_string
 
 DEFAULT_GRAMMAR = """\
 start: expr NEWLINE? ENDMARKER { expr }
@@ -52,7 +52,7 @@ def index() -> None:
         program_source = form.source.data
         output = io.StringIO()
         try:
-            parser_class = make_parser(grammar_source)
+            parser_class = generate_parser_from_string(grammar_source)
             result = parse_string(program_source, parser_class, verbose=False)
             print(result, file=output)
         except Exception:

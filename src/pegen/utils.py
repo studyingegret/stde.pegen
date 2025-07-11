@@ -68,10 +68,13 @@ def parse_string(
     return run_parser(file, parser_class, verbose=verbose)  # type: ignore # typeshed issue #3515
 
 
-def make_parser(source: str) -> Type[Parser]:
-    # Combine parse_string() and generate_parser().
-    grammar = parse_string(source, GrammarParser)
-    return generate_parser(grammar)
+def generate_parser_from_string(
+    source: str,
+    # Added as keyword argument for maximum compatibility
+    *, source_name: str = "<string>"
+) -> Type[Parser]:
+    """Combines parse_string and generate_parser."""
+    return generate_parser(parse_string(source, GrammarParser), source_name=source_name)
 
 
 def print_memstats() -> bool:
