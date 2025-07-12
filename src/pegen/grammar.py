@@ -36,13 +36,13 @@ class GrammarVisitor:
     def visit(self, node: Any, *args: Any, **kwargs: Any) -> Any:
         """Visit a node."""
         method = "visit_" + node.__class__.__name__
-        #XXX: Viewing a node as non-scalar by whether it is not iterable?
+        #XXX: Viewing a node as non-scalar by whether it is iterable?
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node, *args, **kwargs)
 
     def generic_visit(self, node: Iterable[Any], *args: Any, **kwargs: Any) -> None:
         """Called if no explicit visitor function exists for a node."""
-        #XXX: Viewing a node as non-scalar by whether it is not iterable?
+        #XXX: Viewing a node as non-scalar by whether it is iterable?
         if not hasattr(node, "__iter__"):
             raise ValueError("Doesn't know how to handle non-iterable node "
                              f"(type: {node.__class__.__name__}): {node!r}")
