@@ -1,5 +1,5 @@
-<p align="center">
-<img src="https://github.com/we-like-parsers/pegen/raw/main/media/logo.svg" width="70%">
+<p style="width: 100%">
+<img src="https://github.com/we-like-parsers/pegen/raw/main/media/logo.svg" style="display: block; margin: 0 auto; width: 70%">
 </p>
 
 -----------------------------------
@@ -11,11 +11,15 @@
 # What is this?
 
 Pegen is the parser generator used in CPython to produce the parser used by the interpreter. It allows to
-produce PEG parsers from a description of a formal Grammar. 
+produce PEG parsers from a description of a formal Grammar.
+
+## About this fork
+Pegen's logic is tied to the way Python is parsed. This fork tries to decouple
+Pegen's logic with Python language's.
 
 # Installing
 
-Install with `pip` or your favorite PyPi package manager.
+Install with `pip` or your favorite PyPI package manager.
 
 ```
 pip install pegen
@@ -82,76 +86,206 @@ See also [PEP 617](https://www.python.org/dev/peps/pep-0617/).
 The grammar consists of a sequence of rules of the form:
 
 ```
-    rule_name: expression
+rule_name: expression
 ```
 
-Optionally, a type can be included right after the rule name, which
-specifies the return type of the Python function corresponding to
-the rule:
+A type annotation can be included after the rule name, in square brackets,
+which annotates the type of the parse result:
 
 ```
-    rule_name[return_type]: expression
+rule_name[ReturnType]: expression
 ```
 
-If the return type is omitted, then ``Any`` is returned.
+In the absence of a type annotation, the generated code for a rule
+is annotated to return `typing.Any`. This has no effect on its execution
+but may upset type checkers and make the grammar a little harder to understand.
 
 ## Grammar Expressions
+
+> **Note:** Below "token" refers to tokens produced by Python `tokenize` unless the context suggests otherwise.
 
 ### `# comment`
 
 Python-style comments.
+
+### `TOKENNAME`
+
+The following all-uppercase names are special and matches a token of the same name:
+
+<!--Inducted from PythonCallMakerVisitor.visit_NameLeaf-->
+
+- [`SOFT_KEYWORD`][soft_keyword]: [XXX: ?]
+
+  [XXX: [The tokenizer never produces this value in latest version][soft_keyword]?]
+- [`NAME`][name]: [Python identifiers and soft keywords][identifiers]
+  > Replaced by [token rule `identifier`][identifiers] in latest grammar.
+  > [Last formal appearance in grammar spec][names_keywords-3.14]
+
+  `NAME`s are prevented to collide with hard keywords in `'string'` expressions
+  *before* matching syntax rules; see `'string'` below.
+- [`NUMBER`][number]: A [Python numeric literal (int, float, complex)][numeric_literals]
+  > Definition disappeared in latest grammar. The [rule `literal`][literal_rule],
+  > which subsumes [original definition of `NUMBER`][names_keywords-3.14],
+  > is used in most places; "Matching just a numeric literal" is not seen.
+- [`STRING`][string_token]: A [string or bytes literal][strings] (not including f-string literals)
+- [`FSTRING_START`][fstring_start]: Token used to indicate the beginning of an f-string literal
+- [`FSTRING_MIDDLE`][fstring_middle]: Token used for literal text inside an f-string literal, including format specifications
+- [`FSTRING_END`][fstring_end]: Token used to indicate the end of a f-string
+- [`OP`][op]: A generic token value that indicates an [operator][operators] or [delimiter][delimiters]
+- [`TYPE_COMMENT`][type_comment]
+- [`NEWLINE`][newline]: Indicates the end of a [logical line][logical_lines]
+- [`DEDENT`][dedent]: Indicates the end of an [indented block][indentation]
+- [`INDENT`][indent]: Indicates the start of an [indented block][indentation]
+- [`ENDMARKER`][endmarker]: Indicates the end of input
+- [`ASYNC`][async-3.12], [`AWAIT`][await-3.12]
+
+  Removed in Python 3.13.
+
+[soft_keyword]: https://docs.python.org/3/library/token.html#token.SOFT_KEYWORD
+[name]: https://docs.python.org/3/library/token.html#token.NAME
+[identifiers]: https://docs.python.org/3/reference/lexical_analysis.html#identifiers
+[names_keywords-3.14]: https://docs.python.org/3.14/reference/lexical_analysis.html#names-identifiers-and-keywords
+[number]: https://docs.python.org/3/library/token.html#token.NUMBER
+[numeric_literals]: https://docs.python.org/3/reference/lexical_analysis.html#numeric-literals
+[literal_rule]: https://docs.python.org/3/reference/expressions.html#grammar-token-python-grammar-literal
+[string_token]: https://docs.python.org/3/library/token.html#token.STRING
+[strings]: https://docs.python.org/3/reference/lexical_analysis.html#strings
+[fstring_start]: https://docs.python.org/3/library/token.html#token.FSTRING_START
+[fstring_middle]: https://docs.python.org/3/library/token.html#token.FSTRING_MIDDLE
+[fstring_end]: https://docs.python.org/3/library/token.html#token.FSTRING_END
+[op]: https://docs.python.org/3/library/token.html#token.OP
+[operators]: https://docs.python.org/3/reference/lexical_analysis.html#operators
+[delimiters]: https://docs.python.org/3/reference/lexical_analysis.html#delimiters
+[type_comment]: https://docs.python.org/3/library/token.html#token.TYPE_COMMENT
+[newline]: https://docs.python.org/3/library/token.html#token.NEWLINE
+[logical_lines]: https://docs.python.org/3/reference/lexical_analysis.html#logical-lines
+[dedent]: https://docs.python.org/3/library/token.html#token.DEDENT
+[indentation]: https://docs.python.org/3/reference/lexical_analysis.html#indentation
+[indent]: https://docs.python.org/3/library/token.html#token.INDENT
+[endmarker]: https://docs.python.org/3/library/token.html#token.ENDMARKER
+[async-3.12]: https://docs.python.org/3.12/library/token.html#token.ASYNC
+[await-3.12]: https://docs.python.org/3.12/library/token.html#token.AWAIT
+
+> **Note:** Although still produced by `tokenize`,
+> the notion of some tokens in the grammar seem to be reducing,
+> as they are no longer formally defined in the grammar description
+> of the latest version, such as
+> - `NAME` replaced by [`identifier`](https://docs.python.org/3/reference/lexical_analysis.html#identifiers)
+> - `NUMBER` replaced by [`integer | floatnumber | imagnumber` or just being used through `literal` in latest docs](https://docs.python.org/3/reference/expressions.html#literals).
+
+### `'string'`
+
+Takes a single token, and matches it against string contents.
+
+Always fails when the string contents is not describable by a single token
+(e.g. `'(a'`, `'$'`).
+
+Consecutive `'string'` and `"string"`s are matched in tokenized style. For example,
+`'a' '+' 'b'` matches `a+b`, `a  +  b`, and `'a' 'b'` doesn't match `ab`.
+
+If string contents matches the regular expression `[a-zA-Z_]\w*\Z`,
+it will be recorded as a hard keyword in the syntax.
+
+The generated code prevents `NAME` tokens anywhere in the parsed text
+to collide with hard keywords, *before* syntax rules are matched,
+unless when the rule explicitly asks for a hard keyword that matches the token.
+For example,
+
+```
+rule: "hello" NAME | 'world'
+```
+
+will not match
+
+```
+hello world
+```
+
+even though the branch `'world'` is not chosen; but matching
+
+```
+world
+```
+
+will succeed.
+
+<!--This example is verified in test_pegen.py:test_hard_keywords-->
+
+### `"string"`
+
+Takes a single token, and matches it against string contents.
+
+Always fails when the string contents is not describable by a single token
+(e.g. `"(a"`, `"$"`).
+
+Consecutive `'string'` and `"string"`s are matched in tokenized style. For example,
+`"a" "+" "b"` matches `a+b`, `a  +  b`, and `"a" "b"` doesn't match `ab`.
+
+If string contents matches the regular expression `[a-zA-Z_]\w*\Z`,
+it will be recorded as a soft keyword in the syntax.
+
+`NAME` tokens in the parsed text are allowed to collide with soft keywords.
+<!--TODO: Wording is OK?-->
+
+<!--At src/pegen/python_generator.py PythonCallMakerVisitor.visit_StringLeaf-->
 
 ### `e1 e2`
 
 Match e1, then match e2.
 
 ```
-    rule_name: first_rule second_rule
+rule_name: first_rule second_rule
 ```
 
 ### `e1 | e2`
 
 Match e1 or e2.
 
+```
+rule_one: cool_rule | not_so_cool_rule
+
+rule_two: cool_rule | not_so_cool_rule
+    | rule_one
+```
+
 The first alternative can also appear on the line after the rule name
 for formatting purposes. In that case, a \| must be used before the
 first alternative, like so:
 
 ```
-    rule_name[return_type]:
-        | first_alt
-        | second_alt
+rule_name[ReturnType]:
+    | first_alt
+    | second_alt
 ```
 
 ### `( e )`
 
-Match e.
+Grouping operator.
 
 ```
-    rule_name: (e)
-```
-
-A slightly more complex and useful example includes using the grouping
-operator together with the repeat operators:
-
-```
-    rule_name: (e1 e2)*
+rule_name: (e1 | e2)*
 ```
 
 ### `[ e ] or e?`
 
 Optionally match e.
 
-
 ```
-    rule_name: [e]
+rule_one: [e]
+rule_two: e?
 ```
 
 A more useful example includes defining that a trailing comma is
 optional:
 
 ```
-    rule_name: e (',' e)* [',']
+rule_name: e (',' e)* [',']
+```
+
+This can be more conveniently written with `s.e+`:
+
+```
+rule_name: ','.e+ [',']
 ```
 
 ### `e*`
@@ -159,7 +293,7 @@ optional:
 Match zero or more occurrences of e.
 
 ```
-    rule_name: (e1 e2)*
+rule_name: (e1 e2)*
 ```
 
 ### `e+`
@@ -167,7 +301,7 @@ Match zero or more occurrences of e.
 Match one or more occurrences of e.
 
 ```
-    rule_name: (e1 e2)+
+rule_name: (e1 e2)+
 ```
 
 ### `s.e+`
@@ -177,12 +311,16 @@ tree does not include the separator. This is otherwise identical to
 ``(e (s e)*)``.
 
 ```
-    rule_name: ','.e+
+rule_name: ','.e+
 ```
 
 ### `&e`
 
 Succeed if e can be parsed, without consuming any input.
+
+### `&&e`
+
+[XXX: What does this do?]
 
 ### `!e`
 
@@ -193,7 +331,7 @@ consists of an atom, which is not followed by a ``.`` or a ``(`` or a
 ``[``:
 
 ```
-    primary: atom !'.' !'(' !'['
+primary: atom !'.' !'(' !'['
 ```
 
 ### `~`
@@ -201,7 +339,7 @@ consists of an atom, which is not followed by a ``.`` or a ``(`` or a
 Commit to the current alternative, even if it fails to parse.
 
 ```
-    rule_name: '(' ~ some_rule ')' | some_alt
+rule_name: '(' ~ some_rule ')' | some_alt
 ```
 
 In this example, if a left parenthesis is parsed, then the other
@@ -216,24 +354,47 @@ us to write not only simple left-recursive rules but also more complicated
 rules that involve indirect left-recursion like
 
 ```
-  rule1: rule2 | 'a'
-  rule2: rule3 | 'b'
-  rule3: rule1 | 'c'
+rule1: rule2 | 'a'
+rule2: rule3 | 'b'
+rule3: rule1 | 'c'
 ```
 
-and "hidden left-recursion" like::
+and "hidden left-recursion" like
 
 ```
-  rule: 'optional'? rule '@' some_other_rule
+rule: 'optional'? rule '@' some_other_rule
 ```
 
 ## Variables in the Grammar
-
-A sub-expression can be named by preceding it with an identifier and an
-``=`` sign. The name can then be used in the action (see below), like this: ::
+[TODO: Collection rules?]
+An expression can be captured by preceding it with an identifier and an
+``=`` sign. The name can then be used in the action (see below), like this:
 
 ```
-    rule_name[return_type]: '(' a=some_other_rule ')' { a }
+start[int]: '(' a=contents ')' {
+    sum([1 if token.string == "a" else 0 for token in a]) }
+contents: ("a" | "b")*
+```
+
+The above parser counts the number of "a"s in a pair of brackets:
+for example, parsing `(a b a)` returns 2.
+
+Rule uses and token uses that do not have a capture
+will be automatically captured by its lowercased name:
+
+```
+rule_one[int]: NUMBER { int(number) * 2 }  # Captures NUMBER as number
+rule_two[int]: rule_one { rule_one % 17 }  # Captures rule_one as rule_one
+```
+
+[TODO: Duplicate names?]
+
+However, expressions in the form `a+`, `a*` etc. are
+currently not automatically captured.
+
+```
+#XXX: Type of rule_three?
+rule_three[int]: two=rule_two* { ... }  # "two=" required here
 ```
 
 ## Grammar actions
@@ -245,7 +406,7 @@ expressions that are evaluated when a grammar rule is successfully parsed. These
 expressions can be written in Python. As an example of a grammar with Python actions,
 the piece of the parser generator that parses grammar files is bootstrapped from a
 meta-grammar file with Python actions that generate the grammar tree as a result
-of the parsing. 
+of the parsing.
 
 In the specific case of the PEG grammar for Python, having actions allows
 directly describing how the AST is composed in the grammar itself, making it
@@ -257,12 +418,12 @@ To indicate these actions each alternative can be followed by the action code
 inside curly-braces, which specifies the return value of the alternative
 
 ```
-    rule_name[return_type]:
-        | first_alt1 first_alt2 { first_alt1 }
-        | second_alt1 second_alt2 { second_alt1 }
+rule_name[ReturnType]:
+    | first_alt1 first_alt2 { first_alt1 }
+    | second_alt1 second_alt2 { second_alt1 }
 ```
 
-If the action is ommited, a default action is generated: 
+If the action is omitted, a default action is generated:
 
 * If there's a single name in the rule in the rule, it gets returned.
 
@@ -272,30 +433,71 @@ If the action is ommited, a default action is generated:
 This default behaviour is primarily made for very simple situations and for
 debugging purposes.
 
-As an illustrative example this simple grammar file allows directly
-generating a full parser that can parse simple arithmetic expressions and that
-returns a valid Python AST:
-
+As an illustrative example this simple grammar file generates a full parser
+that can parse simple arithmetic expressions and return a valid Python AST:
 
 ```
-    start[ast.Module]: a=expr_stmt* ENDMARKER { ast.Module(body=a or []) }
-    expr_stmt: a=expr NEWLINE { ast.Expr(value=a, EXTRA) }
+start[ast.Module]: a=expr_stmt* ENDMARKER { ast.Module(body=a or []) }
+expr_stmt: a=expr NEWLINE { ast.Expr(value=a, EXTRA) }
 
-    expr:
-        | l=expr '+' r=term { ast.BinOp(left=l, op=ast.Add(), right=r, EXTRA) }
-        | l=expr '-' r=term { ast.BinOp(left=l, op=ast.Sub(), right=r, EXTRA) }
-        | term
+expr:
+    | l=expr '+' r=term { ast.BinOp(left=l, op=ast.Add(), right=r, EXTRA) }
+    | l=expr '-' r=term { ast.BinOp(left=l, op=ast.Sub(), right=r, EXTRA) }
+    | term
 
-    term:
-        | l=term '*' r=factor { ast.BinOp(left=l, op=ast.Mult(), right=r, EXTRA) }
-        | l=term '/' r=factor { ast.BinOp(left=l, op=ast.Div(), right=r, EXTRA) }
-        | factor
+term:
+    | l=term '*' r=factor { ast.BinOp(left=l, op=ast.Mult(), right=r, EXTRA) }
+    | l=term '/' r=factor { ast.BinOp(left=l, op=ast.Div(), right=r, EXTRA) }
+    | factor
 
-    factor:
-        | '(' e=expr ')' { e }
-        | atom
+factor:
+    | '(' e=expr ')' { e }
+    | atom
 
-    atom:
-        | NAME
-        | NUMBER
+atom: NUMBER
 ```
+
+In comparison, this grammar file computes the expression
+instead of generating an AST:
+
+```
+start[ast.Module]: a=expr_stmt* ENDMARKER { ast.Module(body=a or []) }
+expr_stmt: a=expr NEWLINE { ast.Expr(value=a, EXTRA) }
+
+expr:
+    | l=expr '+' r=term { ast.BinOp(left=l, op=ast.Add(), right=r, EXTRA) }
+    | l=expr '-' r=term { ast.BinOp(left=l, op=ast.Sub(), right=r, EXTRA) }
+    | term
+
+term:
+    | l=term '*' r=factor { ast.BinOp(left=l, op=ast.Mult(), right=r, EXTRA) }
+    | l=term '/' r=factor { ast.BinOp(left=l, op=ast.Div(), right=r, EXTRA) }
+    | factor
+
+factor:
+    | '(' e=expr ')' { e }
+    | atom
+
+atom:
+    | NUMBER { float(number) }
+```
+
+[TODO: Default header]
+
+### Special names in actions
+[TODO]
+<!--src\pegen\python_generator.py:411-->
+LOCATIONS
+UNREACHABLE
+EXTRA?
+
+## How to use the generated parser
+[TODO]
+
+## Entry point
+[TODO]
+The `start` rule is the entry point of the generated parser,
+but users can also call other rules.
+
+## Metas
+[TODO]

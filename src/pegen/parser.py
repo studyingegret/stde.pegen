@@ -268,6 +268,8 @@ class Parser:
             return self._tokenizer.getnext()
         return None
 
+    # End tokens
+
     @memoize
     def expect(self, type: str) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
@@ -282,8 +284,6 @@ class Parser:
         if tok.type == token.OP and tok.string == type:
             return self._tokenizer.getnext()
         return None
-
-    # End tokens
 
     def expect_forced(self, res: Any, expectation: str) -> Optional[tokenize.TokenInfo]:
         if res is None:
@@ -353,13 +353,16 @@ def simple_parser_main(parser_class: Type[Parser]) -> None:
 
     t1 = time.time()
 
-    if not tree:
+    if tree is None:
         err = parser.make_syntax_error(filename)
         traceback.print_exception(err.__class__, err, None)
         sys.exit(1)
 
     if not args.quiet:
-        print(ast.dump(tree))
+        try:
+            print(ast.dump(tree))
+        except TypeError:
+            print(tree)
     if args.run:
         exec(compile(tree, filename=filename, mode="exec"))
 

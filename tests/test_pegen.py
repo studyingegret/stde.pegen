@@ -694,3 +694,15 @@ def test_keywords() -> None:
     parser_class = generate_parser_from_string(grammar)
     assert parser_class.KEYWORDS == ("five", "four", "one", "three", "two")
     assert parser_class.SOFT_KEYWORDS == ("eight", "nine", "seven", "six", "ten")
+
+
+# Created based on observed undocumented code logic
+def test_hard_keywords() -> None:
+    grammar = """
+    start: "hello" NAME | 'world'
+    """
+    parser_class = generate_parser_from_string(grammar)
+    with pytest.raises(SyntaxError) as errinfo:
+        parse_string("hello world", parser_class)
+    assert errinfo.value.args[1][1:] == (1, 7, 'hello world')
+    parse_string("world", parser_class)
