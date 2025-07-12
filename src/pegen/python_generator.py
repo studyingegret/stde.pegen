@@ -1,7 +1,8 @@
 import ast
 import re
 import token
-from typing import IO, Any, Dict, List, Optional, Sequence, Set, Text, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Text, Tuple
+from io import TextIOBase
 
 from pegen import grammar
 from pegen.grammar import (
@@ -238,10 +239,14 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def __init__(
         self,
         grammar: grammar.Grammar,
-        file: Optional[IO[Text]],
+        #XXX: I can't see how the code accepts file == None
+        #file: Optional[TextIOBase],
+        file: TextIOBase,
         tokens: Set[str] = set(token.tok_name.values()),
         location_formatting: Optional[str] = None,
         unreachable_formatting: Optional[str] = None,
+        *, # For maximum compatibility
+        skip_actions: bool = False,
     ):
         tokens.update([
             "SOFT_KEYWORD",
@@ -257,6 +262,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             "lineno=start_lineno, col_offset=start_col_offset, "
             "end_lineno=end_lineno, end_col_offset=end_col_offset")
         self.cleanup_statements: List[str] = []
+        self.skip_actions = skip_actions
 
     def generate(self, filename: str) -> None:
         header = self.grammar.metas.get("header", MODULE_PREFIX)
@@ -445,7 +451,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("):")
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(action, locations, unreachable, is_gather, is_loop, has_invalid)
+                self.print_action(None if self.skip_actions else action,
+                                  locations, unreachable, is_gather, is_loop, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.

@@ -24,7 +24,7 @@ from typing import Any, List
 
 sys.path.insert(0, ".")
 
-from pegen.build import build_parser
+from pegen.build import load_grammar
 from pegen.grammar import (
     Alt,
     Cut,
@@ -86,7 +86,7 @@ def main() -> None:
     args = argparser.parse_args()
 
     try:
-        grammar, parser, tokenizer = build_parser(args.grammar_file)
+        grammar, parser, tokenizer = load_grammar(args.grammar_file)
     except Exception as err:
         print("ERROR: Failed to parse grammar file", file=sys.stderr)
         sys.exit(1)

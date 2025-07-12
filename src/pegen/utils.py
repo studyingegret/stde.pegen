@@ -1,9 +1,12 @@
+# XXX: Overlap with build module?
+
 import importlib.util
 import io
 import sys
 import textwrap
 import tokenize
-from typing import IO, Any, Dict, Final, Optional, Type, cast
+from typing import IO, Any, Dict, Final, Optional, Type, Union, cast
+from contextlib import contextmanager
 
 from pegen.grammar import Grammar
 from pegen.grammar_parser import GeneratedParser as GrammarParser
@@ -26,10 +29,11 @@ def import_file(full_name: str, path: str) -> Any:
     return mod
 
 
+# TODO: build_python_parser_and_generator <-> generate_parser
 def generate_parser(
     grammar: Grammar, parser_path: Optional[str] = None, parser_name: str = "GeneratedParser",
-    # Added as keyword argument for maximum compatibility
-    *, source_name: str = "<string>"
+    *, # For maximum compatibility
+    source_name: str = "<string>"
 ) -> Type[Parser]:
     # Generate a parser.
     out = io.StringIO()
@@ -70,8 +74,8 @@ def parse_string(
 
 def generate_parser_from_string(
     source: str,
-    # Added as keyword argument for maximum compatibility
-    *, source_name: str = "<string>"
+    *, # For maximum compatibility
+    source_name: str = "<string>"
 ) -> Type[Parser]:
     """Combines parse_string and generate_parser."""
     return generate_parser(parse_string(source, GrammarParser), source_name=source_name)

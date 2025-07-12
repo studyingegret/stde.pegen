@@ -2,7 +2,7 @@ import argparse
 import sys
 from typing import Any, Callable, Iterator
 
-from pegen.build import build_parser
+from pegen.build import load_grammar
 from pegen.grammar import Grammar, Rule
 
 argparser = argparse.ArgumentParser(
@@ -50,7 +50,7 @@ def main() -> None:
     args = argparser.parse_args()
 
     try:
-        grammar, parser, tokenizer = build_parser(args.filename)
+        grammar, parser, tokenizer = load_grammar(args.filename)
     except Exception:
         print("ERROR: Failed to parse grammar file", file=sys.stderr)
         sys.exit(1)

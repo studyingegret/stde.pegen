@@ -206,7 +206,7 @@ class Rhs:
 class Alt:
     def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
         self.items = items
-        self.icut = icut
+        self.icut = icut #TODO: Doc
         self.action = action
 
     def __str__(self) -> str:

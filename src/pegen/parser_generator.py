@@ -1,6 +1,7 @@
 import contextlib
 from abc import abstractmethod
-from typing import Any, IO, AbstractSet, Dict, Iterator, List, Optional, Set, Text, Tuple
+from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Set, Tuple
+from io import TextIOBase
 
 from pegen import sccutils
 from pegen.grammar import (
@@ -44,7 +45,9 @@ class RuleCheckingVisitor(GrammarVisitor):
 class ParserGenerator:
     callmakervisitor: GrammarVisitor
 
-    def __init__(self, grammar: Grammar, tokens: Set[str], file: Optional[IO[Text]]):
+    #XXX: I can't see how the code accepts file == None
+    #def __init__(self, grammar: Grammar, tokens: Set[str], file: Optional[TextIOBase]):
+    def __init__(self, grammar: Grammar, tokens: Set[str], file: TextIOBase):
         self.grammar = grammar
         self.tokens = tokens
         self.rules = grammar.rules

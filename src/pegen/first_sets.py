@@ -5,7 +5,7 @@ import pprint
 import sys
 from typing import Dict, Set
 
-from pegen.build import build_parser
+from pegen.build import load_grammar
 from pegen.parser_generator import compute_nullables
 from pegen.grammar import (
     Alt,
@@ -136,7 +136,7 @@ def main() -> None:
     args = argparser.parse_args()
 
     try:
-        grammar, parser, tokenizer = build_parser(args.grammar_file)
+        grammar, parser, tokenizer = load_grammar(args.grammar_file)
     except Exception:
         print("ERROR: Failed to parse grammar file", file=sys.stderr)
         sys.exit(1)

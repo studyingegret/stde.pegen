@@ -6,6 +6,7 @@ from tokenize import NAME, NEWLINE, NUMBER, OP, TokenInfo
 from typing import Any, Dict, Type
 
 import pytest
+from pegen.build import generate_parser_from_file
 from pegen.grammar import Grammar, GrammarError
 from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.parser import Parser
@@ -314,7 +315,7 @@ def test_left_recursive() -> None:
     baz: NAME?
     """
     grammar: Grammar = parse_string(grammar_source, GrammarParser)
-    parser_class = generate_parser(grammar)
+    parser_class = generate_parser_from_file(grammar)
     rules = grammar.rules
     assert not rules["start"].left_recursive
     assert rules["expr"].left_recursive
@@ -696,12 +697,23 @@ def test_keywords() -> None:
     assert parser_class.SOFT_KEYWORDS == ("eight", "nine", "seven", "six", "ten")
 
 
-# Created based on observed undocumented code logic
+# Previously undocumented logic, now documented in README
 def test_hard_keywords() -> None:
     grammar = """
     start: "hello" NAME | 'world'
     """
     parser_class = generate_parser_from_string(grammar)
+    with pytest.raises(SyntaxError) as errinfo:
+        parse_string("hello world", parser_class)
+    assert errinfo.value.args[1][1:] == (1, 7, 'hello world')
+    parse_string("world", parser_class)
+
+
+def test_skip_actions() -> None:
+    grammar = """
+    start[str]: NAME { "a" }
+    """
+    parser_class = generate_parser_from_file(grammar)
     with pytest.raises(SyntaxError) as errinfo:
         parse_string("hello world", parser_class)
     assert errinfo.value.args[1][1:] == (1, 7, 'hello world')

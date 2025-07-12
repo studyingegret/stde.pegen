@@ -19,7 +19,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 sys.path.insert(0, ".")
-from pegen.build import build_parser
+from pegen.build import load_grammar
 from pegen.utils import generate_parser, generate_parser_c_extension, parse_string
 
 GRAMMAR_FILE = "data/python.gram"
@@ -54,7 +54,7 @@ def main() -> None:
 
     with TemporaryDirectory() as tmp_dir:
         nesting_depth = INITIAL_NESTING_DEPTH
-        rules, parser, tokenizer = build_parser(GRAMMAR_FILE)
+        rules, parser, tokenizer = load_grammar(GRAMMAR_FILE)
         python_parser = generate_parser(rules)
         c_parser = generate_parser_c_extension(rules, Path(tmp_dir))
 
