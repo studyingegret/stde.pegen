@@ -29,5 +29,5 @@ def open_file(file_or_path: File, mode="r", *args, **kwargs) -> Iterator[io.Text
         yield file_or_path
     else:
         # Pylance's typing store of open() uses the abstract class os.PathLike
-        with open(file_or_path, *args, **kwargs) as f: #type:ignore
+        with open(file_or_path, mode, *args, **kwargs) as f: #type:ignore
             yield f

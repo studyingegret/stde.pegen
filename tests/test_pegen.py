@@ -3,15 +3,15 @@ import difflib
 import io
 import textwrap
 from tokenize import NAME, NEWLINE, NUMBER, OP, TokenInfo
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, cast
 
 import pytest
-from pegen.build import generate_parser_from_file
+from pegen.build import generate_parser_from_grammar, generate_code_from_grammar, load_grammar_from_string
 from pegen.grammar import Grammar, GrammarError
 from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.parser import Parser
 from pegen.python_generator import PythonParserGenerator
-from pegen.utils import generate_parser, generate_parser_from_string, parse_string
+from pegen.utils import generate_parser, generate_parser_from_string, parse_string, parse_string2
 
 
 def test_parse_grammar() -> None:
@@ -42,10 +42,10 @@ def test_parse_grammar_with_types() -> None:
     c_rule[expr_ty*]: a=NUMBER? { _new_expr_ty(a) }
     """
 
-    grammar: Grammar = parse_string(grammar, GrammarParser)
+    grammar = cast(Grammar, parse_string(grammar, GrammarParser))
     rules = grammar.rules
-    assert rules["start"].type.replace(" ", "") == "ast.BinOp"
-    assert rules["term"].type.replace(" ", "") == "T[int]"
+    assert rules["start"].type.replace(" ", "") == "ast.BinOp" #type:ignore
+    assert rules["term"].type.replace(" ", "") == "T[int]" #type:ignore
     assert rules["c_rule"].type == "expr_ty*"
 
 
@@ -315,7 +315,7 @@ def test_left_recursive() -> None:
     baz: NAME?
     """
     grammar: Grammar = parse_string(grammar_source, GrammarParser)
-    parser_class = generate_parser_from_file(grammar)
+    parser_class = generate_parser(grammar)
     rules = grammar.rules
     assert not rules["start"].left_recursive
     assert rules["expr"].left_recursive
@@ -679,7 +679,7 @@ def test_locations_in_alt_action_and_group() -> None:
     parser_class = generate_parser_from_string(grammar)
     source = "2*3\n"
     o = ast.dump(parse_string(source, parser_class).body, include_attributes=True)
-    p = ast.dump(ast.parse(source).body[0].value, include_attributes=True).replace(
+    p = ast.dump(ast.parse(source).body[0].value, include_attributes=True).replace( #type:ignore
         " kind=None,", ""
     )
     diff = "\n".join(difflib.unified_diff(o.split("\n"), p.split("\n"), "cpython", "python-pegen"))
@@ -710,11 +710,10 @@ def test_hard_keywords() -> None:
 
 
 def test_skip_actions() -> None:
-    grammar = """
-    start[str]: NAME { "a" }
-    """
-    parser_class = generate_parser_from_file(grammar)
-    with pytest.raises(SyntaxError) as errinfo:
-        parse_string("hello world", parser_class)
-    assert errinfo.value.args[1][1:] == (1, 7, 'hello world')
-    parse_string("world", parser_class)
+    grammar = 'start[str]: NAME { "a" }'
+    parser_class = generate_parser_from_grammar(grammar)[-1]
+    assert parse_string2(parser_class, "hello") == "a"
+    with open(r"D:\study-coding\pegen\t\out2.txt", "w") as f:
+        generate_code_from_grammar(load_grammar_from_string(grammar)[0], "...", f, skip_actions=True)
+    parser_class = generate_parser_from_grammar(grammar, skip_actions=True)[-1]
+    assert parse_string2(parser_class, "hello") == "hello" #...

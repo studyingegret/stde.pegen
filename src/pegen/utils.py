@@ -72,6 +72,15 @@ def parse_string(
         return run_parser(file, parser_class, verbose=verbose)  # type: ignore # typeshed issue #3515
 
 
+def parse_string2(parser_class: Type[Parser], string: str,
+                  verbose_tokenizer: bool = False, verbose_parser: bool = False) -> Any:
+    with io.StringIO(string) as f:
+        tokengen = tokenize.generate_tokens(f.readline)
+        tokenizer = Tokenizer(tokengen, verbose=verbose_tokenizer)
+        parser = parser_class(tokenizer, verbose=verbose_parser)
+        return parser.start()
+
+
 def generate_parser_from_string(
     source: str,
     *, # For maximum compatibility

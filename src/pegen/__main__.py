@@ -17,7 +17,7 @@ from pegen.build import (
     Parser,
     ParserGenerator,
     Tokenizer,
-    generate_parser_from_file,
+    generate_code_from_file,
 )
 from pegen.validator import validate_grammar
 
@@ -29,7 +29,7 @@ def generate_python_code(
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
     try:
-        grammar, parser, tokenizer, gen = generate_parser_from_file(
+        grammar, parser, tokenizer, gen = generate_code_from_file(
             args.grammar_filename,
             args.output,
             verbose_tokenizer,

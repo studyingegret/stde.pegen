@@ -360,9 +360,13 @@ def simple_parser_main(parser_class: Type[Parser]) -> None:
 
     if not args.quiet:
         try:
-            print(ast.dump(tree))
+            ast_dump = ast.dump(tree)
         except TypeError:
+            print("Parse result:")
             print(tree)
+        else:
+            print("AST dump of parse result:")
+            print(ast_dump)
     if args.run:
         exec(compile(tree, filename=filename, mode="exec"))
 
