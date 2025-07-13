@@ -11,7 +11,7 @@ from pathlib import PurePath
 from typing import Any, List, Optional
 
 sys.path.insert(0, os.getcwd())
-from pegen.build import load_grammar
+from pegen.build import load_grammar_from_file
 from pegen.utils import generate_parser, print_memstats
 
 from scripts import show_parse
@@ -144,7 +144,7 @@ def parse_directory(
 
         try:
             if not parser:
-                grammar = load_grammar(grammar_file)[0]
+                grammar = load_grammar_from_file(grammar_file)[0]
                 GeneratedParser = generate_parser(grammar)  # TODO: skip_actions
         except Exception as err:
             print(

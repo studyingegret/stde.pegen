@@ -1,4 +1,19 @@
-#import pathlib
+"""Build pegen artifacts from sources.
+
+    load_grammar_from_string: Grammar str → Grammar
+    load_grammar_from_file: Grammar file → Grammar
+
+    generate_code_from_grammar: Grammar → Generated parser code (str)
+    generate_code_from_file: Grammar file → Generated parser code (str)
+
+    generate_parser_from_grammar: Grammar → Ready-to-use pegen.parser.Parser subclass
+    generate_parser_from_file: Grammar file → Ready-to-use pegen.parser.Parser subclass
+
+"Grammar file" written above should satisfy utils2.File:
+i.e. be either str, bytes, or have method `__fspath__(self) -> Union[str, bytes]`,
+or be an `io.TextIOBase`.
+"""
+
 import tokenize, io
 from typing import TYPE_CHECKING, Dict, NewType, Set, Tuple, Optional, Type, Union, cast
 
@@ -10,20 +25,14 @@ from pegen.python_generator import PythonParserGenerator
 from pegen.tokenizer import Tokenizer
 from pegen.utils2 import open_file, File
 
-#Unused
-#MOD_DIR = pathlib.Path(__file__).resolve().parent
-
-TokenDefinitions = Tuple[Dict[int, str], Dict[str, int], Set[str]]
-
 class Return: pass
-# For generate_code_from_grammar, generate_code_from_file:
+
+# Flag for generate_code_from_grammar and generate_code_from_file:
 # Return code (as tuple item) instead of generating it to some place.
-RETURN = Return() #type:ignore
-
-# Note: Architecture limits we cannot directly generate grammar from a grammar string.
-
+RETURN = Return()
 
 DEFAULT_SOURCE_NAME_FALLBACK = "<unknown>"
+
 
 def _grammar_file_name_or_fallback(grammar_file_name: Optional[str], grammar_file: File,
                                    fallback: str = DEFAULT_SOURCE_NAME_FALLBACK) -> str:
@@ -34,7 +43,7 @@ def _grammar_file_name_or_fallback(grammar_file_name: Optional[str], grammar_fil
     return str(grammar_file.name) if hasattr(grammar_file, "name") else fallback #type:ignore
 
 
-def load_grammar(
+def load_grammar_from_file(
     grammar_file: File, verbose_tokenizer: bool = False, verbose_parser: bool = False,
     *, grammar_file_name: Optional[str] = None
 ) -> Tuple[Grammar, Parser, Tokenizer]:
@@ -57,13 +66,15 @@ def load_grammar(
     return grammar, parser, tokenizer
 
 
+# Note: Architecture limits we cannot directly generate grammar from a grammar string.
 def load_grammar_from_string(
     grammar_string: str, verbose_tokenizer: bool = False, verbose_parser: bool = False,
     *, grammar_file_name: Optional[str] = None
 ) -> Tuple[Grammar, Parser, Tokenizer]:
     with io.StringIO(grammar_string) as tempfile:
-        return load_grammar(tempfile, verbose_tokenizer, verbose_parser,
+        return load_grammar_from_file(tempfile, verbose_tokenizer, verbose_parser,
                             grammar_file_name=grammar_file_name)
+
 
 def generate_code_from_grammar(
     grammar: Grammar,
@@ -117,7 +128,7 @@ def generate_code_from_file(
     - Middleware byproduct ParserGenerator
     """
     grammar_file_name = _grammar_file_name_or_fallback(grammar_file_name, grammar_file)
-    grammar, parser, tokenizer = load_grammar(grammar_file, verbose_tokenizer, verbose_parser)
+    grammar, parser, tokenizer = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser)
     gen_ret = generate_code_from_grammar(grammar, grammar_file_name, output_file, skip_actions=skip_actions)
     return (grammar, parser, tokenizer) + (gen_ret if isinstance(gen_ret, tuple) else (gen_ret,))
 
@@ -176,7 +187,7 @@ def generate_parser_from_file(
     - The generated parser (Type[Parser])
     """
     # Grammar file → Grammar
-    grammar, parser, tokenizer = load_grammar(
+    grammar, parser, tokenizer = load_grammar_from_file(
         grammar_file, verbose_tokenizer, verbose_parser, grammar_file_name=grammar_file_name)
     # Grammar → Parser class
     _1, _2, _3, gen, parser_class = generate_parser_from_grammar(
