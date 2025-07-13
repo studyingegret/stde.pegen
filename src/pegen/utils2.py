@@ -11,6 +11,7 @@ class PathLike(Protocol):
     def __fspath__(self) -> Union[str, bytes]: ...
 
 
+# A text file or a file path.
 File = Union[str, bytes, PathLike, io.TextIOBase]
 
 

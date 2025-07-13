@@ -1,3 +1,4 @@
+"""Use utilities in module build instead when possible."""
 # XXX: Overlap with build module?
 
 import importlib.util
