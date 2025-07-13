@@ -3,7 +3,7 @@
 # See definition in module build for real implementation.
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 assert TYPE_CHECKING
 
 from typing import Generic, Optional, Type, TypeVar, Literal, Union
@@ -12,9 +12,10 @@ from pegen.parser import Parser
 from pegen.parser_generator import ParserGenerator
 from pegen.tokenizer import Tokenizer
 
-Y = Literal[True]
-N = Literal[False]
-M = Union[Y, N]
+# These three are copied in module build
+Y = Never  # Field will be filled out
+N = Literal[None]  # Field will not be filled out
+M = Union[Y, N]  # Field might be filled out
 
 # Whether each field is filled out is generic
 HasGrammar = TypeVar("HasGrammar", Y, N, M, covariant=True)
@@ -30,13 +31,13 @@ class BuiltProducts(Generic[
     HasGrammar, HasGrammarParser, HasGrammarTokenizer, HasParserCodeGenerator, HasParserCode, HasParserClass
 ]):
     """TODO: Doc"""
-    grammar: Optional[Grammar]
-    grammar_parser: Optional[Parser]
-    grammar_tokenizer: Optional[Tokenizer]
-    parser_code_generator: Optional[ParserGenerator]
-    parser_code: Optional[str]
-    parser_class: Optional[Type[Parser]]
+    grammar: Union[Grammar, HasGrammar]
+    grammar_parser: Union[Parser, HasGrammarParser]
+    grammar_tokenizer: Union[Tokenizer, HasGrammarTokenizer]
+    parser_code_generator: Union[ParserGenerator, HasParserCodeGenerator]
+    parser_code: Union[str, HasParserCode]
+    parser_class: Union[Type[Parser], HasParserClass]
 
     @property
-    def class_(self) -> Optional[Type[Parser]]: ...
+    def class_(self) -> Union[Type[Parser], HasParserClass]: ...
 

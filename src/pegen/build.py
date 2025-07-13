@@ -31,7 +31,7 @@ use the new equivalents:
 import tokenize, io
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import (TYPE_CHECKING, Literal, Tuple, Optional, Type, Union, cast, Annotated)
+from typing import (TYPE_CHECKING, Literal, Never, Optional, Type, Union, cast)
 
 from pegen.grammar import Grammar
 from pegen.grammar_parser import GeneratedParser as GrammarParser
@@ -54,8 +54,8 @@ from pegen.utils2 import open_file, File
 #
 # Note: Writing BuiltProducts without generic notation is ok (?)
 
-Y = Literal[True]  # Field will be filled out
-N = Literal[False]  # Field will not be filled out
+Y = Never  # Field will be filled out
+N = Literal[None]  # Field will not be filled out
 M = Union[Y, N]  # Field might be filled out
 
 if TYPE_CHECKING:
@@ -223,18 +223,18 @@ def generate_parser_from_grammar(
     if grammar_file_name is None:
         grammar_file_name = "<generate_parser_from_grammar>"
     # Grammar string → Grammar
-    ret_grammar = parser = tokenizer = None
+    generated_grammar = None  # None if didn't actually generate
     if isinstance(grammar, str):
         p = load_grammar_from_string(grammar, verbose_tokenizer, verbose_parser,
                                      grammar_file_name=grammar_file_name)
-        ret_grammar = p.grammar
-    if TYPE_CHECKING: grammar = cast(Grammar, grammar)  # Type checkers
+        generated_grammar = grammar = p.grammar
     # Grammar → Parser code
     p2 = generate_code_from_grammar(grammar, grammar_file_name, RETURN, skip_actions)
     # Parser code → Parser class
     ns = {}
-    exec(p2.code, ns)
-    return BuiltProducts(ret_grammar, p.parser, p.tokenizer, p2.gen, None, ns[parser_class_name])
+    exec(cast(str, p2.parser_code), ns)
+    return BuiltProducts(generated_grammar, p.grammar_parser, p.grammar_tokenizer,
+                         p2.parser_code_generator, None, ns[parser_class_name])
 
 
 def generate_parser_from_file(
@@ -268,6 +268,7 @@ def generate_parser_from_file(
         p.grammar, verbose_tokenizer, verbose_parser, skip_actions,
         grammar_file_name=grammar_file_name, parser_class_name=parser_class_name
     )
-    return BuiltProducts(p.grammar, p.parser, p.tokenizer, p2.gen, p2.parser_class)
+    return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
+                         p2.parser_code_generator, None, p2.parser_class)
 
 # Legacy (TODO)
