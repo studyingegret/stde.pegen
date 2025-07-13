@@ -63,9 +63,36 @@ if TYPE_CHECKING:
     from build_stubs import BuiltProducts
 else:
     # Real implementation
-    @dataclass(slots=True)
+    @dataclass(slots=True, frozen=True)
     class BuiltProducts:
-        """TODO: Doc"""
+        """The built products.
+
+        ## Generic notation for signaling "what will be generated"
+        BuiltProducts can be written with six generics, each being `Y`, `N` or `M`;
+        e.g. the return type of `load_grammar_from_file`:
+
+            BuiltProducts[Y, Y, Y, M, N, N]
+
+        It means
+        - The first three fields (`grammar, grammar_parser, grammar_tokenizer`)
+          will be generated, so they will not be None (`Y, Y, Y`).
+        - The fourth field (`grammar_tokenizer`)
+          might be generated, depending on arguments, so might be None (`M`).
+        - The last two fields (`parser_code, parser_class`)
+          will not be generated and will be None (`N, N`).
+
+        This type feature helps you figure out what products to expect from
+        a function by just looking at its signature.
+
+        BuiltProducts can be written without generics.
+
+        Note: Fields in order:
+        `grammar, grammar_parser, grammar_tokenizer, parser_code_generator, parser_code, parser_class`
+
+        ---
+
+        `class_` is an alias for `parser_class`.
+        """
         grammar: Optional[Grammar]
         grammar_parser: Optional[Parser]
         grammar_tokenizer: Optional[Tokenizer]
@@ -271,4 +298,25 @@ def generate_parser_from_file(
     return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, None, p2.parser_class)
 
-# Legacy (TODO)
+# TODO: Legacy
+
+"""
+def build_parser(
+    grammar_file: str, verbose_tokenizer: bool = False, verbose_parser: bool = False
+) -> Tuple[Grammar, Parser, Tokenizer]
+
+def build_python_generator(
+    grammar: Grammar,
+    grammar_file: str,
+    output_file: str,
+    skip_actions: bool = False,
+) -> ParserGenerator
+
+def build_python_parser_and_generator(
+    grammar_file: str,
+    output_file: str,
+    verbose_tokenizer: bool = False,
+    verbose_parser: bool = False,
+    skip_actions: bool = False,
+) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator]
+"""

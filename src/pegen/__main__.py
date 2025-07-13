@@ -13,6 +13,9 @@ import traceback
 from typing import Tuple
 
 from pegen.build import (
+    BuiltProducts,
+    Y,
+    M,
     Grammar,
     Parser,
     ParserGenerator,
@@ -24,19 +27,18 @@ from pegen.validator import validate_grammar
 
 def generate_python_code(
     args: argparse.Namespace,
-) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator]:
+) -> BuiltProducts[Y, Y, Y, Y, M, M]:
     verbose = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
     try:
-        grammar, parser, tokenizer, gen = generate_code_from_file(
+        return generate_code_from_file(
             args.grammar_filename,
             args.output,
             verbose_tokenizer,
             verbose_parser,
             skip_actions=args.skip_actions,
         )
-        return grammar, parser, tokenizer, gen
     except Exception as err:
         if args.verbose:
             raise  # Show traceback
@@ -76,43 +78,43 @@ def main() -> None:
     args = argparser.parse_args()
 
     t0 = time.time()
-    grammar, parser, tokenizer, gen = generate_python_code(args)
+    products = generate_python_code(args)
     t1 = time.time()
 
-    validate_grammar(grammar)
+    validate_grammar(products.grammar)
 
     if not args.quiet:
         if args.verbose:
             print("Raw Grammar:")
-            for line in repr(grammar).splitlines():
+            for line in repr(products.grammar).splitlines():
                 print(" ", line)
 
         print("Clean Grammar:")
-        for line in str(grammar).splitlines():
+        for line in str(products.grammar).splitlines():
             print(" ", line)
 
     if args.verbose:
         print("First Graph:")
-        for src, dsts in gen.first_graph.items():
+        for src, dsts in products.parser_code_generator.first_graph.items():
             print(f"  {src} -> {', '.join(dsts)}")
         print("First SCCS:")
-        for scc in gen.first_sccs:
+        for scc in products.parser_code_generator.first_sccs:
             print(" ", scc, end="")
             if len(scc) > 1:
                 print(
                     "  # Indirectly left-recursive; leaders:",
-                    {name for name in scc if grammar.rules[name].leader},
+                    {name for name in scc if products.grammar.rules[name].leader},
                 )
             else:
                 name = next(iter(scc))
-                if name in gen.first_graph[name]:
+                if name in products.parser_code_generator.first_graph[name]:
                     print("  # Left-recursive")
                 else:
                     print()
 
     if args.verbose:
         dt = t1 - t0
-        diag = tokenizer.diagnose()
+        diag = products.grammar_tokenizer.diagnose()
         nlines = diag.end[0]
         if diag.type == token.ENDMARKER:
             nlines -= 1
@@ -122,8 +124,8 @@ def main() -> None:
         else:
             print()
         print("Caches sizes:")
-        print(f"  token array : {len(tokenizer._tokens):10}")
-        print(f"        cache : {len(parser._cache):10}")
+        print(f"  token array : {len(products.grammar_tokenizer._tokens):10}")
+        print(f"        cache : {len(products.grammar_parser._cache):10}")
 
 
 if __name__ == "__main__":
