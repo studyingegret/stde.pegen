@@ -17,6 +17,17 @@ produce PEG parsers from a description of a formal Grammar.
 Pegen's logic is tied to the way Python is parsed. This fork tries to decouple
 Pegen's logic with Python language's, as well as try some kinds of modifications.
 
+Incomplete list of notable changes compared to [original repo](https://github.com/we-like-parsers/pegen):
+- Implement `skip_actions` option
+- Refactor `build` module, making it more straightforward
+- [Breaking change] Rename Parser._mark → mark and Parser._reset → reset
+  <!--Commit: 7c076908935cf7980c72232d45996aa62c55327a-->
+  - Effect: Pegen parsers <u>generated</u> *before* the change
+    need an installation of Pegen *before* the change; Pegen parsers <u>generated</u> *after* the change
+    need an installation of Pegen *after* the change.
+
+Also, though it doesn't affect users, the code is heavily refactored, some of which are obviously(?) opinionated.
+
 # Installing
 
 Install with `pip` or your favorite PyPI package manager.

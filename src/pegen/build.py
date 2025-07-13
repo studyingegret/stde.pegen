@@ -14,6 +14,8 @@ i.e. be either str, bytes, or have method `__fspath__(self) -> Union[str, bytes]
 or be an `io.TextIOBase`.
 """
 
+#TODO: Return NamedTuple (with members possibly None) instead of tuple
+
 import tokenize, io
 from typing import TYPE_CHECKING, Dict, NewType, Set, Tuple, Optional, Type, Union, cast
 
@@ -27,8 +29,9 @@ from pegen.utils2 import open_file, File
 
 class Return: pass
 
-# Flag for generate_code_from_grammar and generate_code_from_file:
-# Return code (as tuple item) instead of generating it to some place.
+# Flag to set for parameter output_file
+# in generate_code_from_grammar and generate_code_from_file:
+# Tells to return code string (as tuple item) instead of generating it to output_file.
 RETURN = Return()
 
 DEFAULT_SOURCE_NAME_FALLBACK = "<unknown>"
