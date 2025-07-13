@@ -15,7 +15,7 @@ produce PEG parsers from a description of a formal Grammar.
 
 ## About this fork
 Pegen's logic is tied to the way Python is parsed. This fork tries to decouple
-Pegen's logic with Python language's.
+Pegen's logic with Python language's, as well as try some kinds of modifications.
 
 # Installing
 
