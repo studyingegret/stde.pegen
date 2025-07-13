@@ -433,6 +433,16 @@ If the action is omitted, a default action is generated:
 This default behaviour is primarily made for very simple situations and for
 debugging purposes.
 
+> Current limitations:
+> - Action code must be embeddable with
+>   a return statement in the form of `return action_code`.
+>   For example, this forces them to be a single statement
+>   that cannot use `for`, `if` statements etc.
+>   `@subheader` and `@trailer` metas (see below) may make it easier for complex code
+>   to satisfy this limitation.
+> - Do not use `eval("a")` to use the captured variable `a`; write `a` instead since
+>   current logic is known to drop undetected variables.
+
 As an illustrative example this simple grammar file generates a full parser
 that can parse simple arithmetic expressions and return a valid Python AST:
 
@@ -457,32 +467,181 @@ factor:
 atom: NUMBER
 ```
 
-In comparison, this grammar file computes the expression
+In comparison, this grammar file computes each expression
 instead of generating an AST:
 
 ```
-start[ast.Module]: a=expr_stmt* ENDMARKER { ast.Module(body=a or []) }
-expr_stmt: a=expr NEWLINE { ast.Expr(value=a, EXTRA) }
+start[list[int]]: exprs=expr_stmt* ENDMARKER { exprs }
+expr_stmt[int]: expr NEWLINE { expr }
 
-expr:
-    | l=expr '+' r=term { ast.BinOp(left=l, op=ast.Add(), right=r, EXTRA) }
-    | l=expr '-' r=term { ast.BinOp(left=l, op=ast.Sub(), right=r, EXTRA) }
+expr[int]:
+    | l=expr '+' r=term { l + r }
+    | l=expr '-' r=term { l - r }
     | term
 
-term:
-    | l=term '*' r=factor { ast.BinOp(left=l, op=ast.Mult(), right=r, EXTRA) }
-    | l=term '/' r=factor { ast.BinOp(left=l, op=ast.Div(), right=r, EXTRA) }
+term[int]:
+    | l=term '*' r=factor { l * r }
+    | l=term '//' r=factor { l // r }
     | factor
 
-factor:
-    | '(' e=expr ')' { e }
+factor[int]:
+    | '(' expr ')' { expr }
     | atom
 
-atom:
-    | NUMBER { float(number) }
+atom[int]:
+    | NUMBER { int(number.string) }
 ```
 
-[TODO: Default header]
+This grammar can be found in `data/expr2.gram`.
+
+### Typing example
+The reason floor division `//` is used instead of float division `/` above is that
+correctly annotating float division is complex as shown below
+(this complexity is irrelevant if you don't annotate the grammar):
+
+- We will change `//` to `/` and fix typing errors over the following steps.
+
+  ```
+  term[int]:
+      | l=term '*' r=factor { l * r }
+      | l=term '/' r=factor { l / r }
+      | factor
+  ```
+- If you generate the grammar at this point and type check the generated code,
+  type checkers will complain that `l / r` is `float`, not `int`
+  (thus not matching annotated return type `int`).
+
+  Considering that `l * r` is still `int` (and `l / r` shall remain `float`),
+  we change the type annotation of `term` to `typing.Union[int, float]`:
+
+  ```
+  term[typing.Union[int, float]]:
+      | l=term '*' r=factor { l * r }
+      | l=term '/' r=factor { l / r }
+      | factor
+  ```
+- `typing.Union` is not imported in the generated code by default,
+  so we add a subheader (before all rules) to get it imported in generated code:
+
+  ```
+  @subheader """
+  import typing
+  """
+  ```
+
+  Or just import `typing.Union` directly:
+
+  ```
+  @subheader """
+  from typing import Union
+  """
+
+  ...
+
+  term[Union[int, float]]:
+      ...
+  ```
+- If you generate at this point:
+  ```
+  @subheader """
+  from typing import Union
+  """
+
+  start[list[int]]: exprs=expr_stmt* ENDMARKER { exprs }
+  expr_stmt[int]: expr NEWLINE { expr }
+
+  expr[int]:
+      | l=expr '+' r=term { l + r }
+      | l=expr '-' r=term { l - r }
+      | term
+
+  term[Union[int, float]]:
+      | l=term '*' r=factor { l * r }
+      | l=term '/' r=factor { l / r }
+      | factor
+
+  factor[int]:
+      | '(' expr ')' { expr }
+      | atom
+
+  atom[int]:
+      | NUMBER { int(number.string) }
+  ```
+
+  and type check again, you'll notice these errors:
+  - type of `l + r` and `l - r` is `Union[int, float]`
+    (`float` when at least one of `l` and `r` is `float`,  `int` otherwise)
+    which is not compatible with `expr`'s return type `int`
+  - similar for branch `term` of `expr`: `term`'s return type is `Union[int, float]`
+    but `expr`'s is `int`
+- Resolution is to propogate changing `int` to `Union[int, float]`:
+  - `expr`'s return type becomes `Union[int, float]`
+  - `expr_stmt` returns `expr` so change its return type to `Union[int, float]`
+  - `start`'s return type becomes `list[Union[int, float]]`
+  - `factor` may return `expr` so change its return type to `Union[int, float]`
+  - `term` may return `factor`, and `factor`'s return type changed, so we check
+     if we need to change `term`'s return type.
+     Luckily, their return types (both `Union[int, float]`) are already compatible.
+- The final version should have no typing errors.
+  ```
+  @subheader """
+  from typing import Union
+  """
+
+  start[list[Union[int, float]]]: exprs=expr_stmt* ENDMARKER { exprs }
+  expr_stmt[Union[int, float]]: expr NEWLINE { expr }
+
+  expr[Union[int, float]]:
+      | l=expr '+' r=term { l + r }
+      | l=expr '-' r=term { l - r }
+      | term
+
+  term[Union[int, float]]:
+      | l=term '*' r=factor { l * r }
+      | l=term '/' r=factor { l / r }
+      | factor
+
+  factor[Union[int, float]]:
+      | '(' expr ')' { expr }
+      | atom
+
+  atom[int]:
+      | NUMBER { int(number.string) }
+  ```
+
+  For better readability, we can factor out the type `Union[int, float]`.
+
+  ```
+  @subheader """
+  from typing import Union
+  Value = Union[int, float]
+  """
+
+  start[list[Value]]: exprs=expr_stmt* ENDMARKER { exprs }
+  expr_stmt[Value]: expr NEWLINE { expr }
+
+  expr[Value]:
+      | l=expr '+' r=term { l + r }
+      | l=expr '-' r=term { l - r }
+      | term
+
+  term[Value]:
+      | l=term '*' r=factor { l * r }
+      | l=term '/' r=factor { l / r }
+      | factor
+
+  factor[Value]:
+      | '(' expr ')' { expr }
+      | atom
+
+  atom[int]:
+      | NUMBER { int(number.string) }
+  ```
+
+  This grammar can be found in `data/expr3.gram`.
+
+### Default header
+[TODO]
 
 ### Special names in actions
 [TODO]

@@ -1,0 +1,19 @@
+start[list[int]]: exprs=expr_stmt* ENDMARKER { exprs }
+expr_stmt[int]: expr NEWLINE { expr }
+
+expr[int]:
+    | l=expr '+' r=term { l + r }
+    | l=expr '-' r=term { l - r }
+    | term
+
+term[int]:
+    | l=term '*' r=factor { l * r }
+    | l=term '//' r=factor { l // r }
+    | factor
+
+factor[int]:
+    | '(' expr ')' { expr }
+    | atom
+
+atom[int]:
+    | NUMBER { int(number.string) }

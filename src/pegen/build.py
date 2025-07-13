@@ -1,6 +1,6 @@
 #import pathlib
 import tokenize, io
-from typing import Dict, Set, Tuple, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Dict, NewType, Set, Tuple, Optional, Type, Union, cast
 
 from pegen.grammar import Grammar
 from pegen.grammar_parser import GeneratedParser as GrammarParser
@@ -15,18 +15,23 @@ from pegen.utils2 import open_file, File
 
 TokenDefinitions = Tuple[Dict[int, str], Dict[str, int], Set[str]]
 
+class Return: pass
+# For generate_code_from_grammar, generate_code_from_file:
+# Return code (as tuple item) instead of generating it to some place.
+RETURN = Return() #type:ignore
 
 # Note: Architecture limits we cannot directly generate grammar from a grammar string.
 
 
-#...
+DEFAULT_SOURCE_NAME_FALLBACK = "<unknown>"
+
 def _grammar_file_name_or_fallback(grammar_file_name: Optional[str], grammar_file: File,
-                                   fallback: str = "<unknown>") -> str:
+                                   fallback: str = DEFAULT_SOURCE_NAME_FALLBACK) -> str:
     if grammar_file_name is not None:
         return grammar_file_name
     if isinstance(grammar_file, str):
         return grammar_file
-    return str(grammar_file.name) if hasattr(grammar_file, "name") else "<unknown>" #type:ignore
+    return str(grammar_file.name) if hasattr(grammar_file, "name") else fallback #type:ignore
 
 
 def load_grammar(
@@ -62,30 +67,37 @@ def load_grammar_from_string(
 
 def generate_code_from_grammar(
     grammar: Grammar,
-    grammar_file_name: str, # Note: Used for noting source in generated header
-    output_file: File,
+    grammar_file_name: str = DEFAULT_SOURCE_NAME_FALLBACK, # Note: Used for noting source in generated header
+    output_file: Union[File, Return] = RETURN,
     skip_actions: bool = False,
-) -> ParserGenerator:
-    """Generates Python parser code to output_file.
+) -> Union[ParserGenerator, Tuple[ParserGenerator, str]]:
+    """[TODO] Generates Python parser code to output_file.
 
     Returns middleware product ParserGenerator.
     """
-    print(grammar,grammar_file_name,output_file,skip_actions)
-    with open_file(output_file, "w") as file:
-        gen: ParserGenerator = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
-        gen.generate(grammar_file_name)
-    return gen
+    if output_file is RETURN:
+        with io.StringIO() as file:
+            gen: ParserGenerator = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
+            gen.generate(grammar_file_name)
+            return gen, file.getvalue()
+    else:
+        if TYPE_CHECKING: output_file = cast(File, output_file)
+        with open_file(output_file, "w") as file:
+            gen: ParserGenerator = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
+            gen.generate(grammar_file_name)
+            return gen
 
 
 def generate_code_from_file(
     grammar_file: File,
-    output_file: File,
+    output_file: Union[File, Return] = RETURN,
     verbose_tokenizer: bool = False,
     verbose_parser: bool = False,
     skip_actions: bool = False,
     *,
     grammar_file_name: Optional[str] = None,
-) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator]:
+) -> Union[Tuple[Grammar, Parser, Tokenizer, ParserGenerator],
+           Tuple[Grammar, Parser, Tokenizer, ParserGenerator, str]]:
     """Output Python parser code to output_file from grammar in grammar_file.
 
     Args: [TODO]
@@ -106,8 +118,8 @@ def generate_code_from_file(
     """
     grammar_file_name = _grammar_file_name_or_fallback(grammar_file_name, grammar_file)
     grammar, parser, tokenizer = load_grammar(grammar_file, verbose_tokenizer, verbose_parser)
-    gen = generate_code_from_grammar(grammar, grammar_file_name, output_file, skip_actions=skip_actions)
-    return grammar, parser, tokenizer, gen
+    gen_ret = generate_code_from_grammar(grammar, grammar_file_name, output_file, skip_actions=skip_actions)
+    return (grammar, parser, tokenizer) + (gen_ret if isinstance(gen_ret, tuple) else (gen_ret,))
 
 
 def generate_parser_from_grammar(

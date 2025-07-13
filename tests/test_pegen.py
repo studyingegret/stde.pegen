@@ -2,6 +2,7 @@ import ast
 import difflib
 import io
 import textwrap
+import token
 from tokenize import NAME, NEWLINE, NUMBER, OP, TokenInfo
 from typing import Any, Dict, Type, cast
 
@@ -710,10 +711,10 @@ def test_hard_keywords() -> None:
 
 
 def test_skip_actions() -> None:
-    grammar = 'start[str]: NAME { "a" }'
+    grammar = 'start: NAME { "pizza!!!" }'
     parser_class = generate_parser_from_grammar(grammar)[-1]
-    assert parse_string2(parser_class, "hello") == "a"
-    with open(r"D:\study-coding\pegen\t\out2.txt", "w") as f:
-        generate_code_from_grammar(load_grammar_from_string(grammar)[0], "...", f, skip_actions=True)
+    assert parse_string2(parser_class, "hello") == "pizza!!!"
     parser_class = generate_parser_from_grammar(grammar, skip_actions=True)[-1]
-    assert parse_string2(parser_class, "hello") == "hello" #...
+    # Note: NAME returns TokenInfo
+    assert (parse_string2(parser_class, "hello")
+            == TokenInfo(type=token.NAME, string="hello", start=(1, 0), end=(1, 5), line="hello"))

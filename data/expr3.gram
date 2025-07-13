@@ -1,0 +1,26 @@
+# Typing example in README.md
+
+@subheader """
+from typing import Union
+Value = Union[int, float]
+"""
+
+start[list[Value]]: exprs=expr_stmt* ENDMARKER { exprs }
+expr_stmt[Value]: expr NEWLINE { expr }
+
+expr[Value]:
+    | l=expr '+' r=term { l + r }
+    | l=expr '-' r=term { l - r }
+    | term
+
+term[Value]:
+    | l=term '*' r=factor { l * r }
+    | l=term '/' r=factor { l / r }
+    | factor
+
+factor[Value]:
+    | '(' expr ')' { expr }
+    | atom
+
+atom[int]:
+    | NUMBER { int(number.string) }

@@ -255,8 +255,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         ])
         super().__init__(grammar, tokens, file)
         self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self)
-        self.invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
-        self.usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
+        self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
+        self._usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
         self.unreachable_formatting = unreachable_formatting or "None  # pragma: no cover"
         self.location_formatting = location_formatting or (
             "lineno=start_lineno, col_offset=start_col_offset, "
@@ -347,21 +347,25 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def visit_TopLevelItem(
         self, node: TopLevelItem, used: Optional[Set[str]], unreachable: bool
     ) -> None:
+        """used: Actually used variables of action of belonging Alt.
+        used == None when belonging Alt has no action.
+        """
         name, call = self.callmakervisitor.visit(node.item)
         if unreachable:
             name = None
         elif node.name:
             name = node.name
 
+        #TODO: Option to disable eliminating unused captures
         if used is not None and name not in used:
-            name = None
+            name = None  # Eliminate unused capture
 
         if not name:
             # Parentheses are needed because the trailing comma may appear :>
             self.print(f"({call})")
         else:
             if name != "cut":
-                name = self.dedupe(name)
+                name = self.dedupe_and_add_var(name)
             self.print(f"({name} := {call})")
 
     def visit_Rhs(self, node: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
@@ -404,10 +408,10 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     def visit_Alt(self, node: Alt, is_loop: bool, is_gather: bool) -> None:
         has_cut = any(isinstance(item.item, Cut) for item in node.items)
-        has_invalid = self.invalidvisitor.visit(node)
+        has_invalid = self.has_invalid(node)
 
-        action = node.action
-        if not action and not is_gather and has_invalid:
+        action = None if self.skip_actions else node.action
+        if action is None and not is_gather and has_invalid:
             action = "UNREACHABLE"
 
         locations = False
@@ -422,8 +426,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 unreachable = True
                 action = action.replace("UNREACHABLE", self.unreachable_formatting)
 
-            # Extract the names actually used in the action.
-            used = self.usednamesvisitor.visit(ast.parse(action))
+            used = self.actually_used_names_in_action(action)
             if has_cut:
                 used.add("cut")
 
@@ -451,8 +454,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("):")
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(None if self.skip_actions else action,
-                                  locations, unreachable, is_gather, is_loop, has_invalid)
+                self.print_action(
+                    action, locations, unreachable, is_gather, is_loop, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.
@@ -460,3 +463,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 self.print("if cut:")
                 with self.indent():
                     self.add_return("None")
+
+    def has_invalid(self, node):
+        return self._invalidvisitor.visit(node)
+
+    def actually_used_names_in_action(self, action):
+        return self._usednamesvisitor.visit(ast.parse(action))

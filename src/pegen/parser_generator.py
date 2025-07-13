@@ -159,7 +159,7 @@ class ParserGenerator:
         )
         return name
 
-    def dedupe(self, name: str) -> str:
+    def dedupe_and_add_var(self, name: str) -> str:
         origname = name
         counter = 0
         while name in self.local_variable_names:

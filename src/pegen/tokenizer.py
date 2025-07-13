@@ -1,6 +1,7 @@
 import token
 import tokenize
 from typing import Dict, Iterator, List
+from abc import ABC, abstractmethod
 
 Mark = int  # NewType('Mark', int)
 
@@ -11,7 +12,52 @@ def shorttok(tok: tokenize.TokenInfo) -> str:
     return "%-25.25s" % f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
 
 
-class Tokenizer:
+class AbstractTokenizer(ABC):
+    """Abstract interface for tokenizers with position tracking and error diagnostics."""
+
+    @abstractmethod
+    def getnext(self) -> tokenize.TokenInfo:
+        """Return next valid token, advancing position."""
+
+    @abstractmethod
+    def peek(self) -> tokenize.TokenInfo:
+        """Return next valid token without advancing position."""
+
+    @abstractmethod
+    def diagnose(self) -> tokenize.TokenInfo:
+        """Return last token for error reporting (that token is likely the cause of error)."""
+
+    @abstractmethod
+    def mark(self) -> int:
+        """Return current token position index for state capture."""
+
+    @abstractmethod
+    def reset(self, index: int) -> None:
+        """Restore tokenizer state to previously marked position.
+
+        index: Marker from mark() method
+        """
+
+    @abstractmethod
+    def get_lines(self, line_numbers: List[int]) -> List[str]:
+        """Retrieve source lines by line number.
+
+        line_numbers: List of 1-based line numbers
+
+        Returns:
+            Corresponding source lines
+        """
+
+    # Optional but recommended for advanced parsing
+    def get_last_non_whitespace_token(self) -> tokenize.TokenInfo:
+        """Return most recent non-whitespace token.
+
+        The default implementation returns `self.diagnose()`,
+        not guaranteeing it is not a whitespace token."""
+        return self.diagnose()
+
+
+class Tokenizer(AbstractTokenizer):
     """Caching wrapper for the tokenize module.
 
     This is pretty tied to Python's syntax.
@@ -116,3 +162,7 @@ class Tokenizer:
         else:
             tok = self._tokens[self._index - 1]
             print(f"{fill} {shorttok(tok)}")
+
+
+class Tokenizer2(AbstractTokenizer):
+    """..."""

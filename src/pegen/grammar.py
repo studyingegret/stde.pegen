@@ -204,9 +204,11 @@ class Rhs:
 
 
 class Alt:
+    #XXX: icut currently unused? (Not even in metagrammar.gram)
+    #XXX: Purpose of icut?
     def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
         self.items = items
-        self.icut = icut #TODO: Doc
+        self.icut = icut
         self.action = action
 
     def __str__(self) -> str:
@@ -220,7 +222,7 @@ class Alt:
         args = [repr(self.items)]
         if self.icut >= 0:
             args.append(f"icut={self.icut}")
-        if self.action:
+        if self.action is not None:
             args.append(f"action={self.action!r}")
         return f"Alt({', '.join(args)})"
 
@@ -242,7 +244,9 @@ class Alt:
 
 
 class TopLevelItem:
-    """An Item, possibly named, and possibly with a type when named"""
+    """An Item, possibly named, and possibly with a type when named.
+    Called TopLevelItem because it is the top-level item type of Alt. (?)
+    """
     def __init__(self, name: Optional[str], item: Item, type: Optional[str] = None):
         self.name = name
         self.item = item
