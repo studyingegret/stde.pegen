@@ -12,8 +12,9 @@
 
 # TODO: Doc?
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, TypeVarTuple, Generic, Type, TypeVar, Union, cast, NewType
+from typing import TYPE_CHECKING, Generic, TypeAlias, cast
+assert TYPE_CHECKING, "Should never be imported at runtime"
+from typing import Literal, Type, TypeVar, TypeVarTuple, Union
 from pegen.grammar import Grammar
 from pegen.parser import Parser
 from pegen.parser_generator import ParserGenerator
@@ -34,21 +35,18 @@ __all__ = ["WithGrammar", "WithGrammarParser", "WithGrammarTokenizer",
 #   Their display is acceptable in Pylance.
 #
 # Test code of stubs is present at end of file (requires manual checking (probably)).
-WithGrammar = Union[Literal[0], Grammar]
+WithGrammar: TypeAlias = Union[Literal[0], Grammar]
 """1st generic argument"""
-WithGrammarParser = Union[Literal[0], Parser]
+WithGrammarParser: TypeAlias = Union[Literal[0], Parser]
 """2nd generic argument"""
-WithGrammarTokenizer = Union[Literal[0], Tokenizer]
+WithGrammarTokenizer: TypeAlias = Union[Literal[0], Tokenizer]
 """3rd generic argument"""
-WithParserCodeGenerator = Union[Literal[0], ParserGenerator]
+WithParserCodeGenerator: TypeAlias = Union[Literal[0], ParserGenerator]
 """4th generic argument"""
-WithParserCode = Union[Literal[0], str]
+WithParserCode: TypeAlias = Union[Literal[0], str]
 """5th generic argument"""
-WithParserClass = Union[Literal[0], Type[Parser]]
+WithParserClass: TypeAlias = Union[Literal[0], Type[Parser]]
 """6th generic argument"""
-
-# Whether each field is filled out generic
-# If T1 is None, BuiltProducts.grammar is inferred to be always None, etc.
 T1 = TypeVar("T1", WithGrammar, None, Union[WithGrammar, None], covariant=True)
 T2 = TypeVar("T2", WithGrammarParser, None, Union[WithGrammarParser, None], covariant=True)
 T3 = TypeVar("T3", WithGrammarTokenizer, None, Union[WithGrammarTokenizer, None], covariant=True)
@@ -56,7 +54,6 @@ T4 = TypeVar("T4", WithParserCodeGenerator, None, Union[WithParserCodeGenerator,
 T5 = TypeVar("T5", WithParserCode, None, Union[WithParserCode, None], covariant=True)
 T6 = TypeVar("T6", WithParserClass, None, Union[WithParserClass, None], covariant=True)
 MoreTs = TypeVarTuple("MoreTs") # Future compatibility
-
 
 class BuiltProducts(Generic[T1, T2, T3, T4, T5, T6, *MoreTs]):
     # This definition is a type stub only.
@@ -70,15 +67,16 @@ class BuiltProducts(Generic[T1, T2, T3, T4, T5, T6, *MoreTs]):
         assert parser_code_generator != 0
         assert parser_code != 0
         assert parser_class != 0
-        self.grammar = grammar
-        self.grammar_parser = grammar_parser
-        self.grammar_tokenizer = grammar_tokenizer
-        self.parser_code_generator = parser_code_generator
-        self.parser_code = parser_code
-        self.parser_class = parser_class
+        self.grammar = grammar #...
+        self.grammar_parser = grammar_parser #...
+        self.grammar_tokenizer = grammar_tokenizer #...
+        self.parser_code_generator = parser_code_generator #...
+        self.parser_code = parser_code #...
+        self.parser_class = parser_class #...
 
     @property
-    def class_(self) -> T6: ...
+    def class_(self):  #type:ignore
+        return self.parser_class
 
 #class BuiltProducts(_BuiltProducts[T1, T2, T3, T4, T5, T6, *MoreTs]):
 #    def __init__(self, grammar: T1, grammar_parser: T2, grammar_tokenizer: T3,
@@ -124,6 +122,7 @@ if TYPE_CHECKING:
     # Currently shows "Tokenizer*" in Pylance but is acceptable
     # https://github.com/microsoft/pylance-release/discussions/1707
     # https://github.com/microsoft/pyright/blob/046eab4a8dd8344ae614f9214f0871db64085163/docs/type-concepts.md#constrained-type-variables-and-conditional-types
+
     #reveal_type(a.grammar_tokenizer)
 
     # Full range of union

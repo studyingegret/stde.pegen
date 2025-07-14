@@ -5,13 +5,16 @@ from typing import (
     TYPE_CHECKING,
     AbstractSet,
     Any,
+    Generic,
     Iterable,
     Iterator,
     List,
     Optional,
     Set,
     Tuple,
+    TypeVar,
     Union,
+    cast,
 )
 
 if TYPE_CHECKING:
@@ -22,7 +25,9 @@ class GrammarError(Exception):
     pass
 
 
-class GrammarVisitor:
+VisitReturnType = TypeVar("VisitReturnType", bound=Any, default=Any)
+
+class GrammarVisitor(Generic[VisitReturnType]):
     """Code structure that traverses a node in depth-first order.
     It is intended to be used to traverse a Grammar but is not limited
     to Grammars.
@@ -33,12 +38,12 @@ class GrammarVisitor:
     Note: The default visitor, generic_visit, flattens items of 
     iterable nodes that are `list`s.
     """
-    def visit(self, node: Any, *args: Any, **kwargs: Any) -> Any:
+    def visit(self, node: Any, *args: Any, **kwargs: Any) -> VisitReturnType:
         """Visit a node."""
         method = "visit_" + node.__class__.__name__
         #XXX: Viewing a node as non-scalar by whether it is iterable?
         visitor = getattr(self, method, self.generic_visit)
-        return visitor(node, *args, **kwargs)
+        return cast(VisitReturnType, visitor(node, *args, **kwargs))
 
     def generic_visit(self, node: Iterable[Any], *args: Any, **kwargs: Any) -> None:
         """Called if no explicit visitor function exists for a node."""

@@ -1,6 +1,6 @@
 import io
 from contextlib import contextmanager
-from typing import Protocol, Union
+from typing import Any, Protocol, Union
 from collections.abc import Iterator
 
 class PathLike(Protocol):
@@ -16,7 +16,7 @@ File = Union[str, bytes, PathLike, io.TextIOBase]
 
 
 @contextmanager
-def open_file(file_or_path: File, mode="r", *args, **kwargs) -> Iterator[io.TextIOBase]:
+def open_file(file_or_path: File, mode: str = "r", *args: Any, **kwargs: Any) -> Iterator[io.TextIOBase]:
     """Smooths working on a file specified by
     - an opened file (requires io.TextIOBase), or
     - path to open (requires __fspath__()).
@@ -31,4 +31,6 @@ def open_file(file_or_path: File, mode="r", *args, **kwargs) -> Iterator[io.Text
     else:
         # Pylance's typing store of open() uses the abstract class os.PathLike
         with open(file_or_path, mode, *args, **kwargs) as f: #type:ignore
+            if not isinstance(f, io.TextIOBase):
+                raise TypeError("File must be io.TextIOBase")
             yield f

@@ -1,7 +1,7 @@
 import ast
 import re
 import token
-from typing import Any, Dict, List, Optional, Sequence, Set, Text, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Text, Tuple, cast
 from io import TextIOBase
 
 from pegen import grammar
@@ -47,7 +47,7 @@ if __name__ == '__main__':
 """
 
 
-class InvalidNodeVisitor(GrammarVisitor):
+class InvalidNodeVisitor(GrammarVisitor[bool]): #?
     """TODO: Docstring"""
     def visit_NameLeaf(self, node: NameLeaf) -> bool:
         name = node.value
@@ -78,10 +78,10 @@ class InvalidNodeVisitor(GrammarVisitor):
         return self.visit(node.node)
 
     def visit_Repeat(self, node: Repeat0) -> Tuple[str, str]:
-        return self.visit(node.node)
+        return cast(Tuple[str, str], self.visit(node.node)) #?
 
     def visit_Gather(self, node: Gather) -> Tuple[str, str]:
-        return self.visit(node.node)
+        return cast(Tuple[str, str], self.visit(node.node)) #?
 
     def visit_Group(self, node: Group) -> bool:
         return self.visit(node.rhs)
@@ -93,7 +93,7 @@ class InvalidNodeVisitor(GrammarVisitor):
         return self.visit(node.node)
 
 
-class PythonCallMakerVisitor(GrammarVisitor):
+class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
     """Translates grammar items to a 2-tuple of
     - Capture variable name (None for no capture variable name) (`str | None`)
     - Matching code (`str`)
@@ -464,8 +464,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 with self.indent():
                     self.add_return("None")
 
-    def has_invalid(self, node):
+    def has_invalid(self, node: Any) -> bool:
         return self._invalidvisitor.visit(node)
 
-    def actually_used_names_in_action(self, action):
+    def actually_used_names_in_action(self, action: str) -> Set[str]:
         return self._usednamesvisitor.visit(ast.parse(action))

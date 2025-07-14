@@ -29,50 +29,34 @@ use the new equivalents:
 #TODO: Organize comments & docs
 
 import tokenize, io
-from dataclasses import dataclass
-from enum import IntEnum
-from typing import (TYPE_CHECKING, Literal, Never, Optional, Type, Union, cast)
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 from pegen.grammar import Grammar
-from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.parser import Parser
+from pegen.tokenizer import Tokenizer
+from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.parser_generator import ParserGenerator
 from pegen.python_generator import PythonParserGenerator
 from pegen.tokenizer import Tokenizer
 from pegen.utils2 import open_file, File
 
-
-# TODO
-from pegen.build_typing import (WithGrammar, WithGrammarParser, WithGrammarTokenizer,
-                                WithParserCodeGenerator, WithParserCode, WithParserClass)
 if TYPE_CHECKING:
-    # To make IDEs display hints
-    from pegen.build_typing import BuiltProducts
-else:
-    # Real implementation
-    @dataclass(slots=True, frozen=True)
-    class BuiltProducts:
-        """The built products.
+    if (RUNNING_MYPY := False): # Mypy sees `(RUNNING_MYPY := False)` as True
+        from pegen.build_types import (
+            BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+            WithParserCodeGenerator, WithParserCode, WithParserClass)
+    if not (RUNNING_MYPY := False): # Mypy sees `not (RUNNING_MYPY := False)` as False
+        # To make IDEs display hints
+        from pegen.build_typings_not_mypy import (
+            BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+            WithParserCodeGenerator, WithParserCode, WithParserClass)
+else: # Runtime path.
+    from pegen.build_typings import (
+        BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+        WithParserCodeGenerator, WithParserCode, WithParserClass)
 
-        ## Generic notation for signaling "what will be generated"
-        TODO
-        ---
 
-        `class_` is an alias for `parser_class`.
-        """
-        grammar: Optional[Grammar]
-        grammar_parser: Optional[Parser]
-        grammar_tokenizer: Optional[Tokenizer]
-        parser_code_generator: Optional[ParserGenerator]
-        parser_code: Optional[str]
-        parser_class: Optional[Type[Parser]]
-
-        @property
-        def class_(self) -> Optional[Type[Parser]]:
-            return self.parser_class
-
-        def __class_getitem__(cls, x):
-            return cls
+#reveal_type(WithGrammar)
 
 class Return: pass
 
@@ -97,14 +81,14 @@ def _grammar_file_name_fallback(
         return str(grammar_file)  # We give up decoding bytes
     # Weak duck-checking of os.PathLike/utils2.PathLike
     # (really because I'm reluctant to add runtime_checkable for utils2.PathLike)
-    if hasattr(grammar_file, "__fspath__") and callable(grammar_file.__fspath__):  #type:ignore
+    if hasattr(grammar_file, "__fspath__") and callable(grammar_file.__fspath__): #type:ignore
         #XXX: Should catch exception here?
-        p = grammar_file.__fspath__()  #type:ignore
+        p = grammar_file.__fspath__() #type:ignore
         if isinstance(p, (str, bytes)):
             return str(p)  # We give up decoding bytes
     # Files returned by open() have a name attribute
     if hasattr(grammar_file, "name"):
-        return str(grammar_file.name)  #type:ignore
+        return str(grammar_file.name) #type:ignore
     return fallback
 
 
@@ -198,6 +182,8 @@ def generate_code_from_file(
     """
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
     p = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser)
+    #reveal_type(p)
+    #reveal_type(BuiltProducts)
     p2 = generate_code_from_grammar(p.grammar, grammar_file_name, output_file, skip_actions=skip_actions)
     return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, p2.parser_code, None)
@@ -227,7 +213,7 @@ def generate_parser_from_grammar(
     # Grammar → Parser code
     p2 = generate_code_from_grammar(grammar, grammar_file_name, RETURN, skip_actions)
     # Parser code → Parser class
-    ns = {}
+    ns: Any = {}
     exec(cast(str, p2.parser_code), ns)
     return BuiltProducts(generated_grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, None, ns[parser_class_name])

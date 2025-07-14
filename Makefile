@@ -39,11 +39,15 @@ pycoverage:  ## Run the test suite, with Python code coverage
 format: ## Format all files
 	$(PYTHON) -m black src tests
 
-.PHONY: lint
-lint: ## Lint all files
+# The --exclude for mypy notably excludes src/pegen/build_typings_not_mypy.py
+.PHONY: lint black flake8 dmypy
+lint: black flake8 dmypy ## Lint all files
+black:
 	$(PYTHON) -m black --check src tests
+flake8:
 	$(PYTHON) -m flake8 src tests
-	$(PYTHON) -m mypy src/pegen
+dmypy:
+	dmypy run -- src/pegen --follow-imports=normal --always-true RUNNING_MYPY --exclude ".*not_mypy.*"
 
 .PHONY: clean
 clean:  ## Clean any built/generated artifacts
