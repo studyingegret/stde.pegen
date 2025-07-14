@@ -42,25 +42,12 @@ from pegen.tokenizer import Tokenizer
 from pegen.utils2 import open_file, File
 
 
-# The purpose of the type stubs of BuiltProducts below:
-# to make "what fields will be filled out" displayed in IDE type infos.
-#
-# For example, by seeing type hint
-#   def load_grammar_from_file(...) -> BuiltProducts[Y, Y, Y, M, N, N]
-# you know for BuiltProducts returned by load_grammar_from_file,
-# grammar, grammar_parser, grammar_tokenizer will be filled out (will not be None),
-# parser_code_generator might be filled out (might be None)
-# parser_code, parser_class will not be filled out (will be None).
-#
-# Note: Writing BuiltProducts without generic notation is ok (?)
-
-Y = Never  # Field will be filled out
-N = Literal[None]  # Field will not be filled out
-M = Union[Y, N]  # Field might be filled out
-
+# TODO
+from pegen.build_typing import (WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+                                WithParserCodeGenerator, WithParserCode, WithParserClass)
 if TYPE_CHECKING:
     # To make IDEs display hints
-    from build_stubs import BuiltProducts
+    from pegen.build_typing import BuiltProducts
 else:
     # Real implementation
     @dataclass(slots=True, frozen=True)
@@ -68,27 +55,7 @@ else:
         """The built products.
 
         ## Generic notation for signaling "what will be generated"
-        BuiltProducts can be written with six generics, each being `Y`, `N` or `M`;
-        e.g. the return type of `load_grammar_from_file`:
-
-            BuiltProducts[Y, Y, Y, M, N, N]
-
-        It means
-        - The first three fields (`grammar, grammar_parser, grammar_tokenizer`)
-          will be generated, so they will not be None (`Y, Y, Y`).
-        - The fourth field (`grammar_tokenizer`)
-          might be generated, depending on arguments, so might be None (`M`).
-        - The last two fields (`parser_code, parser_class`)
-          will not be generated and will be None (`N, N`).
-
-        This type feature helps you figure out what products to expect from
-        a function by just looking at its signature.
-
-        BuiltProducts can be written without generics.
-
-        Note: Fields in order:
-        `grammar, grammar_parser, grammar_tokenizer, parser_code_generator, parser_code, parser_class`
-
+        TODO
         ---
 
         `class_` is an alias for `parser_class`.
@@ -144,7 +111,7 @@ def _grammar_file_name_fallback(
 def load_grammar_from_file(
     grammar_file: File, verbose_tokenizer: bool = False, verbose_parser: bool = False,
     *, grammar_file_name: Optional[str] = None
-) -> BuiltProducts[Y, Y, Y, N, N, N]:
+) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer, None, None, None]:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
     with open_file(grammar_file) as file:
@@ -160,7 +127,7 @@ def load_grammar_from_file(
 def load_grammar_from_string(
     grammar_string: str, verbose_tokenizer: bool = False, verbose_parser: bool = False,
     *, grammar_file_name: Optional[str] = None
-) -> BuiltProducts[Y, Y, Y, N, N, N]:
+) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer, None, None, None]:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     # Note:
     # If a source name of the grammar string (where it comes from)
@@ -181,7 +148,7 @@ def generate_code_from_grammar(
     grammar_file_name: Optional[str] = None,
     output_file: Union[File, Return] = RETURN,
     skip_actions: bool = False,
-) -> BuiltProducts[N, N, N, Y, M, N]:
+) -> BuiltProducts[None, None, None, WithParserCodeGenerator, Union[WithParserCode, None], None]:
     """[TODO] Generates Python parser code to output_file.
 
     Returns middleware product ParserGenerator.
@@ -209,7 +176,8 @@ def generate_code_from_file(
     skip_actions: bool = False,
     *,
     grammar_file_name: Optional[str] = None,
-) -> BuiltProducts[Y, Y, Y, Y, M, N]:
+) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+                   WithParserCodeGenerator, Union[WithParserCode, None], None]:
     """Output Python parser code to output_file from grammar in grammar_file.
 
     Args: [TODO]
@@ -243,7 +211,8 @@ def generate_parser_from_grammar(
     *,
     grammar_file_name: Optional[str] = None,
     parser_class_name: str = "GeneratedParser",
-) -> BuiltProducts[M, M, M, Y, N, Y]:
+) -> BuiltProducts[Union[WithGrammar, None], Union[WithGrammarParser, None], Union[WithGrammarTokenizer, None],
+                   WithParserCodeGenerator, None, WithParserClass]:
     """[TODO]
     verbose_tokenizer, verbose_parser and grammar_file_name are only effective when grammar is a str.
     """
@@ -273,7 +242,8 @@ def generate_parser_from_file(
     grammar_file_name: Optional[str] = None,
     parser_class_name: str = "GeneratedParser",
 #) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator, Type[Parser]]:
-) -> BuiltProducts[Y, Y, Y, Y, N, Y]:
+) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+                   WithParserCodeGenerator, None, WithParserClass]:
     """[TODO] Generates a Python parser class from grammar in grammar_file.
 
     Args: Same as generate_code_from_file except that output_file is removed and
