@@ -28,8 +28,9 @@ use the new equivalents:
 
 #TODO: Organize comments & docs
 
+import sys
 import tokenize, io
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union, cast
 
 from pegen.grammar import Grammar
 from pegen.parser import Parser
@@ -41,22 +42,14 @@ from pegen.tokenizer import Tokenizer
 from pegen.utils2 import open_file, File
 
 if TYPE_CHECKING:
-    if (RUNNING_MYPY := False): # Mypy sees `(RUNNING_MYPY := False)` as True
-        from pegen.build_types import (
-            BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
-            WithParserCodeGenerator, WithParserCode, WithParserClass)
-    if not (RUNNING_MYPY := False): # Mypy sees `not (RUNNING_MYPY := False)` as False
-        # To make IDEs display hints
-        from pegen.build_typings_not_mypy import (
-            BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
-            WithParserCodeGenerator, WithParserCode, WithParserClass)
-else: # Runtime path.
-    from pegen.build_typings import (
+    from build_typings import (
+        BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+        WithParserCodeGenerator, WithParserCode, WithParserClass)
+else:
+    from .build_types import (
         BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
         WithParserCodeGenerator, WithParserCode, WithParserClass)
 
-
-#reveal_type(WithGrammar)
 
 class Return: pass
 
@@ -206,6 +199,7 @@ def generate_parser_from_grammar(
         grammar_file_name = "<generate_parser_from_grammar>"
     # Grammar string → Grammar
     generated_grammar = None  # None if didn't actually generate
+    p = BuiltProducts(None, None, None, None, None, None)
     if isinstance(grammar, str):
         p = load_grammar_from_string(grammar, verbose_tokenizer, verbose_parser,
                                      grammar_file_name=grammar_file_name)

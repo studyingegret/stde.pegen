@@ -1,83 +1,106 @@
-# Contributing to Pegen
+# Contributing to this fork of Pegen
 
 This project welcomes contributions in the form of Pull Requests.
 For clear bug-fixes / typos etc. just submit a PR.
 For new features or if there is any doubt in how to fix a bug, you might want
 to open an issue prior to starting work to discuss it first.
 
-### Dev notes
+## Before getting started
 
-Please exclude `src/pegen/build_types.py` from analysis in your IDE, for example
-in VS Code:
+To ensure your workflow:
 
-```json
-"python.analysis.exclude": ["src/pegen/build_types.py"]
-```
+- You need to install black, flake8, mypy, pytest and tox.
 
-### Tests
+  ```
+  python -m pip -r dev_requirements.txt
+  ```
+- make is required. [A version of make for Windows](https://github.com/mbuilov/gnumake-windows).
+- Add `src/_typings_not_mypy` to your IDE's extra import paths (or whatever it is called),
+  to get better type hints for module build (1). If it can understand these type hints,
+  ask it to ignore `src/_typings_mypy` (2). Otherwise revert (1) and (2).
 
-`pegen` uses [tox](https://pypi.org/project/tox/) to run the test suite. Make sure
-you have `tox` installed and then you can run the tests with the following command:
+  For example, in VS Code this is done by
+  - adding `src/_typings_not_mypy` to "Python › Analysis: Extra Paths" (1)
+  - adding `src/_typings_mypy` to "Python › Analysis: Exclude" (2)
+
+  or, equivalently, adding the JSON key & value to settings.json:
+  ```
+  "python.analysis.extraPaths": ["src/_typings_not_mypy"], // (1)
+  "python.analysis.exclude": ["src/pegen/build_types.py"], // (2)
+  ```
+
+  Note: If your IDE is configured to use Pyright, you might not need to do this
+  because I [configured](https://github.com/microsoft/pyright/blob/main/docs/configuration.md) so
+  in `pyproject.toml`.
+- In case you are not used to it, this fork stores tool options in `pyproject.toml`.
+  If you change an option, and consider it valuable to make the change persist,
+  put it there.
+
+## Installation type stubs
+[XXX:?]
+
+## All checks (?)
 
 ```
 python -m tox
 ```
 
 This will check that all the tests pass but also will make several checks on the code style
-and type annotations of the package.
+and type annotations of the package. It also does some things I don't really understand.
 
-Additionally, if you want to just run the tests and you have `pytest` installed, you can run
-the tests directly by running:
+## Tests
+
+To run the test suite:
 
 ```
 python -m pytest tests
-```
-
-Or if you have `make`, run the following:
-
-```
+# Or
 make check
 ```
 
 New code should ideally have tests and not break existing tests.
 
-### Type Checking
+## Type Checking
 
 `pegen` uses type annotations throughout, and uses `mypy` to do the checking.
-Run the following to type check `pegen` (excludes test code):
+Run the following to type check all code:
 
 ```
-python -m mypy src/pegen --follow-imports=normal --always-true RUNNING_MYPY --exclude ".*not_mypy.*"
+python -m mypy
 ```
 
-You may find [mypy's daemon server](https://mypy.readthedocs.io/en/stable/mypy_daemon.html) useful,
-which saves time over multiple runs.
+You can use [mypy's daemon server](https://mypy.readthedocs.io/en/stable/mypy_daemon.html) to
+save time and computation over multiple runs:
 
 ```
-dmypy run -- src/pegen --follow-imports=normal --always-true RUNNING_MYPY --exclude ".*not_mypy.*"
+dmypy run
 ```
 
-dmypy is used in this fork by default.
+> dmypy is used in this fork's tox.ini and Makefile.
 
-> This fork adds some flags for mypy; they are in `lint` task in Makefile.
+mypy options are stored in `pyproject.toml`.
 
-### All lints
+To only check some files, add the paths/filenames on the command line:
+```
+python -m mypy src
+# Or
+dmypy run -- src
+```
 
-Check code style with `black` and `flake8`. Type check with `mypy` (files in `src` only).
+## Lints
+
+Checks code style with `black` and `flake8` (in folders `src`, `tests` only)
+and type checks with `mypy`.
 
 ```
 python -m tox -e lint
-```
-
-Or if you have `make` and `mypy` is installed in your current Python environment:
-
-```
+# Or
 make lint
 ```
 
 Please add type annotations for all new code.
 
-### Code Formatting
+## Code Formatting
 
 `pegen` uses [`black`](https://github.com/psf/black) for code formatting.
 I recommend setting up black in your editor to format on save.

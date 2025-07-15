@@ -6,12 +6,13 @@ readme = "README.md"
 requires-python = ">=3.8, <4"
 license = {file = "LICENSE"}
 authors = [
-  {name = "Guido van Rossum"},
-  {name = "Pablo Galindo", email = "pablogsal@gmail.com"},
-  {name = "Lysandros Nikolaou", email = "lisandrosnik@gmail.com"}
+    {name = "Guido van Rossum"},
+    {name = "Pablo Galindo", email = "pablogsal@gmail.com"},
+    {name = "Lysandros Nikolaou", email = "lisandrosnik@gmail.com"},
+    {name = "studyingegret", email = "a3times7@outlook.com"}
 ]
 maintainers = [
-  {name = "Matthieu C. Dartiailh", email = "m.dartiailh@gmail.com"}
+    {name = "Matthieu C. Dartiailh", email = "m.dartiailh@gmail.com"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -29,7 +30,6 @@ classifiers = [
 keywords = ["parser", "CPython", "PEG", "pegen"]
 dynamic=["version"]
 
-
 [project.optional-dependencies]
 docs = ["sphinx", "sphinx-copybutton", "furo"]
 lint = ["black", "flake8", "mypy"]
@@ -37,14 +37,12 @@ test = ["pytest", "pytest-cov"]
 memory = ["psutil"]
 web = ["flask", "flask-wtf"]
 
-
 [project.urls]
-homepage = "https://github.com/we-like-parsers/pegen"
-documentation = "https://we-like-parsers.github.io/pegen/"
-source = "https://github.com/we-like-parsers/pegen"
-changelog = "https://github.com/we-like-parsers/pegen/releasenotes.rst"
-bug_reports = "https://github.com/we-like-parsers/pegen/issues"
-
+Homepage = "https://github.com/we-like-parsers/pegen"
+Documentation = "https://we-like-parsers.github.io/pegen/"
+Source = "https://github.com/we-like-parsers/pegen"
+Changelog = "https://github.com/we-like-parsers/pegen/releasenotes.rst"
+"Bug reports" = "https://github.com/we-like-parsers/pegen/issues"
 
 [build-system]
 requires = ["setuptools>=61.2", "wheel", "setuptools_scm[toml]>=3.4.3"]
@@ -59,23 +57,26 @@ line-length = 99
 target_version = ['py38']
 exclude = '''
 (
-          /pegen/grammar_parser.py            # generated file
-        | /tests/python_parser/data/          # test files
-        | /tests/python_parser/parser_cache/  # generated parser
+      /pegen/grammar_parser.py            # generated file
+    | /tests/python_parser/data/          # test files
+    | /tests/python_parser/parser_cache/  # generated parser
 )
 '''
 
-
 [tool.pytest.ini_options]
 norecursedirs = [
-  "data/failset",
-  "cpython"
+    "data/failset",
+    "cpython"
 ]
 
 [tool.mypy]
-files = ["pegen", "scripts", "tests"]
+#files = ["src/pegen/**/*.py", "scripts/**/*.py", "tests/**/*.py"]
+files = ["src/pegen/**/*.py", "scripts/**/*.py"]
+mypy_path = ["src/_typings_mypy"]
+exclude = [".*_typings_not_mypy.*", "tests/data/.*"]
 
-follow_imports = "error"
+#follow_imports = "error" #?
+follow_imports = "normal"
 no_implicit_optional = true
 strict_optional = true
 
@@ -88,7 +89,7 @@ disallow_incomplete_defs = true
 disallow_subclassing_any = true
 
 warn_unused_configs = true
-warn_unused_ignores = true
+#warn_unused_ignores = true
 warn_redundant_casts = true
 warn_no_return = true
 
@@ -96,13 +97,14 @@ show_traceback = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = [
-    "pegen.grammar_parser"
-]
+module = ["pegen.grammar_parser"]
 strict_optional = false
 
 [[tool.mypy.overrides]]
-module = [
-    "psutil"
-]
+module = ["psutil"]
 ignore_missing_imports = true
+
+[tool.pyright]
+# Skip analyzing build_types.py, instead refer to _typings_not_mypy/build_typings.py for better hints
+exclude = ["src/pegen/build_types.py"]
+extraPaths = ["src/_typings_not_mypy"]

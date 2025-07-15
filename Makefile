@@ -40,14 +40,15 @@ format: ## Format all files
 	$(PYTHON) -m black src tests
 
 # The --exclude for mypy notably excludes src/pegen/build_typings_not_mypy.py
-.PHONY: lint black flake8 dmypy
+.PHONY: lint black flake8 dmypy mypy
 lint: black flake8 dmypy ## Lint all files
 black:
 	$(PYTHON) -m black --check src tests
 flake8:
 	$(PYTHON) -m flake8 src tests
-dmypy:
-	dmypy run -- src/pegen --follow-imports=normal --always-true RUNNING_MYPY --exclude ".*not_mypy.*"
+dmypy: #XXX: How to make setting environment variable cross-platform?
+	dmypy run
+mypy: dmypy # Backward compatibility
 
 .PHONY: clean
 clean:  ## Clean any built/generated artifacts

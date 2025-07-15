@@ -1,3 +1,8 @@
+# This version is more complicated so you may not want to use it
+# if your type tool is not smart enough.
+
+#TODO: This might be simplifiable?
+
 # This type stub is to make "what fields will be filled out" displayed in IDE type infos.
 # It is ignored at runtime.
 # See definition in module build for real implementation.
@@ -12,7 +17,7 @@
 
 # TODO: Doc?
 
-from typing import TYPE_CHECKING, Generic, TypeAlias, cast
+from typing import TYPE_CHECKING, Generic, TypeAlias
 assert TYPE_CHECKING, "Should never be imported at runtime"
 from typing import Literal, Type, TypeVar, TypeVarTuple, Union
 from pegen.grammar import Grammar
@@ -88,57 +93,60 @@ class BuiltProducts(Generic[T1, T2, T3, T4, T5, T6, *MoreTs]):
 
 # Test the display in IDEs (not complete yet)
 if TYPE_CHECKING:
-    import random
-    g = cast(Grammar, 0)  # grammar
-    gp = cast(Parser, 0)  # grammar_parser
-    gt = cast(Tokenizer, 0)  # grammar_tokenizer
-    pcg = cast(ParserGenerator, 0)  # parser_code_generator
-    pcode = "a"  # parser_code
-    pcls = cast(Type[Parser], 0)  # parser_class
+    from typing import cast
 
-    def func() -> BuiltProducts[
-        Union[WithGrammar, None], Union[WithGrammarParser, None], WithGrammarTokenizer,
-        WithParserCodeGenerator, WithParserCode, WithParserClass
-    ]:
-        """Return type name should remain as-is (or nearly as-is(?)) in signature hint"""
-        ...
+    def test_code():
+        import random
+        g = cast(Grammar, 0)  # grammar
+        gp = cast(Parser, 0)  # grammar_parser
+        gt = cast(Tokenizer, 0)  # grammar_tokenizer
+        pcg = cast(ParserGenerator, 0)  # parser_code_generator
+        pcode = "a"  # parser_code
+        pcls = cast(Type[Parser], 0)  # parser_class
 
-    test: BuiltProducts[
-        Union[WithGrammar, None], Union[WithGrammarParser, None], WithGrammarTokenizer,
-        WithParserCodeGenerator, WithParserCode, WithParserClass]
+        def func() -> BuiltProducts[
+            Union[WithGrammar, None], Union[WithGrammarParser, None], WithGrammarTokenizer,
+            WithParserCodeGenerator, WithParserCode, WithParserClass
+        ]:
+            """Return type name should remain as-is (or nearly as-is(?)) in signature hint"""
+            ...
 
-    # Statements should pass unless where noted in comments
+        test: BuiltProducts[
+            Union[WithGrammar, None], Union[WithGrammarParser, None], WithGrammarTokenizer,
+            WithParserCodeGenerator, WithParserCode, WithParserClass]
 
-    # Branch of union
-    a = BuiltProducts(g, None, gt, pcg, pcode, pcls)
-    test = a
-    """Type of a in IDE (e.g. hover hint) should be shown as:
-    BuiltProducts[WithGrammar, None, WithGrammarTokenizer,
-    WithParserCodeGenerator, WithParserCode, WithParserClass, <extra content here is accepted>]
-    """
+        # Statements should pass unless where noted in comments
 
-    # Type should show "Tokenizer"
-    a.grammar_tokenizer
-    # Currently shows "Tokenizer*" in Pylance but is acceptable
-    # https://github.com/microsoft/pylance-release/discussions/1707
-    # https://github.com/microsoft/pyright/blob/046eab4a8dd8344ae614f9214f0871db64085163/docs/type-concepts.md#constrained-type-variables-and-conditional-types
+        # Branch of union
+        a = BuiltProducts(g, None, gt, pcg, pcode, pcls)
+        test = a
+        """Type of a in IDE (e.g. hover hint) should be shown as:
+        BuiltProducts[WithGrammar, None, WithGrammarTokenizer,
+        WithParserCodeGenerator, WithParserCode, WithParserClass, <extra content here is accepted>]
+        """
 
-    #reveal_type(a.grammar_tokenizer)
+        # Type should show "Tokenizer"
+        a.grammar_tokenizer
+        # Currently shows "Tokenizer*" in Pylance but is acceptable
+        # https://github.com/microsoft/pylance-release/discussions/1707
+        # https://github.com/microsoft/pyright/blob/046eab4a8dd8344ae614f9214f0871db64085163/docs/type-concepts.md#constrained-type-variables-and-conditional-types
 
-    # Full range of union
-    b = BuiltProducts(random.choice([g, None]), random.choice([gp, None]), gt, pcg, pcode, pcls)
-    test = b
-    """Type of b in IDE (e.g. hover hint) should be shown as:
-    BuiltProducts[WithGrammar | None, WithGrammarParser | None, WithGrammarTokenizer,
-    WithParserCodeGenerator, WithParserCode, WithParserClass, <extra content here is accepted>]
-    """
+        #reveal_type(a.grammar_tokenizer)
 
-    # Possible types too wide
-    c = BuiltProducts(g, gp, random.choice([gt, None]), pcg, pcode, pcls)
-    # Assignment should fail like 'Type "WithGrammarTokenizer | None" is not assignable to type "WithGrammarTokenizer"'
-    # Uncomment this to test (remember to re-comment when committing :))
-    #test = c
-    """Type of b in IDE (e.g. hover hint) should be shown as:
-    BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer | None,
-    WithParserCodeGenerator, WithParserCode, WithParserClass, <extra content here is accepted>]
-    """
+        # Full range of union
+        b = BuiltProducts(random.choice([g, None]), random.choice([gp, None]), gt, pcg, pcode, pcls)
+        test = b
+        """Type of b in IDE (e.g. hover hint) should be shown as:
+        BuiltProducts[WithGrammar | None, WithGrammarParser | None, WithGrammarTokenizer,
+        WithParserCodeGenerator, WithParserCode, WithParserClass, <extra content here is accepted>]
+        """
+
+        # Possible types too wide
+        c = BuiltProducts(g, gp, random.choice([gt, None]), pcg, pcode, pcls)
+        # Assignment should fail like 'Type "WithGrammarTokenizer | None" is not assignable to type "WithGrammarTokenizer"'
+        # Uncomment this to test (remember to re-comment when committing :))
+        #test = c
+        """Type of b in IDE (e.g. hover hint) should be shown as:
+        BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer | None,
+        WithParserCodeGenerator, WithParserCode, WithParserClass, <extra content here is accepted>]
+        """

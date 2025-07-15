@@ -14,8 +14,6 @@ from typing import Tuple
 
 from pegen.build import (
     BuiltProducts,
-    Y,
-    M,
     Grammar,
     Parser,
     ParserGenerator,
@@ -27,7 +25,7 @@ from pegen.validator import validate_grammar
 
 def generate_python_code(
     args: argparse.Namespace,
-) -> BuiltProducts[[]]:
+) -> BuiltProducts:
     verbose = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
