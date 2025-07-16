@@ -28,6 +28,7 @@ use the new equivalents:
 
 #TODO: Organize comments & docs
 
+from enum import Enum
 import sys
 import tokenize, io
 from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union, cast
@@ -41,22 +42,36 @@ from pegen.python_generator import PythonParserGenerator
 from pegen.tokenizer import Tokenizer
 from pegen.utils2 import open_file, File
 
+
 if TYPE_CHECKING:
-    from build_typings import (
-        BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
-        WithParserCodeGenerator, WithParserCode, WithParserClass)
+    RUNNING_PYRIGHT = False # Pyright sees as True
+    if RUNNING_PYRIGHT:
+        from _typings_not_mypy.build_typings import (
+            BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+            WithParserCodeGenerator, WithParserCode, WithParserClass)
+    else:
+        from _typings_mypy.build_typings import (
+            BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+            WithParserCodeGenerator, WithParserCode, WithParserClass)
 else:
     from .build_types import (
         BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
         WithParserCodeGenerator, WithParserCode, WithParserClass)
 
 
-class Return: pass
+AnyBuiltProducts = BuiltProducts[
+    Union[WithGrammar, None], Union[WithGrammarParser, None], Union[WithGrammarTokenizer, None],
+    Union[WithParserCodeGenerator, None], Union[WithParserCode, None], Union[WithParserClass, None]]
+
+# To make it usable in Literal, I make it an enum
+# Hopefully it's not so disturbing
+class Flags(Enum): RETURN = 0
 
 # Flag to set for parameter output_file
 # in generate_code_from_grammar and generate_code_from_file:
 # Tells to return code string (as tuple item) instead of generating it to output_file.
-RETURN = Return()
+RETURN = Flags.RETURN
+#assert RETURN is Flags.RETURN
 
 DEFAULT_SOURCE_NAME_FALLBACK = "<unknown>"
 
@@ -123,7 +138,7 @@ def load_grammar_from_string(
 def generate_code_from_grammar(
     grammar: Grammar,
     grammar_file_name: Optional[str] = None,
-    output_file: Union[File, Return] = RETURN,
+    output_file: Union[File, Literal[Flags.RETURN]] = Flags.RETURN,
     skip_actions: bool = False,
 ) -> BuiltProducts[None, None, None, WithParserCodeGenerator, Union[WithParserCode, None], None]:
     """[TODO] Generates Python parser code to output_file.
@@ -132,22 +147,22 @@ def generate_code_from_grammar(
     """
     if grammar_file_name is None:
         grammar_file_name = "<generate_code_from_grammar>"
-    if output_file is RETURN:
+    if output_file is Flags.RETURN:
         with io.StringIO() as file:
             gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
             gen.generate(grammar_file_name)
             return BuiltProducts(None, None, None, gen, file.getvalue(), None)
     else:
-        if TYPE_CHECKING: output_file = cast(File, output_file)
         with open_file(output_file, "w") as file:
             gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
             gen.generate(grammar_file_name)
             return BuiltProducts(None, None, None, gen, None, None)
 
 
+
 def generate_code_from_file(
     grammar_file: File,
-    output_file: Union[File, Return] = RETURN,
+    output_file: Union[File, Literal[Flags.RETURN]] = Flags.RETURN,
     verbose_tokenizer: bool = False,
     verbose_parser: bool = False,
     skip_actions: bool = False,
@@ -175,8 +190,6 @@ def generate_code_from_file(
     """
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
     p = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser)
-    #reveal_type(p)
-    #reveal_type(BuiltProducts)
     p2 = generate_code_from_grammar(p.grammar, grammar_file_name, output_file, skip_actions=skip_actions)
     return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, p2.parser_code, None)
@@ -199,6 +212,8 @@ def generate_parser_from_grammar(
         grammar_file_name = "<generate_parser_from_grammar>"
     # Grammar string → Grammar
     generated_grammar = None  # None if didn't actually generate
+    p: BuiltProducts[Union[WithGrammar, None], Union[WithGrammarParser, None],
+                     Union[WithGrammarTokenizer, None], None, None, None]
     p = BuiltProducts(None, None, None, None, None, None)
     if isinstance(grammar, str):
         p = load_grammar_from_string(grammar, verbose_tokenizer, verbose_parser,

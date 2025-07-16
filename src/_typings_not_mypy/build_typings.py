@@ -17,6 +17,7 @@
 
 # TODO: Doc?
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, TypeAlias
 assert TYPE_CHECKING, "Should never be imported at runtime"
 from typing import Literal, Type, TypeVar, TypeVarTuple, Union
@@ -40,17 +41,18 @@ __all__ = ["WithGrammar", "WithGrammarParser", "WithGrammarTokenizer",
 #   Their display is acceptable in Pylance.
 #
 # Test code of stubs is present at end of file (requires manual checking (probably)).
-WithGrammar: TypeAlias = Union[Literal[0], Grammar]
+class __I: pass
+WithGrammar: TypeAlias = Union[__I, Grammar]
 """1st generic argument"""
-WithGrammarParser: TypeAlias = Union[Literal[0], Parser]
+WithGrammarParser: TypeAlias = Union[__I, Parser]
 """2nd generic argument"""
-WithGrammarTokenizer: TypeAlias = Union[Literal[0], Tokenizer]
+WithGrammarTokenizer: TypeAlias = Union[__I, Tokenizer]
 """3rd generic argument"""
-WithParserCodeGenerator: TypeAlias = Union[Literal[0], ParserGenerator]
+WithParserCodeGenerator: TypeAlias = Union[__I, ParserGenerator]
 """4th generic argument"""
-WithParserCode: TypeAlias = Union[Literal[0], str]
+WithParserCode: TypeAlias = Union[__I, str]
 """5th generic argument"""
-WithParserClass: TypeAlias = Union[Literal[0], Type[Parser]]
+WithParserClass: TypeAlias = Union[__I, Type[Parser]]
 """6th generic argument"""
 T1 = TypeVar("T1", WithGrammar, None, Union[WithGrammar, None], covariant=True)
 T2 = TypeVar("T2", WithGrammarParser, None, Union[WithGrammarParser, None], covariant=True)
@@ -60,18 +62,19 @@ T5 = TypeVar("T5", WithParserCode, None, Union[WithParserCode, None], covariant=
 T6 = TypeVar("T6", WithParserClass, None, Union[WithParserClass, None], covariant=True)
 MoreTs = TypeVarTuple("MoreTs") # Future compatibility
 
+@dataclass
 class BuiltProducts(Generic[T1, T2, T3, T4, T5, T6, *MoreTs]):
     # This definition is a type stub only.
     # Real definition is in build.py.
 
     def __init__(self, grammar: T1, grammar_parser: T2, grammar_tokenizer: T3,
                  parser_code_generator: T4, parser_code: T5, parser_class: T6):
-        assert grammar != 0
-        assert grammar_parser != 0
-        assert grammar_tokenizer != 0
-        assert parser_code_generator != 0
-        assert parser_code != 0
-        assert parser_class != 0
+        assert not isinstance(grammar, __I)
+        assert not isinstance(grammar_parser, __I)
+        assert not isinstance(grammar_tokenizer, __I)
+        assert not isinstance(parser_code_generator, __I)
+        assert not isinstance(parser_code, __I)
+        assert not isinstance(parser_class, __I)
         self.grammar = grammar #...
         self.grammar_parser = grammar_parser #...
         self.grammar_tokenizer = grammar_tokenizer #...

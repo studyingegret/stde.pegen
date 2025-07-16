@@ -28,7 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 keywords = ["parser", "CPython", "PEG", "pegen"]
-dynamic=["version"]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 docs = ["sphinx", "sphinx-copybutton", "furo"]
@@ -70,9 +70,9 @@ norecursedirs = [
 ]
 
 [tool.mypy]
-#files = ["src/pegen/**/*.py", "scripts/**/*.py", "tests/**/*.py"]
-files = ["src/pegen/**/*.py", "scripts/**/*.py"]
-mypy_path = ["src/_typings_mypy"]
+#files = ["src/pegen/**/*.py", "scripts/**/*.py"]
+files = ["src/pegen/**/*.py", "scripts/**/*.py", "tests/**/*.py"]
+#mypy_path = ["src/_typings_mypy"]
 exclude = [".*_typings_not_mypy.*", "tests/data/.*"]
 
 #follow_imports = "error" #?
@@ -94,7 +94,12 @@ warn_redundant_casts = true
 warn_no_return = true
 
 show_traceback = true
+show_column_numbers = true
+show_error_end = true
 show_error_codes = true
+
+always_true = ["RUNNING_MYPY"]
+always_false = ["RUNNING_PYRIGHT"]
 
 [[tool.mypy.overrides]]
 module = ["pegen.grammar_parser"]
@@ -107,4 +112,5 @@ ignore_missing_imports = true
 [tool.pyright]
 # Skip analyzing build_types.py, instead refer to _typings_not_mypy/build_typings.py for better hints
 exclude = ["src/pegen/build_types.py"]
-extraPaths = ["src/_typings_not_mypy"]
+# extraPaths = ["src/_typings_not_mypy"]
+defineConstant = { RUNNING_PYRIGHT = true, RUNNING_MYPY = false }

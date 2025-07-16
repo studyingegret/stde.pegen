@@ -1,4 +1,4 @@
-# Contributing to this fork of Pegen
+# Contributing to this Pegen fork
 
 This project welcomes contributions in the form of Pull Requests.
 For clear bug-fixes / typos etc. just submit a PR.
@@ -14,30 +14,43 @@ To ensure your workflow:
   ```
   python -m pip -r dev_requirements.txt
   ```
+
+  Note: pep517.build is present in Makefile but I cannot find usage of its belonging task.
 - make is required. [A version of make for Windows](https://github.com/mbuilov/gnumake-windows).
-- Add `src/_typings_not_mypy` to your IDE's extra import paths (or whatever it is called),
-  to get better type hints for module build (1). If it can understand these type hints,
-  ask it to ignore `src/_typings_mypy` (2). Otherwise revert (1) and (2).
+- (Optional) [TODO: This item needs rewriting] For better typings for module `build`:
+  Add `src/_typings_not_mypy` to your IDE's extra import paths (or whatever it is called).
+  - If it can understand these type hints, ask it to ignore `src/_typings_mypy` and `src/pegen/build_types.py` (2).
+  - If it cannot understand them, ask it to ignore `src/_typings_not_mypy` and `src/pegen/build_types.py` and not ignore `src/_typings_mypy` (3).
 
-  For example, in VS Code this is done by
-  - adding `src/_typings_not_mypy` to "Python › Analysis: Extra Paths" (1)
-  - adding `src/_typings_mypy` to "Python › Analysis: Exclude" (2)
+  For example, in VS Code this is done by "Python › Analysis: Extra Paths" and "Python › Analysis: Exclude".
 
-  or, equivalently, adding the JSON key & value to settings.json:
-  ```
-  "python.analysis.extraPaths": ["src/_typings_not_mypy"], // (1)
-  "python.analysis.exclude": ["src/pegen/build_types.py"], // (2)
-  ```
-
-  Note: If your IDE is configured to use Pyright, you might not need to do this
+  Note: If your IDE is configured to use Pyright, you might not need to do these
   because I [configured](https://github.com/microsoft/pyright/blob/main/docs/configuration.md) so
   in `pyproject.toml`.
 - In case you are not used to it, this fork stores tool options in `pyproject.toml`.
   If you change an option, and consider it valuable to make the change persist,
   put it there.
 
+  Note: flake8 options cannot be put in `pyproject.toml`.
+
+## Known possibly broken aspects
+- Support for different versions of Python. I can pass the tests with 3.13.2 but didn't
+  test any other versions.
+- 
+
 ## Installation type stubs
-[XXX:?]
+[TODO:?]
+
+## Generating the grammar parser
+Pegen's grammar parser (`grammar_parser.py`) is self-generated from `metagrammar.gram`.
+
+```
+python -m pegen src/pegen/metagrammar.gram -o src/pegen/grammar_parser.py
+```
+
+Add `-v` flag for verbose output and full traceback on errors.
+
+The make `regen-metaparser` task does a similar thing.
 
 ## All checks (?)
 
@@ -105,6 +118,6 @@ Please add type annotations for all new code.
 `pegen` uses [`black`](https://github.com/psf/black) for code formatting.
 I recommend setting up black in your editor to format on save.
 
-[XXX: What about flake8?]
+[XXX: But flake8 is also present in Makefile?]
 
 To run black from the command line, use `make format` to format and write to the files.

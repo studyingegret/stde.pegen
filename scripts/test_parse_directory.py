@@ -144,7 +144,7 @@ def parse_directory(
 
         try:
             if not parser:
-                grammar = load_grammar_from_file(grammar_file)[0]
+                grammar = load_grammar_from_file(grammar_file).grammar
                 GeneratedParser = generate_parser(grammar)  # TODO: skip_actions
         except Exception as err:
             print(
@@ -159,7 +159,8 @@ def parse_directory(
     else:
         print("A grammar file was not provided - attempting to use existing file...\n")
         try:
-            sys.path.insert(0, sys.path.insert(0, os.path.join(os.getcwd(), "data")))
+            #sys.path.insert(0, sys.path.insert(0, os.path.join(os.getcwd(), "data"))) #??
+            sys.path = [None, os.path.join(os.getcwd(), "data")] + sys.path
             from python_parser import GeneratedParser
         except:
             print(

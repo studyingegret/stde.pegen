@@ -20,7 +20,8 @@ from typing import Any
 
 sys.path.insert(0, ".")
 from pegen.build import load_grammar_from_file
-from pegen.utils import generate_parser, generate_parser_c_extension, parse_string
+from pegen.utils import generate_parser, parse_string
+from pegen.utils import generate_parser_c_extension #type:ignore[attr-defined]
 
 GRAMMAR_FILE = "data/python.gram"
 INITIAL_NESTING_DEPTH = 10
@@ -54,9 +55,9 @@ def main() -> None:
 
     with TemporaryDirectory() as tmp_dir:
         nesting_depth = INITIAL_NESTING_DEPTH
-        rules, parser, tokenizer = load_grammar_from_file(GRAMMAR_FILE)
-        python_parser = generate_parser(rules)
-        c_parser = generate_parser_c_extension(rules, Path(tmp_dir))
+        grammar = load_grammar_from_file(GRAMMAR_FILE).grammar
+        python_parser = generate_parser(grammar)
+        c_parser = generate_parser_c_extension(grammar, Path(tmp_dir))
 
         c_succeeded = True
         python_succeeded = True

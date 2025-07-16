@@ -136,7 +136,7 @@ def main() -> None:
     args = argparser.parse_args()
 
     try:
-        grammar, parser, tokenizer = load_grammar_from_file(args.grammar_file)
+        grammar = load_grammar_from_file(args.grammar_file).grammar
     except Exception:
         print("ERROR: Failed to parse grammar file", file=sys.stderr)
         sys.exit(1)

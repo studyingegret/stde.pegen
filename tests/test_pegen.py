@@ -712,9 +712,9 @@ def test_hard_keywords() -> None:
 
 def test_skip_actions() -> None:
     grammar = 'start: NAME { "pizza!!!" }'
-    parser_class = generate_parser_from_grammar(grammar)[-1]
+    parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parse_string2(parser_class, "hello") == "pizza!!!"
-    parser_class = generate_parser_from_grammar(grammar, skip_actions=True)[-1]
+    parser_class = generate_parser_from_grammar(grammar, skip_actions=True).parser_class
     # Note: NAME returns TokenInfo
     assert (parse_string2(parser_class, "hello")
             == TokenInfo(type=token.NAME, string="hello", start=(1, 0), end=(1, 5), line="hello"))

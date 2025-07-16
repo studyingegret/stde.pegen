@@ -28,7 +28,10 @@ T5 = TypeVar("T5", WithParserCode, None, Union[WithParserCode, None], covariant=
 T6 = TypeVar("T6", WithParserClass, None, Union[WithParserClass, None], covariant=True)
 MoreTs = TypeVarTuple("MoreTs")
 
-@dataclass(slots=True, frozen=True)
+# mypy complains: "BuiltProducts" both defines "__slots__" and is used with "slots=True"
+# though I can't see where I defined __slots__
+#@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class BuiltProducts(Generic[T1, T2, T3, T4, T5, T6, *MoreTs]):
     """The built products.
 
@@ -53,7 +56,7 @@ class BuiltProducts(Generic[T1, T2, T3, T4, T5, T6, *MoreTs]):
 # NOTE: I haven't tested yet
 if TYPE_CHECKING:
     from typing import cast
-    def test_code():
+    def test_code() -> None:
         import random
         g = cast(Grammar, 0)  # grammar
         gp = cast(Parser, 0)  # grammar_parser
