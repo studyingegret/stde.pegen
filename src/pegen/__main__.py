@@ -10,14 +10,10 @@ import sys
 import time
 import token
 import traceback
-from typing import Tuple
+from typing import Union
 
 from pegen.build import (
     BuiltProducts,
-    Grammar,
-    Parser,
-    ParserGenerator,
-    Tokenizer,
     generate_code_from_file,
     WithGrammar, WithGrammarParser, WithGrammarTokenizer, WithParserCodeGenerator, WithParserCode
 )
@@ -26,7 +22,8 @@ from pegen.validator import validate_grammar
 
 def generate_python_code(
     args: argparse.Namespace,
-) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer, WithParserCodeGenerator, Union[WithParserCode, None], None]:
+) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
+                   WithParserCodeGenerator, Union[WithParserCode, None], None]:
     verbose = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4

@@ -43,7 +43,7 @@ def test_parse_grammar_with_types() -> None:
     c_rule[expr_ty*]: a=NUMBER? { _new_expr_ty(a) }
     """
 
-    grammar = cast(Grammar, parse_string(grammar, GrammarParser))
+    grammar = parse_string(grammar, GrammarParser)
     rules = grammar.rules
     assert rules["start"].type.replace(" ", "") == "ast.BinOp" #type:ignore
     assert rules["term"].type.replace(" ", "") == "T[int]" #type:ignore

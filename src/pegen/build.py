@@ -20,7 +20,7 @@ However, generate_parser_from_grammar accepts grammar string.
 
 ## Migration from early versions
 The old functions are still there but new code is encouraged to
-use the new equivalents:
+use the new equivalents because the legacy functions are not tested anymore:
 - build_parser → load_grammar_from_file
 - build_python_generator → generate_code_from_grammar
 - build_python_parser_and_generator → generate_code_from_file
@@ -29,9 +29,8 @@ use the new equivalents:
 #TODO: Organize comments & docs
 
 from enum import Enum
-import sys
 import tokenize, io
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, Union, cast
 
 from pegen.grammar import Grammar
 from pegen.parser import Parser
@@ -42,10 +41,18 @@ from pegen.python_generator import PythonParserGenerator
 from pegen.tokenizer import Tokenizer
 from pegen.utils2 import open_file, File
 
+__all__ = ["Grammar", "Parser", "Tokenizer", "GrammarParser", "ParserGenerator",
+           "PythonParserGenerator", "Flags",
+           "load_grammar_from_string", "load_grammar_from_file",
+           "generate_code_from_grammar", "generate_code_from_file",
+           "generate_parser_from_grammar", "generate_parser_from_file",
+           "BuiltProducts", "WithGrammar", "WithGrammarParser", "WithGrammarTokenizer",
+           "WithParserCodeGenerator", "WithParserCode", "WithParserClass"]
+
 
 if TYPE_CHECKING:
-    RUNNING_PYRIGHT = False # Pyright sees as True
-    if RUNNING_PYRIGHT:
+    PEGEN_ENABLE_ENHANCED_TYPE_HINTS = False # Pyright sees as True
+    if PEGEN_ENABLE_ENHANCED_TYPE_HINTS:
         from _typings_not_mypy.build_typings import (
             BuiltProducts, WithGrammar, WithGrammarParser, WithGrammarTokenizer,
             WithParserCodeGenerator, WithParserCode, WithParserClass)
@@ -63,15 +70,15 @@ AnyBuiltProducts = BuiltProducts[
     Union[WithGrammar, None], Union[WithGrammarParser, None], Union[WithGrammarTokenizer, None],
     Union[WithParserCodeGenerator, None], Union[WithParserCode, None], Union[WithParserClass, None]]
 
+
 # To make it usable in Literal, I make it an enum
 # Hopefully it's not so disturbing
-class Flags(Enum): RETURN = 0
+class Flags(Enum):
+    RETURN = 0
+    """Flag to set for parameter `output_file`
+    in `generate_code_from_grammar` and `generate_code_from_file`:
+    Return code string (as tuple item) instead of generating it to output_file."""
 
-# Flag to set for parameter output_file
-# in generate_code_from_grammar and generate_code_from_file:
-# Tells to return code string (as tuple item) instead of generating it to output_file.
-RETURN = Flags.RETURN
-#assert RETURN is Flags.RETURN
 
 DEFAULT_SOURCE_NAME_FALLBACK = "<unknown>"
 
@@ -111,7 +118,7 @@ def load_grammar_from_file(
         parser = GrammarParser(tokenizer, verbose=verbose_parser)
         grammar = parser.start()
         if not grammar:
-            raise parser.make_syntax_error("Cannot parse grammar file.", grammar_file_name)
+            raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return BuiltProducts(grammar, parser, tokenizer, None, None, None)
 
 
@@ -129,9 +136,8 @@ def load_grammar_from_string(
     if grammar_file_name is None:
         grammar_file_name = "<load_grammar_from_string>"
     with io.StringIO(grammar_string) as tempfile:
-        return load_grammar_from_file(
-            tempfile, verbose_tokenizer, verbose_parser,
-            grammar_file_name=grammar_file_name)
+        return load_grammar_from_file(tempfile, verbose_tokenizer, verbose_parser,
+                                      grammar_file_name=grammar_file_name)
 
 
 # Note: grammar_file_name is used for noting source in generated header
@@ -220,7 +226,7 @@ def generate_parser_from_grammar(
                                      grammar_file_name=grammar_file_name)
         generated_grammar = grammar = p.grammar
     # Grammar → Parser code
-    p2 = generate_code_from_grammar(grammar, grammar_file_name, RETURN, skip_actions)
+    p2 = generate_code_from_grammar(grammar, grammar_file_name, Flags.RETURN, skip_actions)
     # Parser code → Parser class
     ns: Any = {}
     exec(cast(str, p2.parser_code), ns)
@@ -236,7 +242,6 @@ def generate_parser_from_file(
     *,
     grammar_file_name: Optional[str] = None,
     parser_class_name: str = "GeneratedParser",
-#) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator, Type[Parser]]:
 ) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
                    WithParserCodeGenerator, None, WithParserClass]:
     """[TODO] Generates a Python parser class from grammar in grammar_file.
@@ -263,19 +268,23 @@ def generate_parser_from_file(
     return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, None, p2.parser_class)
 
-# TODO: Legacy
 
-"""
+# XXX: Legacy functions are untested
+
 def build_parser(
     grammar_file: str, verbose_tokenizer: bool = False, verbose_parser: bool = False
-) -> Tuple[Grammar, Parser, Tokenizer]
+) -> Tuple[Grammar, Parser, Tokenizer]:
+    p = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser)
+    return (p.grammar, p.grammar_parser, p.grammar_tokenizer)
 
 def build_python_generator(
     grammar: Grammar,
     grammar_file: str,
     output_file: str,
     skip_actions: bool = False,
-) -> ParserGenerator
+) -> ParserGenerator:
+    p = generate_code_from_grammar(grammar, grammar_file, output_file, skip_actions)
+    return p.parser_code_generator
 
 def build_python_parser_and_generator(
     grammar_file: str,
@@ -283,5 +292,16 @@ def build_python_parser_and_generator(
     verbose_tokenizer: bool = False,
     verbose_parser: bool = False,
     skip_actions: bool = False,
-) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator]
-"""
+) -> Tuple[Grammar, Parser, Tokenizer, ParserGenerator]:
+    # Legacy code will still work:
+    #grammar, parser, tokenizer = build_parser(grammar_file, verbose_tokenizer, verbose_parser)
+    #gen = build_python_generator(
+    #    grammar,
+    #    grammar_file,
+    #    output_file,
+    #    skip_actions=skip_actions,
+    #)
+    #return grammar, parser, tokenizer, gen
+    p = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser)
+    p2 = generate_code_from_grammar(p.grammar, grammar_file, output_file, skip_actions)
+    return (p.grammar, p.grammar_parser, p.grammar_tokenizer, p2.parser_code_generator)

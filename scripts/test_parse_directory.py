@@ -160,8 +160,8 @@ def parse_directory(
         print("A grammar file was not provided - attempting to use existing file...\n")
         try:
             #sys.path.insert(0, sys.path.insert(0, os.path.join(os.getcwd(), "data"))) #??
-            sys.path = [None, os.path.join(os.getcwd(), "data")] + sys.path
-            from python_parser import GeneratedParser
+            sys.path.insert(0, os.path.join(os.getcwd(), "data"))
+            from python_parser import GeneratedParser #type:ignore[no-redef,import-not-found]
         except:
             print(
                 "An existing parser was not found. Please run `make` or specify a grammar file with the `-g` flag.",
@@ -206,12 +206,13 @@ def parse_directory(
         if not should_exclude_file:
             try:
                 if tree_arg:
-                    tree = parse(file)
+                    tree = parse(file) #type:ignore[no-untyped-call]
                     trees[file] = tree
                 if not short:
                     report_status(succeeded=True, file=file, verbose=verbose)
             except Exception as error:
                 try:
+                    f: Any
                     with open(file) as f:
                         ast.parse(f.read())
                 except Exception:

@@ -30,7 +30,7 @@ def import_file(full_name: str, path: str) -> Any:
     return mod
 
 
-# TODO: build_python_parser_and_generator <-> generate_parser
+# Note: build.generate_parser_from_grammar can replace this
 def generate_parser(
     grammar: Grammar, parser_path: Optional[str] = None, parser_name: str = "GeneratedParser",
     *, # For maximum compatibility

@@ -70,18 +70,20 @@ norecursedirs = [
 ]
 
 [tool.mypy]
-#files = ["src/pegen/**/*.py", "scripts/**/*.py"]
-files = ["src/pegen/**/*.py", "scripts/**/*.py", "tests/**/*.py"]
-#mypy_path = ["src/_typings_mypy"]
-exclude = [".*_typings_not_mypy.*", "tests/data/.*"]
+packages = ["pegen", "scripts", "tests"]
+explicit_package_bases = true
+mypy_path = ["src"]
+exclude = 'tests/python_parser/(data|parser_cache)/.*|tests/demo.py'
 
 #follow_imports = "error" #?
 follow_imports = "normal"
 no_implicit_optional = true
 strict_optional = true
 
+enable_error_codes = "deprecated"
+
 disallow_untyped_calls = true
-disallow_untyped_defs = true
+disallow_untyped_defs = false
 
 disallow_any_generics = true
 disallow_any_unimported = true
@@ -92,25 +94,32 @@ warn_unused_configs = true
 #warn_unused_ignores = true
 warn_redundant_casts = true
 warn_no_return = true
+report_deprecated_as_note = true
 
 show_traceback = true
 show_column_numbers = true
 show_error_end = true
 show_error_codes = true
 
-always_true = ["RUNNING_MYPY"]
-always_false = ["RUNNING_PYRIGHT"]
+always_false = ["PEGEN_ENABLE_ENHANCED_TYPE_HINTS"]
 
 [[tool.mypy.overrides]]
-module = ["pegen.grammar_parser"]
+module = ["pegen", "scripts"]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "pegen.grammar_parser"
 strict_optional = false
 
 [[tool.mypy.overrides]]
-module = ["psutil"]
+module = ["tests.*", "tests.python_parser.*"]
+disallow_untyped_defs = false
+disable_error_code = "no-untyped-def"
+
+[[tool.mypy.overrides]]
+module = "psutil"
 ignore_missing_imports = true
 
 [tool.pyright]
 # Skip analyzing build_types.py, instead refer to _typings_not_mypy/build_typings.py for better hints
-exclude = ["src/pegen/build_types.py"]
-# extraPaths = ["src/_typings_not_mypy"]
-defineConstant = { RUNNING_PYRIGHT = true, RUNNING_MYPY = false }
+defineConstant = { PEGEN_ENABLE_ENHANCED_TYPE_HINTS = true }

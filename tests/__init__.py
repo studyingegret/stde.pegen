@@ -1,5 +1,5 @@
 import os
-from test.support import load_package_tests
+from test.support import load_package_tests #type:ignore[import-not-found]
 
 
 # Load all tests in package

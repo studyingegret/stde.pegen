@@ -93,7 +93,7 @@ def main() -> None:
         build_c_parser_and_generator(
             args.grammar_file, "data/Tokens", "pegen/parse.c", compile_extension=True
         )
-        from pegen.parse import parse_string  # t ype: ignore[import]
+        from pegen.parse import parse_string  # type: ignore[import]
 
         tree = parse_string(program, mode=1)
 

@@ -2,7 +2,7 @@ import io
 import traceback
 
 try:
-    import flask, flask_wtf
+    import flask, flask_wtf #type:ignore[import-untyped]
 except ImportError as e:
     if hasattr(e, "add_note"): # Python 3.11+
         e.add_note("Did you forget to install the [web] optional dependencies? `pip install pegen[web]`")
@@ -47,7 +47,7 @@ class GrammarForm(FlaskForm):  # type: ignore
 
 
 @app.route("/", methods=["GET", "POST"])
-def index() -> None:
+def index() -> str:
     # you must tell the variable 'form' what you named the class, above
     # 'form' is the variable name used in this template: index.html
     form = GrammarForm()
@@ -58,6 +58,8 @@ def index() -> None:
         program_source = form.source.data
         output = io.StringIO()
         try:
+            assert grammar_source is not None
+            assert program_source is not None
             parser_class = generate_parser_from_string(grammar_source)
             result = parse_string(program_source, parser_class, verbose=False)
             print(result, file=output)

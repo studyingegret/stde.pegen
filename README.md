@@ -36,6 +36,27 @@ Install with `pip` or your favorite PyPI package manager.
 pip install pegen
 ```
 
+For better typings (for module `build`), if you use Pyright, add the following to
+your `pyproject.toml`:
+
+```toml
+[tool.pyright]
+defineConstant = { PEGEN_ENABLE_ENHANCED_TYPE_HINTS = true }
+```
+
+(or [equivalently](https://github.com/microsoft/pyright/blob/main/docs/configuration.md),
+to `pyrightconfig.json` in your workspace root)
+
+and if you use mypy, add the following:
+
+```toml
+[tool.mypy]
+always_false = ["PEGEN_ENABLE_ENHANCED_TYPE_HINTS"]
+```
+
+(or [equivalently](https://mypy.readthedocs.io/en/stable/config_file.html)
+in another form of configuration)
+
 # Documentation
 
 The documentation is available [here](https://we-like-parsers.github.io/pegen/).
@@ -178,7 +199,7 @@ The following all-uppercase names are special and matches a token of the same na
 [await-3.12]: https://docs.python.org/3.12/library/token.html#token.AWAIT
 
 > **Note:** Although still produced by `tokenize`,
-> the notion of some tokens in the grammar seem to be reducing,
+> the notion of some tokens in the Python grammar seem to be reducing,
 > as they are no longer formally defined in the grammar description
 > of the latest version, such as
 > - `NAME` replaced by [`identifier`](https://docs.python.org/3/reference/lexical_analysis.html#identifiers)
@@ -206,19 +227,19 @@ For example,
 rule: "hello" NAME | 'world'
 ```
 
-will not match
+will consider this text invalid
 
 ```
 hello world
 ```
 
-even though the branch `'world'` is not chosen; but matching
+even though the branch `'world'` is not chosen; but
 
 ```
 world
 ```
 
-will succeed.
+will pass.
 
 <!--This example is verified in test_pegen.py:test_hard_keywords-->
 
