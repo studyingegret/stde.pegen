@@ -32,8 +32,8 @@ use the new equivalents because the legacy functions are not tested anymore:
 
 #TODO: Organize comments & docs
 
-from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 import tokenize, io
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, Union, cast
 
@@ -112,12 +112,6 @@ def _grammar_file_name_fallback(
     return fallback
 
 
-
-@dataclass
-class Options1:
-    verbose_tokenizer: bool = False
-    verbose_parser: bool = False
-
 """
 The basic functions are load_grammar_from_file, generate_code_from_grammar and generate_parser_from_code.
 All other functions are their combinations.
@@ -129,6 +123,12 @@ grammar --> code
 code --> parser
 """
 
+def default_tokenizer(file: io.TextIOBase):
+    return partial(Tokenizer, tokenize.generate_tokens(file.readline))
+
+#def default_grammar_parser(file: io.TextIOBase):
+#    return partial(Tokenizer, tokenize.generate_tokens(file.readline))
+
 def load_grammar_from_file(
     grammar_file: File, verbose_tokenizer: bool = False, verbose_parser: bool = False,
     *, grammar_file_name: Optional[str] = None
@@ -136,7 +136,7 @@ def load_grammar_from_file(
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
     with open_file(grammar_file) as file:
-        tokenizer = Tokenizer(tokenize.generate_tokens(file.readline), verbose=verbose_tokenizer)
+        tokenizer = default_tokenizer(file)(verbose=verbose_tokenizer)
         parser = GrammarParser(tokenizer, verbose=verbose_parser)
         grammar = parser.start()
         if not grammar:
