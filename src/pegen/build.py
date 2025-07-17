@@ -6,6 +6,7 @@
     generate_code_from_grammar: Grammar → Generated parser code (str)
     generate_code_from_file: Grammar file → Generated parser code (str)
 
+    generate_parser_from_code: Generated parser code (str) → Ready-to-use pegen.parser.Parser subclass
     generate_parser_from_grammar: Grammar or grammar string → Ready-to-use pegen.parser.Parser subclass
     generate_parser_from_file: Grammar file → Ready-to-use pegen.parser.Parser subclass
 
@@ -13,6 +14,9 @@ In the above description:
 - "Grammar" means a pegen.grammar.Grammar instance
 - "Grammar file" means a utils2.File compatible object
   (str, bytes, path-like (has method `__fspath__(self) -> Union[str, bytes]`), or text I/O object)
+
+WARNING: generate_parser_from_code evaluates Python code using exec()
+so do not pass it parser code from untrusted sources.
 
 Note that generate_code_from_grammar does not accept grammar string,
 you need to use load_grammar_from_string for grammar strings first.
@@ -28,6 +32,7 @@ use the new equivalents because the legacy functions are not tested anymore:
 
 #TODO: Organize comments & docs
 
+from dataclasses import dataclass
 from enum import Enum
 import tokenize, io
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, Union, cast
@@ -107,6 +112,23 @@ def _grammar_file_name_fallback(
     return fallback
 
 
+
+@dataclass
+class Options1:
+    verbose_tokenizer: bool = False
+    verbose_parser: bool = False
+
+"""
+The basic functions are load_grammar_from_file, generate_code_from_grammar and generate_parser_from_code.
+All other functions are their combinations.
+
+flowchart TD
+file --> grammar
+string -->|StringIO| file
+grammar --> code
+code --> parser
+"""
+
 def load_grammar_from_file(
     grammar_file: File, verbose_tokenizer: bool = False, verbose_parser: bool = False,
     *, grammar_file_name: Optional[str] = None
@@ -165,7 +187,6 @@ def generate_code_from_grammar(
             return BuiltProducts(None, None, None, gen, None, None)
 
 
-
 def generate_code_from_file(
     grammar_file: File,
     output_file: Union[File, Literal[Flags.RETURN]] = Flags.RETURN,
@@ -201,6 +222,15 @@ def generate_code_from_file(
                          p2.parser_code_generator, p2.parser_code, None)
 
 
+def generate_parser_from_code(parser_code: str, parser_class_name: str = "GeneratedParser"
+                              ) -> BuiltProducts[None, None, None, None, None, WithParserClass]:
+    """Warning: generate_parser_from_code evaluates Python code using exec()
+    so do not pass it parser code from untrusted sources."""
+    ns: Any = {}
+    exec(parser_code, ns)
+    return BuiltProducts(None, None, None, None, None, ns[parser_class_name])
+
+
 def generate_parser_from_grammar(
     grammar: Union[str, Grammar],
     verbose_tokenizer: bool = False,
@@ -227,11 +257,11 @@ def generate_parser_from_grammar(
         generated_grammar = grammar = p.grammar
     # Grammar → Parser code
     p2 = generate_code_from_grammar(grammar, grammar_file_name, Flags.RETURN, skip_actions)
+    if TYPE_CHECKING: assert p2.parser_code is not None # mypy knows this but Pylance doesn't
     # Parser code → Parser class
-    ns: Any = {}
-    exec(cast(str, p2.parser_code), ns)
     return BuiltProducts(generated_grammar, p.grammar_parser, p.grammar_tokenizer,
-                         p2.parser_code_generator, None, ns[parser_class_name])
+                         p2.parser_code_generator, None,
+                         generate_parser_from_code(p2.parser_code, parser_class_name).parser_class)
 
 
 def generate_parser_from_file(
