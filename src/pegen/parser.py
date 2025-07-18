@@ -1,5 +1,7 @@
 import argparse
 import ast
+from functools import partial
+import io
 import sys
 import time
 import token
@@ -7,6 +9,8 @@ import tokenize
 import traceback
 from abc import abstractmethod
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, TypeVar, cast
+
+from pegen.utils2 import File, open_file
 
 from pegen.tokenizer import Mark, Tokenizer, exact_token_types
 
@@ -32,11 +36,11 @@ def logger(method: F) -> F:
             return method(self, *args)
         argsr = ",".join(repr(arg) for arg in args)
         fill = "  " * self._level
-        print(f"{fill}{method_name}({argsr}) .... (looking at {self.showpeek()})")
+        self._vprint(f"{fill}{method_name}({argsr}) .... (looking at {self.showpeek()})")
         self._level += 1
         tree = method(self, *args)
         self._level -= 1
-        print(f"{fill}... {method_name}({argsr}) --> {tree!s:.200}")
+        self._vprint(f"{fill}... {method_name}({argsr}) --> {tree!s:.200}")
         return tree
 
     logger_wrapper.__wrapped__ = method  # type: ignore
@@ -61,18 +65,18 @@ def memoize(method: F) -> F:
         fill = "  " * self._level
         if key not in self._cache:
             if verbose:
-                print(f"{fill}{method_name}({argsr}) ... (looking at {self.showpeek()})")
+                self._vprint(f"{fill}{method_name}({argsr}) ... (looking at {self.showpeek()})")
             self._level += 1
             tree = method(self, *args)
             self._level -= 1
             if verbose:
-                print(f"{fill}... {method_name}({argsr}) -> {tree!s:.200}")
+                self._vprint(f"{fill}... {method_name}({argsr}) -> {tree!s:.200}")
             endmark = self.mark()
             self._cache[key] = tree, endmark
         else:
             tree, endmark = self._cache[key]
             if verbose:
-                print(f"{fill}{method_name}({argsr}) -> {tree!s:.200}")
+                self._vprint(f"{fill}{method_name}({argsr}) -> {tree!s:.200}")
             self.reset(endmark)
         return tree
 
@@ -97,7 +101,7 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
         fill = "  " * self._level
         if key not in self._cache:
             if verbose:
-                print(f"{fill}{method_name} ... (looking at {self.showpeek()})")
+                self._vprint(f"{fill}{method_name} ... (looking at {self.showpeek()})")
             self._level += 1
 
             # For left-recursive rules we manipulate the cache and
@@ -113,7 +117,7 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
             lastresult, lastmark = None, mark
             depth = 0
             if verbose:
-                print(f"{fill}Recursive {method_name} at {mark} depth {depth}")
+                self._vprint(f"{fill}Recursive {method_name} at {mark} depth {depth}")
 
             while True:
                 self.reset(mark)
@@ -125,16 +129,16 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
                 endmark = self.mark()
                 depth += 1
                 if verbose:
-                    print(
+                    self._vprint(
                         f"{fill}Recursive {method_name} at {mark} depth {depth}: {result!s:.200} to {endmark}"
                     )
                 if not result:
                     if verbose:
-                        print(f"{fill}Fail with {lastresult!s:.200} to {lastmark}")
+                        self._vprint(f"{fill}Fail with {lastresult!s:.200} to {lastmark}")
                     break
                 if endmark <= lastmark:
                     if verbose:
-                        print(f"{fill}Bailing with {lastresult!s:.200} to {lastmark}")
+                        self._vprint(f"{fill}Bailing with {lastresult!s:.200} to {lastmark}")
                     break
                 self._cache[key] = lastresult, lastmark = result, endmark
 
@@ -143,7 +147,7 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
 
             self._level -= 1
             if verbose:
-                print(f"{fill}{method_name}() -> {tree!s:.200} [cached]")
+                self._vprint(f"{fill}{method_name}() -> {tree!s:.200} [cached]")
             if tree:
                 endmark = self.mark()
             else:
@@ -153,7 +157,7 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
         else:
             tree, endmark = self._cache[key]
             if verbose:
-                print(f"{fill}{method_name}() -> {tree!s:.200} [fresh]")
+                self._vprint(f"{fill}{method_name}() -> {tree!s:.200} [fresh]")
             if tree:
                 self.reset(endmark)
         return tree
@@ -161,6 +165,8 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
     return memoize_left_rec_wrapper
 
+# To silence Pylance's error
+assert isinstance(sys.stdout, io.TextIOBase)
 
 class Parser:
     """Parsing base class."""
@@ -169,9 +175,12 @@ class Parser:
 
     SOFT_KEYWORDS: ClassVar[Tuple[str, ...]]
 
-    def __init__(self, tokenizer: Tokenizer, *, verbose: bool = False):
+    def __init__(self, tokenizer: Tokenizer, *, verbose: bool = False,
+                 verbose_stream: io.TextIOBase = sys.stdout): #type:ignore
         self._tokenizer = tokenizer
         self._verbose = verbose
+        if verbose:
+            self._vprint = partial(print, file=verbose_stream)
         self._level = 0
         self._cache: Dict[Tuple[Mark, str, Tuple[Any, ...]], Tuple[Any, Mark]] = {}
 

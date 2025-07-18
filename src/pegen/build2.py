@@ -1,3 +1,4 @@
+# Remake of build.py, in progress
 """Build pegen products from sources.
 
     load_grammar_from_string: Grammar string → Grammar
@@ -35,8 +36,9 @@ use the new equivalents because the legacy functions are not tested anymore:
 from enum import Enum
 from functools import partial
 import tokenize, io
-from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, Union, Protocol
 
+from pegen.common import DEFAULT_PARSER_CLASS_NAME
 from pegen.grammar import Grammar
 from pegen.parser import Parser
 from pegen.tokenizer import Tokenizer
@@ -75,6 +77,7 @@ AnyBuiltProducts = BuiltProducts[
     Union[WithGrammar, None], Union[WithGrammarParser, None], Union[WithGrammarTokenizer, None],
     Union[WithParserCodeGenerator, None], Union[WithParserCode, None], Union[WithParserClass, None]]
 
+Edition = Literal["1", "2"]
 
 # To make it usable in Literal, I make it an enum
 # Hopefully it's not so disturbing
@@ -123,7 +126,7 @@ grammar --> code
 code --> parser
 """
 
-def default_tokenizer(file: io.TextIOBase) -> Any:
+def default_tokenizer(file: io.TextIOBase) -> Any: # Typing is todo
     return partial(Tokenizer, tokenize.generate_tokens(file.readline))
 
 #def default_grammar_parser(file: io.TextIOBase):
@@ -131,23 +134,25 @@ def default_tokenizer(file: io.TextIOBase) -> Any:
 
 def load_grammar_from_file(
     grammar_file: File, verbose_tokenizer: bool = False, verbose_parser: bool = False,
-    *, grammar_file_name: Optional[str] = None
+    *, edition: Edition = "1", grammar_file_name: Optional[str] = None
 ) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer, None, None, None]:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
-    with open_file(grammar_file) as file:
-        tokenizer = default_tokenizer(file)(verbose=verbose_tokenizer)
-        parser = GrammarParser(tokenizer, verbose=verbose_parser)
-        grammar = parser.start()
-        if not grammar:
-            raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
-    return BuiltProducts(grammar, parser, tokenizer, None, None, None)
+    if edition == "1":
+        with open_file(grammar_file) as file:
+            tokenizer = default_tokenizer(file)(verbose=verbose_tokenizer)
+            parser = GrammarParser(tokenizer, verbose=verbose_parser)
+            grammar = parser.start()
+            if not grammar:
+                raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
+        return BuiltProducts(grammar, parser, tokenizer, None, None, None)
+    raise NotImplementedError('Editions other than "1" are not supported yet')
 
 
 # Architecture limits we cannot directly generate grammar from a grammar string.
 def load_grammar_from_string(
     grammar_string: str, verbose_tokenizer: bool = False, verbose_parser: bool = False,
-    *, grammar_file_name: Optional[str] = None
+    *, edition: Edition = "1", grammar_file_name: Optional[str] = None
 ) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer, None, None, None]:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     # Note:
@@ -159,6 +164,7 @@ def load_grammar_from_string(
         grammar_file_name = "<load_grammar_from_string>"
     with io.StringIO(grammar_string) as tempfile:
         return load_grammar_from_file(tempfile, verbose_tokenizer, verbose_parser,
+                                      edition=edition,
                                       grammar_file_name=grammar_file_name)
 
 
@@ -168,23 +174,26 @@ def generate_code_from_grammar(
     grammar_file_name: Optional[str] = None,
     output_file: Union[File, Literal[Flags.RETURN]] = Flags.RETURN,
     skip_actions: bool = False,
+    edition: Edition = "1",
 ) -> BuiltProducts[None, None, None, WithParserCodeGenerator, Union[WithParserCode, None], None]:
     """[TODO] Generates Python parser code to output_file.
 
     Returns middleware product ParserGenerator.
     """
-    if grammar_file_name is None:
-        grammar_file_name = "<generate_code_from_grammar>"
-    if output_file is Flags.RETURN:
-        with io.StringIO() as file:
-            gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
-            gen.generate(grammar_file_name)
-            return BuiltProducts(None, None, None, gen, file.getvalue(), None)
-    else:
-        with open_file(output_file, "w") as file:
-            gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
-            gen.generate(grammar_file_name)
-            return BuiltProducts(None, None, None, gen, None, None)
+    if edition == "1":
+        if grammar_file_name is None:
+            grammar_file_name = "<generate_code_from_grammar>"
+        if output_file is Flags.RETURN:
+            with io.StringIO() as file:
+                gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
+                gen.generate(grammar_file_name)
+                return BuiltProducts(None, None, None, gen, file.getvalue(), None)
+        else:
+            with open_file(output_file, "w") as file:
+                gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
+                gen.generate(grammar_file_name)
+                return BuiltProducts(None, None, None, gen, None, None)
+    raise NotImplementedError('Editions other than "1" are not supported yet')
 
 
 def generate_code_from_file(
@@ -194,6 +203,7 @@ def generate_code_from_file(
     verbose_parser: bool = False,
     skip_actions: bool = False,
     *,
+    edition: Edition = "1",
     grammar_file_name: Optional[str] = None,
 ) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
                    WithParserCodeGenerator, Union[WithParserCode, None], None]:
@@ -216,19 +226,24 @@ def generate_code_from_file(
     - Middleware byproduct ParserGenerator
     """
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
-    p = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser)
-    p2 = generate_code_from_grammar(p.grammar, grammar_file_name, output_file, skip_actions=skip_actions)
+    p = load_grammar_from_file(grammar_file, verbose_tokenizer, verbose_parser,
+                               edition=edition)
+    p2 = generate_code_from_grammar(p.grammar, grammar_file_name, output_file,
+                                    edition=edition, skip_actions=skip_actions)
     return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, p2.parser_code, None)
 
 
-def generate_parser_from_code(parser_code: str, parser_class_name: str = "GeneratedParser"
+def generate_parser_from_code(parser_code: str, parser_class_name: str = "GeneratedParser",
+                              edition: Edition = "1"
                               ) -> BuiltProducts[None, None, None, None, None, WithParserClass]:
     """Warning: generate_parser_from_code evaluates Python code using exec()
     so do not pass it parser code from untrusted sources."""
-    ns: Any = {}
-    exec(parser_code, ns)
-    return BuiltProducts(None, None, None, None, None, ns[parser_class_name])
+    if edition == "1":
+        ns: Any = {}
+        exec(parser_code, ns)
+        return BuiltProducts(None, None, None, None, None, ns[parser_class_name])
+    raise NotImplementedError('Editions other than "1" are not supported yet')
 
 
 def generate_parser_from_grammar(
@@ -237,8 +252,8 @@ def generate_parser_from_grammar(
     verbose_parser: bool = False,
     skip_actions: bool = False,
     *,
+    edition: Edition = "1",
     grammar_file_name: Optional[str] = None,
-    parser_class_name: str = "GeneratedParser",
 ) -> BuiltProducts[Union[WithGrammar, None], Union[WithGrammarParser, None], Union[WithGrammarTokenizer, None],
                    WithParserCodeGenerator, None, WithParserClass]:
     """[TODO]
@@ -255,6 +270,7 @@ def generate_parser_from_grammar(
         p = load_grammar_from_string(grammar, verbose_tokenizer, verbose_parser,
                                      grammar_file_name=grammar_file_name)
         generated_grammar = grammar = p.grammar
+    parser_class_name = grammar.metas.get("class", DEFAULT_PARSER_CLASS_NAME)
     # Grammar → Parser code
     p2 = generate_code_from_grammar(grammar, grammar_file_name, Flags.RETURN, skip_actions)
     if TYPE_CHECKING: assert p2.parser_code is not None # mypy knows this but Pylance doesn't
@@ -270,8 +286,7 @@ def generate_parser_from_file(
     verbose_parser: bool = False,
     skip_actions: bool = False,
     *,
-    grammar_file_name: Optional[str] = None,
-    parser_class_name: str = "GeneratedParser",
+    grammar_file_name: Optional[str] = None
 ) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
                    WithParserCodeGenerator, None, WithParserClass]:
     """[TODO] Generates a Python parser class from grammar in grammar_file.
@@ -293,8 +308,7 @@ def generate_parser_from_file(
     # Grammar → Parser class
     p2 = generate_parser_from_grammar(
         p.grammar, verbose_tokenizer, verbose_parser, skip_actions,
-        grammar_file_name=grammar_file_name, parser_class_name=parser_class_name
-    )
+        grammar_file_name=grammar_file_name)
     return BuiltProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                          p2.parser_code_generator, None, p2.parser_class)
 
