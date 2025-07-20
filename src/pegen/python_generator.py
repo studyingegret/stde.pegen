@@ -1,7 +1,7 @@
 import ast
 import re
 import token
-from typing import Any, Dict, List, Optional, Sequence, Set, Text, Tuple, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Text, TextIO, Tuple, cast
 from io import TextIOBase
 
 from pegen import grammar
@@ -239,9 +239,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def __init__(
         self,
         grammar: grammar.Grammar,
-        #XXX: I can't see how the code accepts file == None
-        #file: Optional[TextIOBase],
-        file: TextIOBase,
+        file: TextIO,
         tokens: Set[str] = set(token.tok_name.values()),
         location_formatting: Optional[str] = None,
         unreachable_formatting: Optional[str] = None,

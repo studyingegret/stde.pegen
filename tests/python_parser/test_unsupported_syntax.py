@@ -14,10 +14,10 @@ from pegen.tokenizer import Tokenizer
 
 # matrix mul 3.5
 @pytest.mark.parametrize("source", ["a @ b", "a @= b"])
-def test_mat_mult(python_parser_cls, source):
+def test_mat_mult(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 4))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -26,10 +26,10 @@ def test_mat_mult(python_parser_cls, source):
 
 
 # await 3.5
-def test_await(python_parser_cls):
+def test_await(python_parser_cls) -> None:
     temp = io.StringIO("await b")
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 4))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -41,15 +41,15 @@ def test_await(python_parser_cls):
 @pytest.mark.parametrize(
     "source, message",
     [
-        ("async def f():\n    pass", "Async functions are"),
+        ("async def f() -> None:\n    pass", "Async functions are"),
         ("async with a:\n    pass", "Async with statements are"),
         ("async for a in b:\n    pass", "Async for loops are"),
     ],
 )
-def test_async(python_parser_cls, source, message):
+def test_async(python_parser_cls, source, message) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 4))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -58,10 +58,10 @@ def test_async(python_parser_cls, source, message):
 
 
 # async comprehension 3.6
-def test_async_comprehension(python_parser_cls):
+def test_async_comprehension(python_parser_cls) -> None:
     temp = io.StringIO("""[a async for a in b if c]""")
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 5))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -69,11 +69,11 @@ def test_async_comprehension(python_parser_cls):
 
 
 # variable annotation 3.6
-@pytest.mark.parametrize("source", ["a: int = 1", "(a): int "])
-def test_variable_annotation(python_parser_cls, source):
+@pytest.mark.parametrize("source", ["a: int = 1", "(a) -> None: int "])
+def test_variable_annotation(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 5))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -82,11 +82,11 @@ def test_variable_annotation(python_parser_cls, source):
 
 
 # pos only args 3.8
-@pytest.mark.parametrize("source", ["def f(a,/):\n\tpass", "def f(a=1,/):\n\tpass"])
-def test_pos_only_args(python_parser_cls, source):
+@pytest.mark.parametrize("source", ["def f(a,/) -> None:\n\tpass", "def f(a=1,/) -> None:\n\tpass"])
+def test_pos_only_args(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 7))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -96,10 +96,10 @@ def test_pos_only_args(python_parser_cls, source):
 
 # assignment operator 3.8
 @pytest.mark.parametrize("source", ["a := 1"])
-def test_assignment_operator(python_parser_cls, source):
+def test_assignment_operator(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 7))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -108,11 +108,11 @@ def test_assignment_operator(python_parser_cls, source):
 
 
 # generic decorators 3.9
-@pytest.mark.parametrize("source", ["@f[1]\ndef f():\n\tpass"])
-def test_generic_decorators(python_parser_cls, source):
+@pytest.mark.parametrize("source", ["@f[1]\ndef f() -> None:\n\tpass"])
+def test_generic_decorators(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 8))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -121,11 +121,11 @@ def test_generic_decorators(python_parser_cls, source):
 
 
 # parenthesized with items 3.9
-@pytest.mark.parametrize("source", ["with (a, b):\n\tpass"])
-def test_parenthesized_with_items(python_parser_cls, source):
+@pytest.mark.parametrize("source", ["with (a, b) -> None:\n\tpass"])
+def test_parenthesized_with_items(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 8))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -137,10 +137,10 @@ def test_parenthesized_with_items(python_parser_cls, source):
 @pytest.mark.parametrize(
     "source", ["match a:\n\tcase 1:\n\t\tpass", "match a", "match a:\ncase b"]
 )
-def test_match_statement(python_parser_cls, source):
+def test_match_statement(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 9))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -150,10 +150,10 @@ def test_match_statement(python_parser_cls, source):
 
 # try except * 3.11
 @pytest.mark.parametrize("source", ["try:\n\ta = 1\nexcept *ValueError:\n\tpass"])
-def test_exceptgroup_statement(python_parser_cls, source):
+def test_exceptgroup_statement(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 10))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -163,10 +163,10 @@ def test_exceptgroup_statement(python_parser_cls, source):
 
 # type alias and type vars 3.12
 @pytest.mark.parametrize("source", ["type T = int", "type T[U] = tuple[U]"])
-def test_type_params_statement(python_parser_cls, source):
+def test_type_params_statement(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 11))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -175,11 +175,11 @@ def test_type_params_statement(python_parser_cls, source):
 
 
 # type alias and type vars 3.12
-@pytest.mark.parametrize("source", ["def f[T]():\n\tpass", "async def f[T]():\n\tpass"])
-def test_generic_function_statement(python_parser_cls, source):
+@pytest.mark.parametrize("source", ["def f[T]() -> None:\n\tpass", "async def f[T]() -> None:\n\tpass"])
+def test_generic_function_statement(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 11))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")
@@ -189,10 +189,10 @@ def test_generic_function_statement(python_parser_cls, source):
 
 # generic classes 3.12
 @pytest.mark.parametrize("source", ["class A[T]:\n\tpass"])
-def test_generic_class_statement(python_parser_cls, source):
+def test_generic_class_statement(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
-    tokenizer = Tokenizer(tokengen, verbose=False)
+    tokenizer = Tokenizer(tokengen)
     pp = python_parser_cls(tokenizer, py_version=(3, 11))
     with pytest.raises(SyntaxError) as e:
         pp.parse("file")

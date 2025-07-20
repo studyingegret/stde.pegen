@@ -1,6 +1,6 @@
 import io
 from contextlib import contextmanager
-from typing import Any, Protocol, Union
+from typing import Any, Protocol, TextIO, Union
 from collections.abc import Iterator
 
 class PathLike(Protocol):
@@ -12,17 +12,17 @@ class PathLike(Protocol):
 
 
 # A text file or a file path.
-File = Union[str, bytes, PathLike, io.TextIOBase]
+File = Union[str, bytes, PathLike, TextIO]
 
 
 @contextmanager
-def open_file(file_or_path: File, mode: str = "r", *args: Any, **kwargs: Any) -> Iterator[io.TextIOBase]:
+def open_file(file_or_path: File, mode: str = "r", *args: Any, **kwargs: Any) -> Iterator[TextIO]:
     """Smooths working on a file specified by
-    - an opened file (requires io.TextIOBase), or
+    - an opened file (requires TextIO), or
     - path to open (requires __fspath__()).
     """
     # From https://stackoverflow.com/questions/6783472/python-function-that-accepts-file-object-or-path
-    if isinstance(file_or_path, io.TextIOBase):
+    if isinstance(file_or_path, TextIO):
         if "r" in mode and not file_or_path.readable():
             raise ValueError("Recieved unreadable stream when a readable stream is expected")
         if "w" in mode and not file_or_path.writable():
@@ -30,7 +30,7 @@ def open_file(file_or_path: File, mode: str = "r", *args: Any, **kwargs: Any) ->
         yield file_or_path
     else:
         # Pylance's typing store of open() uses the abstract class os.PathLike
+        if "b" in mode:
+            raise ValueError("Only text mode is accepted")
         with open(file_or_path, mode, *args, **kwargs) as f: #type:ignore
-            if not isinstance(f, io.TextIOBase):
-                raise TypeError("File must be io.TextIOBase")
-            yield f
+            yield f #type:ignore

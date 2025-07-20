@@ -5,7 +5,7 @@ from tokenize import NEWLINE, NUMBER, ENDMARKER, TokenInfo, generate_tokens
 from pegen.tokenizer import Tokenizer
 
 
-def test_peek_getnext():
+def test_peek_getnext() -> None:
     source = io.StringIO("# test\n1")
     t = Tokenizer(generate_tokens(source.readline))
     assert t.peek() == TokenInfo(NUMBER, "1", (2, 0), (2, 1), "1")
@@ -18,7 +18,7 @@ def test_peek_getnext():
     )
 
 
-def test_mark_reset():
+def test_mark_reset() -> None:
     source = io.StringIO("\n1 2")
     t = Tokenizer(generate_tokens(source.readline))
     index = t.mark()
@@ -29,7 +29,7 @@ def test_mark_reset():
     assert t.getnext() == TokenInfo(NUMBER, "1", (2, 0), (2, 1), "1 2")
 
 
-def test_last_non_whitespace():
+def test_last_non_whitespace() -> None:
     source = io.StringIO("\n1\n2")
     t = Tokenizer(generate_tokens(source.readline))
     assert t.peek() == TokenInfo(NUMBER, "1", (2, 0), (2, 1), "1\n")
@@ -38,7 +38,7 @@ def test_last_non_whitespace():
     assert t.get_last_non_whitespace_token() == TokenInfo(NUMBER, "1", (2, 0), (2, 1), "1\n")
 
 
-def test_get_lines():
+def test_get_lines() -> None:
     source = io.StringIO("1\n2\n3")
     t = Tokenizer(generate_tokens(source.readline))
     while True:

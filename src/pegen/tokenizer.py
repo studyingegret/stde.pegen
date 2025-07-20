@@ -1,6 +1,9 @@
+import io
 import token
 import tokenize
-from typing import Dict, Iterator, List
+from weakref import finalize
+from tokenize import TokenInfo
+from typing import Any, Dict, Iterator, List, Optional, Self, TextIO
 from abc import ABC, abstractmethod
 
 Mark = int  # NewType('Mark', int)
@@ -8,23 +11,31 @@ Mark = int  # NewType('Mark', int)
 exact_token_types = token.EXACT_TOKEN_TYPES
 
 
-def shorttok(tok: tokenize.TokenInfo) -> str:
+def shorttok(tok: TokenInfo) -> str:
     return "%-25.25s" % f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
 
 
 class AbstractTokenizer(ABC):
     """Abstract interface for tokenizers with position tracking and error diagnostics."""
 
+    @classmethod
     @abstractmethod
-    def getnext(self) -> tokenize.TokenInfo:
+    def from_text(cls, text: str, *args: Any, **kwargs: Any) -> "AbstractTokenizer": ...
+
+    @classmethod
+    @abstractmethod
+    def from_stream(cls, file: TextIO, *args: Any, **kwargs: Any) -> "AbstractTokenizer": ...
+
+    @abstractmethod
+    def getnext(self) -> TokenInfo:
         """Return next valid token, advancing position."""
 
     @abstractmethod
-    def peek(self) -> tokenize.TokenInfo:
+    def peek(self) -> TokenInfo:
         """Return next valid token without advancing position."""
 
     @abstractmethod
-    def diagnose(self) -> tokenize.TokenInfo:
+    def diagnose(self) -> TokenInfo:
         """Return last token for error reporting (that token is likely the cause of error)."""
 
     @abstractmethod
@@ -49,7 +60,7 @@ class AbstractTokenizer(ABC):
         """
 
     # Optional but recommended for advanced parsing
-    def get_last_non_whitespace_token(self) -> tokenize.TokenInfo:
+    def get_last_non_whitespace_token(self) -> TokenInfo:
         """Return most recent non-whitespace token.
 
         The default implementation returns `self.diagnose()`,
@@ -57,36 +68,55 @@ class AbstractTokenizer(ABC):
         return self.diagnose()
 
 
+# Edition 1
 class Tokenizer(AbstractTokenizer):
     """Caching wrapper for the tokenize module.
 
     This is pretty tied to Python's syntax.
     """
 
-    _tokens: List[tokenize.TokenInfo]
+    _tokens: List[TokenInfo]
 
+    # TODO: path
     def __init__(
-        self, tokengen: Iterator[tokenize.TokenInfo], *, path: str = "", verbose: bool = False
+        self, tokengen: Iterator[TokenInfo], *, path: str = "",
+        verbose_stream: Optional[TextIO] = None
     ):
         self._tokengen = tokengen
         self._tokens = []
         self._index = 0
-        self._verbose = verbose
+        self._verbose = verbose_stream is not None
         self._lines: Dict[int, str] = {}
         self._path = path
-        if verbose:
-            self.report(False, False)
+        self._verbose_stream = verbose_stream
+        if self._verbose:
+            self.log(False, False)
 
-    def getnext(self) -> tokenize.TokenInfo:
+    @classmethod
+    def from_text(cls, text: str, *, path: str = "", verbose_stream: Optional[TextIO] = None) -> Self:
+        stream = io.StringIO(text)
+        instance = cls(tokenize.generate_tokens(stream.readline), path=path, verbose_stream=verbose_stream)
+        finalize(instance, lambda: stream.close() if not stream.closed else None) #XXX: Should be ok?
+        return instance
+
+    @classmethod
+    def from_tokens(cls, tokens: Iterator[TokenInfo], *, path: str = "", verbose_stream: Optional[TextIO] = None) -> Self:
+        return cls(tokens, path=path, verbose_stream=verbose_stream)
+
+    @classmethod
+    def from_stream(cls, file: TextIO, *, path: str = "", verbose_stream: Optional[TextIO] = None) -> Self:
+        return cls(tokenize.generate_tokens(file.readline), path=path, verbose_stream=verbose_stream)
+
+    def getnext(self) -> TokenInfo:
         """Return the next token and updates the index."""
         cached = not self._index == len(self._tokens)
         tok = self.peek()
         self._index += 1
         if self._verbose:
-            self.report(cached, False)
+            self.log(cached, False)
         return tok
 
-    def peek(self) -> tokenize.TokenInfo:
+    def peek(self) -> TokenInfo:
         """Return the next token *without* updating the index."""
         while self._index == len(self._tokens):
             tok = next(self._tokengen)
@@ -105,18 +135,18 @@ class Tokenizer(AbstractTokenizer):
                 self._lines[tok.start[0]] = tok.line
         return self._tokens[self._index]
 
-    def diagnose(self) -> tokenize.TokenInfo:
+    def diagnose(self) -> TokenInfo:
         if not self._tokens:
             self.getnext()
         return self._tokens[-1]
 
-    def get_last_non_whitespace_token(self) -> tokenize.TokenInfo:
+    def get_last_non_whitespace_token(self) -> TokenInfo:
         for tok in reversed(self._tokens[: self._index]):
             if tok.type != tokenize.ENDMARKER and (
                 tok.type < tokenize.NEWLINE or tok.type > tokenize.DEDENT
             ):
                 break
-        return tok
+        return tok #type:ignore
 
     def get_lines(self, line_numbers: List[int]) -> List[str]:
         """Retrieve source lines corresponding to line numbers."""
@@ -127,7 +157,7 @@ class Tokenizer(AbstractTokenizer):
             lines = {}
             count = 0
             seen = 0
-            with open(self._path) as f:
+            with open(self._path) as f: #?
                 for line in f:
                     count += 1
                     if count in line_numbers:
@@ -148,9 +178,9 @@ class Tokenizer(AbstractTokenizer):
         old_index = self._index
         self._index = index
         if self._verbose:
-            self.report(True, index < old_index)
+            self.log(True, index < old_index)
 
-    def report(self, cached: bool, back: bool) -> None:
+    def log(self, cached: bool, back: bool) -> None:
         if back:
             fill = "-" * self._index + "-"
         elif cached:
@@ -162,7 +192,3 @@ class Tokenizer(AbstractTokenizer):
         else:
             tok = self._tokens[self._index - 1]
             print(f"{fill} {shorttok(tok)}")
-
-
-class Tokenizer2(AbstractTokenizer):
-    """..."""

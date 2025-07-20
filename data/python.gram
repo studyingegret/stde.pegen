@@ -10,7 +10,7 @@ import os
 import sys
 import token
 from typing import (
-    Any, Callable, Iterator, List, Literal, NoReturn, Sequence, Tuple, TypeVar, Union
+    Any, Callable, Iterator, List, Literal, NoReturn, Sequence, Tuple, TypeVar, Union, TextIO
 )
 
 from pegen.tokenizer import Tokenizer
@@ -67,10 +67,10 @@ def parse_file(
             if token_stream_factory else
             tokenize.generate_tokens(f.readline)
         )
-        tokenizer = Tokenizer(tok_stream, verbose=verbose, path=path)
+        tokenizer = Tokenizer(tok_stream, verbose_stream=sys.stdout if verbose else None, path=path)
         parser = PythonParser(
             tokenizer,
-            verbose=verbose,
+            verbose_stream=sys.stdout if verbose else None,
             filename=os.path.basename(path),
             py_version=py_version
         )
@@ -92,8 +92,8 @@ def parse_string(
         if token_stream_factory else
         tokenize.generate_tokens(io.StringIO(source).readline)
     )
-    tokenizer = Tokenizer(tok_stream, verbose=verbose)
-    parser = PythonParser(tokenizer, verbose=verbose, py_version=py_version)
+    tokenizer = Tokenizer(tok_stream, verbose_stream=sys.stdout if verbose else None)
+    parser = PythonParser(tokenizer, verbose_stream=sys.stdout if verbose else None, py_version=py_version)
     return parser.parse(mode if mode == "eval" else "file")
 
 
@@ -110,11 +110,11 @@ class Parser(Parser):
 
     def __init__(self,
         tokenizer: Tokenizer, *,
-        verbose: bool = False,
+        verbose_stream: Optional[TextIO] = None,
         filename: str = "<unknown>",
         py_version: Optional[tuple] = None,
     ) -> None:
-        super().__init__(tokenizer, verbose=verbose)
+        super().__init__(tokenizer, verbose_stream=verbose_stream)
         self.filename = filename
         self.py_version = min(py_version, sys.version_info) if py_version else sys.version_info
 

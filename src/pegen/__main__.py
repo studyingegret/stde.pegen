@@ -24,15 +24,15 @@ def generate_python_code(
     args: argparse.Namespace,
 ) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
                    WithParserCodeGenerator, Union[WithParserCode, None], None]:
-    verbose = args.verbose
+    verbose: int = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
     try:
         return generate_code_from_file(
             args.grammar_filename,
             args.output,
-            verbose_tokenizer,
-            verbose_parser,
+            sys.stdout if verbose_tokenizer else None,
+            sys.stdout if verbose_parser else None,
             skip_actions=args.skip_actions,
         )
     except Exception as err:

@@ -8,7 +8,7 @@ import token
 import tokenize
 import traceback
 from abc import abstractmethod
-from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, TypeVar, cast
+from typing import Any, Callable, ClassVar, Dict, Optional, TextIO, Tuple, Type, TypeVar, cast
 
 from pegen.utils2 import File, open_file
 
@@ -165,8 +165,6 @@ def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Option
     memoize_left_rec_wrapper.__wrapped__ = method  # type: ignore
     return memoize_left_rec_wrapper
 
-# To silence Pylance's error
-assert isinstance(sys.stdout, io.TextIOBase)
 
 class Parser:
     """Parsing base class."""
@@ -175,11 +173,11 @@ class Parser:
 
     SOFT_KEYWORDS: ClassVar[Tuple[str, ...]]
 
-    def __init__(self, tokenizer: Tokenizer, *, verbose: bool = False,
-                 verbose_stream: io.TextIOBase = sys.stdout): #type:ignore
+    def __init__(self, tokenizer: Tokenizer, *,
+                 verbose_stream: Optional[TextIO] = sys.stdout):
         self._tokenizer = tokenizer
-        self._verbose = verbose
-        if verbose:
+        self._verbose = verbose_stream is not None
+        if self._verbose:
             self._vprint = partial(print, file=verbose_stream)
         self._level = 0
         self._cache: Dict[Tuple[Mark, str, Tuple[Any, ...]], Tuple[Any, Mark]] = {}
@@ -346,8 +344,8 @@ def simple_parser_main(parser_class: Type[Parser]) -> None:
         file = open(args.filename)
     try:
         tokengen = tokenize.generate_tokens(file.readline)
-        tokenizer = Tokenizer(tokengen, verbose=verbose_tokenizer)
-        parser = parser_class(tokenizer, verbose=verbose_parser)
+        tokenizer = Tokenizer(tokengen, verbose_stream=sys.stdout if verbose_tokenizer else None)
+        parser = parser_class(tokenizer, verbose_stream=sys.stdout if verbose_parser else None)
         tree = parser.start()
         try:
             if file.isatty():

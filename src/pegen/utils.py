@@ -56,7 +56,7 @@ def generate_parser(
 def run_parser(file: IO[bytes], parser_class: Type[Parser], *, verbose: bool = False) -> Any:
     # Run a parser on a file (stream).
     tokenizer = Tokenizer(tokenize.generate_tokens(file.readline))  # type: ignore # typeshed issue #3515
-    parser = parser_class(tokenizer, verbose=verbose)
+    parser = parser_class(tokenizer, verbose_stream=sys.stdout if verbose else None)
     result = parser.start()
     if result is None:
         raise parser.make_syntax_error("invalid syntax")
@@ -77,8 +77,8 @@ def parse_string2(parser_class: Type[Parser], string: str,
                   verbose_tokenizer: bool = False, verbose_parser: bool = False) -> Any:
     with io.StringIO(string) as f:
         tokengen = tokenize.generate_tokens(f.readline)
-        tokenizer = Tokenizer(tokengen, verbose=verbose_tokenizer)
-        parser = parser_class(tokenizer, verbose=verbose_parser)
+        tokenizer = Tokenizer(tokengen, verbose_stream=sys.stdout if verbose_tokenizer else None)
+        parser = parser_class(tokenizer, verbose_stream=sys.stdout if verbose_parser else None)
         return parser.start()
 
 

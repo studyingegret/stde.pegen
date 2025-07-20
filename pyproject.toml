@@ -73,7 +73,7 @@ norecursedirs = [
 packages = ["pegen", "scripts", "tests"]
 explicit_package_bases = true
 mypy_path = ["src"]
-exclude = 'tests/python_parser/(data|parser_cache)/.*|tests/demo.py'
+exclude = '(tests/python_parser/(data|parser_cache)/.*)|(tests/demo.py)'
 
 #follow_imports = "error" #?
 follow_imports = "normal"
@@ -112,8 +112,13 @@ module = "pegen.grammar_parser"
 strict_optional = false
 
 [[tool.mypy.overrides]]
-module = ["tests.*", "tests.python_parser.*"]
-disallow_untyped_defs = false
+module = ["tests.*"]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["tests.python_parser.*"]
+#disallow_untyped_defs = false
+#disallow_untyped_calls = true
 disable_error_code = "no-untyped-def"
 
 [[tool.mypy.overrides]]
