@@ -6,8 +6,6 @@ not broader since we would not be able to generate the proper ast nodes.
 """
 
 import io
-import os
-import sys
 import tokenize
 
 import pytest
@@ -43,7 +41,7 @@ def test_await(python_parser_cls) -> None:
 @pytest.mark.parametrize(
     "source, message",
     [
-        ("async def f() -> None:\n    pass", "Async functions are"),
+        ("async def f():\n    pass", "Async functions are"),
         ("async with a:\n    pass", "Async with statements are"),
         ("async for a in b:\n    pass", "Async for loops are"),
     ],
@@ -71,21 +69,20 @@ def test_async_comprehension(python_parser_cls) -> None:
 
 
 # variable annotation 3.6
-@pytest.mark.parametrize("source", ["a: int = 1", "(a) -> None: int "])
+@pytest.mark.parametrize("source", ["a: int = 1", "(a): int "])
 def test_variable_annotation(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
     tokenizer = Tokenizer(tokengen)
-    with open(os.path.join(os.path.dirname(__file__), "../../t/output-3.txt"), "w") as f:
-        pp = python_parser_cls(tokenizer, py_version=(3, 5), verbose_stream=f)
-        with pytest.raises(SyntaxError) as e:
-            pp.parse("file")
+    pp = python_parser_cls(tokenizer, py_version=(3, 5))
+    with pytest.raises(SyntaxError) as e:
+        pp.parse("file")
 
     assert "Variable annotation syntax is" in e.exconly()
 
 
 # pos only args 3.8
-@pytest.mark.parametrize("source", ["def f(a,/) -> None:\n\tpass", "def f(a=1,/) -> None:\n\tpass"])
+@pytest.mark.parametrize("source", ["def f(a,/):\n\tpass", "def f(a=1,/):\n\tpass"])
 def test_pos_only_args(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
@@ -111,7 +108,7 @@ def test_assignment_operator(python_parser_cls, source) -> None:
 
 
 # generic decorators 3.9
-@pytest.mark.parametrize("source", ["@f[1]\ndef f() -> None:\n\tpass"])
+@pytest.mark.parametrize("source", ["@f[1]\ndef f():\n\tpass"])
 def test_generic_decorators(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
@@ -124,7 +121,7 @@ def test_generic_decorators(python_parser_cls, source) -> None:
 
 
 # parenthesized with items 3.9
-@pytest.mark.parametrize("source", ["with (a, b) -> None:\n\tpass"])
+@pytest.mark.parametrize("source", ["with (a, b):\n\tpass"])
 def test_parenthesized_with_items(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
@@ -178,7 +175,7 @@ def test_type_params_statement(python_parser_cls, source) -> None:
 
 
 # type alias and type vars 3.12
-@pytest.mark.parametrize("source", ["def f[T]() -> None:\n\tpass", "async def f[T]() -> None:\n\tpass"])
+@pytest.mark.parametrize("source", ["def f[T]():\n\tpass", "async def f[T]():\n\tpass"])
 def test_generic_function_statement(python_parser_cls, source) -> None:
     temp = io.StringIO(source)
     tokengen = tokenize.generate_tokens(temp.readline)
