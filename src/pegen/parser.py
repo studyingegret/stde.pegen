@@ -10,8 +10,6 @@ import traceback
 from abc import abstractmethod
 from typing import Any, Callable, ClassVar, Dict, Optional, TextIO, Tuple, Type, TypeVar, cast
 
-from pegen.utils2 import File, open_file
-
 from pegen.tokenizer import Mark, Tokenizer, exact_token_types
 
 T = TypeVar("T")

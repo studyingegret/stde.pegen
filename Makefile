@@ -22,6 +22,8 @@ test-install:  ## Install with test dependencies
 check:  ## Run the test suite
 	$(PYTHON) -m pytest -vvv --log-cli-level=info -s --color=yes $(PYTEST_ARGS) tests
 
+# Note: The $(shell) call makes it compatible with editable installs
+#XXX: Why use --cov-append?
 .PHONY: pycoverage
 pycoverage:  ## Run the test suite, with Python code coverage
 	$(PYTHON) -m pytest \
@@ -29,24 +31,36 @@ pycoverage:  ## Run the test suite, with Python code coverage
 		--log-cli-level=info \
 		-s \
 		--color=yes \
-		--cov=pegen \
+		--cov=$(shell python -c "import pegen, os; print(os.path.dirname(pegen.__file__))") \
 		--cov-config=tox.ini \
 		--cov-report=term \
 		--cov-append $(PYTEST_ARGS) \
+		tests
+
+# Note: The $(shell) call makes it compatible with editable installs
+# Coverage configuration is in pyproject.toml
+.PHONY: pycoverage2
+pycoverage2:  ## Run the test suite, with Python code coverage
+	$(PYTHON) -m pytest \
+		--color=yes \
+		--cov=$(shell python -c "import pegen, os; print(os.path.dirname(pegen.__file__))") \
+		--cov-branch \
+		--cov-report=term \
+		--cov-report=html \
+		$(PYTEST_ARGS) \
 		tests
 
 .PHONY: format
 format: ## Format all files
 	$(PYTHON) -m black src tests
 
-# The --exclude for mypy notably excludes src/pegen/build_typings_not_mypy.py
 .PHONY: lint black flake8 dmypy mypy
 lint: black flake8 dmypy ## Lint all files
 black:
 	$(PYTHON) -m black --check src tests
 flake8:
 	$(PYTHON) -m flake8 src tests
-dmypy: #XXX: How to make setting environment variable cross-platform?
+dmypy:
 	dmypy run
 mypy: dmypy # Backward compatibility
 

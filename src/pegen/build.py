@@ -117,7 +117,8 @@ def _grammar_file_name_fallback(
 
 
 """
-The basic functions are load_grammar_from_file, generate_code_from_grammar and generate_parser_from_code.
+The basic functions are load_grammar_from_file, load_grammar_from_string,
+generate_code_from_grammar and generate_parser_from_code.
 All other functions are their combinations.
 
 flowchart TD

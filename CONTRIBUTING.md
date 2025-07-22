@@ -61,17 +61,31 @@ python -m tox
 This will check that all the tests pass but also will make several checks on the code style
 and type annotations of the package. It also does some things I don't really understand.
 
-## Tests
+## Test
 
 To run the test suite:
 
 ```
 python -m pytest tests
 # Or
-make check
+make check  # More verbose
 ```
 
 New code should ideally have tests and not break existing tests.
+
+## Test with coverage report
+
+```
+make pycoverage2
+```
+
+Or use the command:
+
+```
+python -m pytest --color=yes --cov=$(python -c "import pegen, os; print(os.path.dirname(pegen.__file__))") --cov-branch --cov-report=term --cov-report=html tests
+```
+
+There is also a `pycoverage` make task, but I don't know why it uses `--cov-append`.
 
 ## Type Checking
 

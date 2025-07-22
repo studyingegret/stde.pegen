@@ -128,3 +128,27 @@ ignore_missing_imports = true
 [tool.pyright]
 # Skip analyzing build_types.py, instead refer to _typings_not_mypy/build_typings.py for better hints
 defineConstant = { PEGEN_ENABLE_ENHANCED_TYPE_HINTS = true }
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = ["tests/*", "**/__init__.py", "**/pegen/__main__.py", "**/pegen/web.py"]
+
+[tool.coverage.paths]
+# Support editable installs (with -C editable_mode=strict)
+source = ["src/pegen", "build/__editable__.pegen*/pegen"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma (XXX:?)
+    "pragma: no cover",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise NotImplementedError()",
+    "pass",
+
+    "if TYPE_CHECKING:",
+    "if PEGEN_ENABLE_ENHANCED_TYPE_HINTS:",
+]
+skip_covered = true
+show_missing = true
