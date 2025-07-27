@@ -149,8 +149,7 @@ class Leaf:
         return self.value
 
     def __iter__(self) -> Iterable[str]:
-        if False:
-            yield
+        return iter([])
 
     @abstractmethod
     def initial_names(self) -> AbstractSet[str]:
@@ -281,6 +280,7 @@ class TopLevelItem:
 
 
 class Forced:
+    """&&node"""
     def __init__(self, node: Plain):
         self.node = node
 
@@ -310,6 +310,7 @@ class Lookahead:
 
 
 class PositiveLookahead(Lookahead):
+    """&node"""
     def __init__(self, node: Plain):
         super().__init__(node, "&")
 
@@ -318,6 +319,7 @@ class PositiveLookahead(Lookahead):
 
 
 class NegativeLookahead(Lookahead):
+    """!node"""
     def __init__(self, node: Plain):
         super().__init__(node, "!")
 
@@ -326,6 +328,7 @@ class NegativeLookahead(Lookahead):
 
 
 class Opt:
+    """[node], node?"""
     def __init__(self, node: Item):
         self.node = node
 
@@ -349,7 +352,6 @@ class Opt:
 
 class Repeat:
     """Shared base class for x* and x+."""
-
     def __init__(self, node: Plain):
         self.node = node
         self.memo: Optional[Tuple[Optional[str], str]] = None
@@ -380,6 +382,7 @@ class Repeat1(Repeat):
     def __str__(self) -> str:
         s = str(self.node)
         # TODO: Decide whether to use (X)+ or X+ based on type of X
+        # ^ XXX: How exactly?
         if " " in s:
             return f"({s})+"
         else:
@@ -403,6 +406,7 @@ class Gather(Repeat):
 
 
 class Group:
+    """(rhs)"""
     def __init__(self, rhs: Rhs):
         self.rhs = rhs
 
@@ -420,6 +424,7 @@ class Group:
 
 
 class Cut:
+    """~"""
     def __init__(self) -> None:
         pass
 

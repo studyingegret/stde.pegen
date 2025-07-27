@@ -126,6 +126,7 @@ module = "psutil"
 ignore_missing_imports = true
 
 [tool.pyright]
+reportInvalidTypeForm = "none"
 # Skip analyzing build_types.py, instead refer to _typings_not_mypy/build_typings.py for better hints
 defineConstant = { PEGEN_ENABLE_ENHANCED_TYPE_HINTS = true }
 
