@@ -7,20 +7,29 @@ import token
 import tokenize
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Dict, Optional, Self, TextIO, Tuple, Type, TypeAlias, TypeVar, cast
+from typing import Any, Callable, ClassVar, Dict, Optional, Self, TextIO, Tuple, Type, TypeAlias, TypeVar, cast, Protocol, overload
 
-from pegen.tokenizer import AbstractTokenizer, Tokenizer
-
+from pegen.tokenizer import Tokenizer
 from pegen.tokenizer import exact_token_types
 
 T = TypeVar("T")
-P = TypeVar("P", bound="DefaultParser") #TODO
 F = TypeVar("F", bound=Callable[..., Any])
 
-# Tokens added in Python 3.12
-FSTRING_START = getattr(token, "FSTRING_START", None)
-FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
-FSTRING_END = getattr(token, "FSTRING_END", None)
+## Tokens added in Python 3.12
+#FSTRING_START = getattr(token, "FSTRING_START", None)
+#FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
+#FSTRING_END = getattr(token, "FSTRING_END", None)
+
+
+class MarkRequirements(Protocol):
+    def __hash__(self) -> int: ...
+    #def __eq__(self, other: Self) -> bool: ... # Pyright doesn't like this
+    #def __eq__(self, other: "MarkRequirements", /) -> bool: ... # Pyright doesn't like this
+    def __eq__(self, other: object, /) -> bool: ...
+    def __lt__(self, other: Self, /) -> bool: ...
+    def __le__(self, other: Self, /) -> bool: ...
+    def __gt__(self, other: Self, /) -> bool: ...
+    def __ge__(self, other: Self, /) -> bool: ...
 
 
 def logger(method: F) -> F:
@@ -31,7 +40,7 @@ def logger(method: F) -> F:
     method_name = method.__name__
 
     @wraps(method)
-    def logger_wrapper(self: P, *args: object) -> F:
+    def logger_wrapper(self: "BaseParser", *args: object) -> F:
         if not self._verbose:
             return method(self, *args)
         argsr = ",".join(repr(arg) for arg in args)
@@ -51,9 +60,9 @@ def memoize(method: F) -> F:
     method_name = method.__name__
 
     @wraps(method)
-    def memoize_wrapper(self: P, *args: object) -> F:
+    def memoize_wrapper(self: "BaseParser", *args: object) -> F:
         mark = self.mark()
-        key = mark, method_name, args
+        key = (mark, method_name, args)
         # Fast path: cache hit, and not verbose.
         if key in self._cache and not self._verbose:
             tree, endmark = self._cache[key]
@@ -83,14 +92,14 @@ def memoize(method: F) -> F:
     return cast(F, memoize_wrapper)
 
 
-def memoize_left_rec(method: Callable[[P], Optional[T]]) -> Callable[[P], Optional[T]]:
+def memoize_left_rec(method: Callable[["BaseParser"], Optional[T]]) -> Callable[["BaseParser"], Optional[T]]:
     """Memoize a left-recursive symbol method."""
     method_name = method.__name__
 
     @wraps(method)
-    def memoize_left_rec_wrapper(self: P) -> Optional[T]:
+    def memoize_left_rec_wrapper(self: "BaseParser") -> Optional[T]:
         mark = self.mark()
-        key = mark, method_name, ()
+        key = (mark, method_name, ())
         # Fast path: cache hit, and not verbose.
         if key in self._cache and not self._verbose:
             tree, endmark = self._cache[key]
@@ -172,19 +181,32 @@ class BaseParser(ABC):
     KEYWORDS: ClassVar[Tuple[str, ...]]
     SOFT_KEYWORDS: ClassVar[Tuple[str, ...]]
 
-    # Should be an associated type (like Rust's) but this is the nearest thing I know
-    Mark: TypeAlias = Any
+    Mark: TypeAlias = MarkRequirements
+    """Should be an associated type (like Rust's) but this is the nearest thing I know.
+    Currently methods accepting Mark need #type:ignore[override] because
+    of the lack of associated type semantic (I think so).
+
+    What is intended to express is that
+    1. A class implementing BaseParser should define Mark to be a type,
+       as a class variable
+    2. "Mark" shall mean that same type and only that type
+
+    Currently type checkers understand it as "any type that implements MarkRequirements"
+    instead of "declaration only here; the same one type in implementing classes"
+    leading to requiring #type:ignore[override].
+    """
 
     # Cooperation with decorators above
     # XXX: Might be incomplete
     _verbose: bool
     _vprint: Callable[..., Any] # Should have the same signature as print() #XXX: How to type this?
+    """Only present when self._verbose is True"""
     _cache: Dict[Tuple[Mark, str, Tuple[Any, ...]], Tuple[Any, Mark]] = {}
     _level: int
     in_recursive_rule: int
 
     # Cooperation with python_generator_v2.py
-    # XXX: There are more coupling cooperations to reveal
+    # XXX: There are more coupling cooperations to reveal?
     call_invalid_rules: bool
 
     def __init__(self, *, verbose_stream: Optional[TextIO] = sys.stdout):
@@ -192,7 +214,6 @@ class BaseParser(ABC):
         if self._verbose:
             self._vprint = partial(print, file=verbose_stream)
         self._level = 0
-        Mark: TypeAlias = int #pyright:ignore
         self._cache = {}
 
         # Integer tracking wether we are in a left recursive rule or not. Can be useful
@@ -210,7 +231,6 @@ class BaseParser(ABC):
     @abstractmethod
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> "BaseParser": ...
 
-    #@abstractmethod
     def start(self) -> Any:
         """Expected grammar entry point.
 
@@ -218,10 +238,14 @@ class BaseParser(ABC):
         functions consuming parser instances.
 
         """
-        pass
 
     @abstractmethod #XXX: ??
-    def showpeek(self) -> str: ...
+    def nextpos(self) -> Tuple[int, int]:
+        """Return (line, col) of next token (if tokenizing) or current position"""
+
+    def showpeek(self) -> str:
+        line, col = self.nextpos()
+        return f"{line}.{col}"
 
     @abstractmethod
     def mark(self) -> Mark: ...
@@ -230,15 +254,16 @@ class BaseParser(ABC):
     def reset(self, index: Mark) -> None: ...
 
     @abstractmethod
-    def diagnose(self) -> Any: ...
+    def diagnose(self) -> Tuple[int, int, str]:
+        """Return
+        - First two items: farthest matched position (line, col) (both indcies 1-based).
+        - Third item: farthest matched line, i.e. the text of the line
+          whose lineno is the first item (used in error messages).
+        """
 
     @memoize
     @abstractmethod
     def match_string(self, s: str) -> Optional[Any]: ...
-
-    #@memoize
-    #@abstractmethod
-    #def expect(self, *args: Any, **kwargs: Any) -> Optional[Any]: ...
 
     def force(self, res: Any, expectation: str) -> Optional[Any]:
         if res is None:
@@ -253,21 +278,22 @@ class BaseParser(ABC):
         return ok
 
     def negative_lookahead(self, func: Callable[..., object], *args: Any, **kwargs: Any) -> bool:
-        """Calls func once; return value is false-ish <=> negative lookahead matches"""
+        """Calls func once, its return value is False-ish <=> negative lookahead will match"""
         mark = self.mark()
         ok = func(*args)
         self.reset(mark)
         return not ok
 
     #XXX: ?
+    #XXX: filename?
     @abstractmethod
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
-        tok = self.diagnose() #?
-        return SyntaxError(message, (filename, tok.start[0], 1 + tok.start[1], tok.line))
+        line, col, line_text = self.diagnose()
+        return SyntaxError(message, (filename, line, col, line_text))
 
 
 class DefaultParser(BaseParser):
-    Mark: TypeAlias = int
+    Mark: TypeAlias = int  #pyright:ignore
 
     # Convenience method (?)
     @classmethod
@@ -279,33 +305,24 @@ class DefaultParser(BaseParser):
         return cls(Tokenizer.from_stream(stream), *args, **kwargs)
 
     def __init__(self, tokenizer: Tokenizer, *, verbose_stream: Optional[TextIO] = sys.stdout):
+        super().__init__(verbose_stream=verbose_stream)
         self._tokenizer = tokenizer
-        self._verbose = verbose_stream is not None
-        if self._verbose:
-            self._vprint = partial(print, file=verbose_stream)
-        self._level = 0
-        Mark: TypeAlias = int #pyright:ignore
-        self._cache: Dict[Tuple[Mark, str, Tuple[Any, ...]], Tuple[Any, Mark]] = {}
-
-        # Integer tracking wether we are in a left recursive rule or not. Can be useful
-        # for error reporting.
-        self.in_recursive_rule = 0
-
-        # Are we looking for syntax error ? When true enable matching on invalid rules
-        self.call_invalid_rules = False
 
     def mark(self) -> Mark:
         return self._tokenizer.mark()
 
-    def reset(self, index: Mark) -> None:
+    def reset(self, index: Mark) -> None: #type:ignore
         return self._tokenizer.reset(index)
+
+    def nextpos(self) -> Tuple[int, int]:
+        return self._tokenizer.peek().start
 
     def showpeek(self) -> str:
         tok = self._tokenizer.peek()
         return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
 
     @memoize
-    def expect(self, type: str) -> Optional[tokenize.TokenInfo]:
+    def match_string(self, type: str) -> Optional[tokenize.TokenInfo]: #pyright:ignore
         tok = self._tokenizer.peek()
         if (tok.string == type
          or (type in exact_token_types and tok.type == exact_token_types[type])
@@ -319,8 +336,31 @@ class DefaultParser(BaseParser):
         return SyntaxError(message, (filename, tok.start[0], 1 + tok.start[1], tok.line))
 
 
+def _count_nlines_and_last_col(s: str) -> Tuple[int, int]:
+    """Second return item is always 0 when first return item is 0"""
+    length = len(s)
+    i = 0
+    nlines = 0
+    last_line_start = 0
+    while i < length:
+        if s[i] == "\n":
+            i += 1
+            nlines += 1
+            last_line_start = i
+        elif s[i] == "\r":
+            i += 1
+            if i < length and s[i] == "\n":
+                i += 1
+            nlines += 1
+            last_line_start = i
+        else:
+            i += 1
+    # If Line 1 starts at a, Line 2 starts at b, then length of Line 1 is b - a
+    return (0, 0) if nlines == 0 else (nlines, length - last_line_start)
+
+
 class CharBasedParser(BaseParser):
-    Mark: TypeAlias = int
+    Mark: TypeAlias = Tuple[int, int, int]  #pyright:ignore
 
     @classmethod
     def from_text(cls, text: str, *args: Any, **kwargs: Any) -> Self:
@@ -329,49 +369,40 @@ class CharBasedParser(BaseParser):
     @classmethod
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> Self:
         #stream.seek(0) #XXX: ?
-        return cls(stream.read(), *args, **kwargs) #type:ignore # (?)
+        return cls(stream.read(), *args, **kwargs)
 
     def __init__(self, text: str, *, verbose_stream: Optional[TextIO] = sys.stdout):
+        super().__init__(verbose_stream=verbose_stream)
         self._text = text
         self._pos = 0
         self._line = 0
         self._col = 0
-        self._lineindex_table = ...
-        self._verbose = verbose_stream is not None
-        if self._verbose:
-            self._vprint = partial(print, file=verbose_stream)
-        self._level = 0
-        Mark: TypeAlias = int #pyright:ignore
-        self._cache: Dict[Tuple[Mark, str, Tuple[Any, ...]], Tuple[Any, Mark]] = {}
-
-        # Integer tracking wether we are in a left recursive rule or not. Can be useful
-        # for error reporting.
-        self.in_recursive_rule = 0
-
-        # Are we looking for syntax error ? When true enable matching on invalid rules
-        self.call_invalid_rules = False
+        self._farthest = self.mark()
 
     def mark(self) -> Mark:
-        return self._pos
+        return (self._pos, self._line, self._col)
 
-    def reset(self, index: Mark) -> None:
-        self._pos = index
+    def reset(self, mark: Mark) -> None: #type:ignore
+        self._pos, self._line, self._col = mark
 
-    def peek(self):
-        ...
+    #def peek(self): ...
 
-    def showpeek(self) -> str: ...
-        #return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
+    def nextpos(self) -> Tuple[int, int]:
+        return self._line, self._col
 
+    #TODO
     def diagnose(self) -> Any: ...
 
     @memoize
     def match_string(self, s: str) -> Optional[str]:
-        return s if self._text.startswith(s, self._pos) else None
-
-    @memoize
-    def expect(self, type: str) -> Optional[tokenize.TokenInfo]:
-        ...
+        if self._text.startswith(s, self._pos):
+            nlines, last_col = _count_nlines_and_last_col(s)
+            self._pos += len(s)
+            self._line += nlines
+            self._col = last_col if nlines else self._col + len(s)
+            return s
+        else:
+            return None
 
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
         tok = self.diagnose()

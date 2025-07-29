@@ -260,7 +260,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         if subheader:
             self.print(subheader)
         cls_name = self.grammar.metas.get("class", "GeneratedParser")
-        base_cls_name = self.grammar.metas.get("base_class", "DefaultParser")
+        base_cls_name = self.grammar.metas.get("base", "DefaultParser")
         self.print("# Keywords and soft keywords are listed at the end of the parser definition.")
         self.print(f"class {cls_name}({base_cls_name}):")
         #with self.indent(): #XXX: ?
@@ -285,8 +285,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         for alt in alts:
             if alt.action and "LOCATIONS" in alt.action:
                 return True
-            for n in alt.items:
-                if isinstance(n.item, Group) and self.alts_uses_locations(n.item.rhs.alts):
+            for item in map(lambda node: node.item, alt.items):
+                if isinstance(item, Group) and self.alts_uses_locations(item.rhs.alts):
                     return True
         return False
 
@@ -322,8 +322,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
             self.print("mark = self.mark()")
             if self.alts_uses_locations(node.rhs.alts):
-                self.print("tok = self._tokenizer.peek()") #XXX
-                self.print("start_lineno, start_col_offset = tok.start")
+                #self.print("tok = self._tokenizer.peek()") #XXX
+                #self.print("start_lineno, start_col_offset = tok.start")
+                self.print("")
             if is_loop:
                 self.print("children = []")
             self.visit(rhs, is_loop=is_loop, is_gather=is_gather)
