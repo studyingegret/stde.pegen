@@ -199,7 +199,7 @@ By default the parser does not track line number and col offset for
 production each rule. If one desires to store the start line and offset
 and the end line and offset of a rule, one can add ``LOCATIONS`` in the
 action. It will be replaced in the generated parser by the value of the
-``location_formatting`` argument of the parser generator, which defaults
+``location_formatting`` argument of the parser generator [TODO: deleted], which defaults
 to::
 
     lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset

@@ -234,7 +234,6 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         grammar: grammar.Grammar,
         file: TextIO,
         tokens: Set[str] = set(token.tok_name.values()) | ADDITIONAL_TOKENS,
-        location_formatting: Optional[str] = None,
         unreachable_formatting: Optional[str] = None,
         *, # For maximum compatibility
         skip_actions: bool = False,
@@ -246,9 +245,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
         self._usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
         self.unreachable_formatting = unreachable_formatting or "None  # pragma: no cover"
-        self.location_formatting = location_formatting or (
-            "lineno=start_lineno, col_offset=start_col_offset, "
-            "end_lineno=end_lineno, end_col_offset=end_col_offset")
+        self.location_formatting = self.grammar.metas.get("locations_format",
+            "lineno=start_lineno, col_offset=start_colno, "
+            "end_lineno=end_lineno, end_col_offset=end_colno")
         self.cleanup_statements: List[str] = []
         self.skip_actions = skip_actions
 
@@ -322,8 +321,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
             self.print("mark = self.mark()")
             if self.alts_uses_locations(node.rhs.alts):
-                #self.print("tok = self._tokenizer.peek()") #XXX
-                #self.print("start_lineno, start_col_offset = tok.start")
+                self.print("start_lineno, start_colno = self.nextpos()")
                 self.print("")
             if is_loop:
                 self.print("children = []")
@@ -389,8 +387,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                     action = f"[{', '.join(self.local_variable_names)}]"
 
         if locations:
-            self.print("tok = self._tokenizer.get_last_non_whitespace_token()")
-            self.print("end_lineno, end_col_offset = tok.end")
+            self.print("end_lineno, end_colno = self.nextpos()")
+            self.print("start = (start_lineno, start_colno)")
+            self.print("end = (end_lineno, end_colno)")
 
         if is_loop:
             self.print(f"children.append({action})")

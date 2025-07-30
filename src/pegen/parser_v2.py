@@ -7,7 +7,7 @@ import token
 import tokenize
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Dict, Optional, Self, TextIO, Tuple, Type, TypeAlias, TypeVar, cast, Protocol, overload
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, NamedTuple, Optional, Self, TextIO, Tuple, Type, TypeAlias, TypeVar, cast, Protocol, overload
 
 from pegen.tokenizer import Tokenizer
 from pegen.tokenizer import exact_token_types
@@ -183,7 +183,7 @@ class BaseParser(ABC):
 
     Mark: TypeAlias = MarkRequirements
     """Should be an associated type (like Rust's) but this is the nearest thing I know.
-    Currently methods accepting Mark need #type:ignore[override] because
+    Currently methods accepting Mark as argument need #type:ignore[override] because
     of the lack of associated type semantic (I think so).
 
     What is intended to express is that
@@ -265,6 +265,9 @@ class BaseParser(ABC):
     @abstractmethod
     def match_string(self, s: str) -> Optional[Any]: ...
 
+    @abstractmethod
+    def endmarker(self) -> bool: ...
+
     def force(self, res: Any, expectation: str) -> Optional[Any]:
         if res is None:
             raise self.make_syntax_error(f"expected {expectation}")
@@ -292,6 +295,7 @@ class BaseParser(ABC):
         return SyntaxError(message, (filename, line, col, line_text))
 
 
+#TODO: Now untested
 class DefaultParser(BaseParser):
     Mark: TypeAlias = int  #pyright:ignore
 
@@ -320,6 +324,9 @@ class DefaultParser(BaseParser):
     def showpeek(self) -> str:
         tok = self._tokenizer.peek()
         return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
+
+    def endmarker(self) -> bool:
+        return self._tokenizer.peek().type == token.ENDMARKER
 
     @memoize
     def match_string(self, type: str) -> Optional[tokenize.TokenInfo]: #pyright:ignore
@@ -360,7 +367,17 @@ def _count_nlines_and_last_col(s: str) -> Tuple[int, int]:
 
 
 class CharBasedParser(BaseParser):
-    Mark: TypeAlias = Tuple[int, int, int]  #pyright:ignore
+    class Mark(NamedTuple):
+        line: int
+        col: int
+        pos: int
+        def __eq__(self, other: object, /) -> bool: return self[2] == other[2] #type:ignore
+        def __lt__(self, other: Self, /) -> bool: return self[2] < other[2] #type:ignore
+        def __le__(self, other: Self, /) -> bool: return self[2] <= other[2] #type:ignore
+        def __gt__(self, other: Self, /) -> bool: return self[2] > other[2] #type:ignore
+        def __ge__(self, other: Self, /) -> bool: return self[2] >= other[2] #type:ignore
+        if TYPE_CHECKING: #type:ignore
+            def __hash__(self) -> int: ... #type:ignore
 
     @classmethod
     def from_text(cls, text: str, *args: Any, **kwargs: Any) -> Self:
@@ -380,18 +397,20 @@ class CharBasedParser(BaseParser):
         self._farthest = self.mark()
 
     def mark(self) -> Mark:
-        return (self._pos, self._line, self._col)
+        #return Mark(self._pos, self._line, self._col) #pyright:ignore
+        return self.__class__.Mark(self._pos, self._line, self._col)
 
     def reset(self, mark: Mark) -> None: #type:ignore
         self._pos, self._line, self._col = mark
 
-    #def peek(self): ...
-
     def nextpos(self) -> Tuple[int, int]:
         return self._line, self._col
 
-    #TODO
-    def diagnose(self) -> Any: ...
+    def diagnose(self) -> Any:
+        return self._farthest
+
+    def endmarker(self) -> bool:
+        return self._pos == len(self._text)
 
     @memoize
     def match_string(self, s: str) -> Optional[str]:
@@ -400,9 +419,13 @@ class CharBasedParser(BaseParser):
             self._pos += len(s)
             self._line += nlines
             self._col = last_col if nlines else self._col + len(s)
+            self._update_farthest(self.mark())
             return s
         else:
             return None
+
+    def _update_farthest(self, mark: Mark) -> None:
+        self._farthest = max(mark, self._farthest)
 
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
         tok = self.diagnose()

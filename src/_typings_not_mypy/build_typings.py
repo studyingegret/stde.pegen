@@ -23,7 +23,6 @@ assert TYPE_CHECKING, "Should never be imported at runtime"
 from typing import Literal, Type, TypeVar, TypeVarTuple, Union
 from pegen.grammar import Grammar
 from pegen.parser import Parser
-from pegen.parser_v2 import BaseParser
 from pegen.parser_generator import ParserGenerator
 from pegen.tokenizer import Tokenizer
 
@@ -53,7 +52,7 @@ WithParserCodeGenerator: TypeAlias = Union[__I, ParserGenerator]
 """4th generic argument"""
 WithParserCode: TypeAlias = Union[__I, str]
 """5th generic argument"""
-WithParserClass: TypeAlias = Union[__I, Type[BaseParser]]
+WithParserClass: TypeAlias = Union[__I, Type[Parser]]
 """6th generic argument"""
 T1 = TypeVar("T1", WithGrammar, None, Union[WithGrammar, None], covariant=True)
 T2 = TypeVar("T2", WithGrammarParser, None, Union[WithGrammarParser, None], covariant=True)
@@ -106,7 +105,7 @@ if TYPE_CHECKING:
         gt = cast(Tokenizer, 0)  # grammar_tokenizer
         pcg = cast(ParserGenerator, 0)  # parser_code_generator
         pcode = "a"  # parser_code
-        pcls = cast(Type[BaseParser], 0)  # parser_class
+        pcls = cast(Type[Parser], 0)  # parser_class
 
         def func() -> BuiltProducts[
             Union[WithGrammar, None], Union[WithGrammarParser, None], WithGrammarTokenizer,

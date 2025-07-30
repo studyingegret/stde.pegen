@@ -1,6 +1,6 @@
 import io
 from contextlib import contextmanager
-from typing import Any, Protocol, TextIO, Union
+from typing import TYPE_CHECKING, Any, Protocol, TextIO, Union
 from collections.abc import Iterator
 
 class PathLike(Protocol):
@@ -22,7 +22,8 @@ def open_file(file_or_path: File, mode: str = "r", *args: Any, **kwargs: Any) ->
     - path to open (requires __fspath__()).
     """
     # From https://stackoverflow.com/questions/6783472/python-function-that-accepts-file-object-or-path
-    if isinstance(file_or_path, TextIO):
+    if hasattr(file_or_path, "write") and hasattr(file_or_path, "seek"): # Duck typing
+        if TYPE_CHECKING: assert isinstance(file_or_path, TextIO)
         if "r" in mode and not file_or_path.readable():
             raise ValueError("Recieved unreadable stream when a readable stream is expected")
         if "w" in mode and not file_or_path.writable():
