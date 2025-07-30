@@ -43,7 +43,8 @@ from pegen.common import DEFAULT_PARSER_CLASS_NAME
 from pegen.grammar import Grammar
 from pegen.parser_v2 import BaseParser
 from pegen.tokenizer import Tokenizer
-from pegen.grammar_parser import GeneratedParser as GrammarParser
+#from pegen.grammar_parser import GeneratedParser as GrammarParser
+from pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
 from pegen.parser_generator import ParserGenerator
 from pegen.python_generator_v2 import PythonParserGenerator
 from pegen.tokenizer import Tokenizer

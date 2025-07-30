@@ -209,7 +209,7 @@ class BaseParser(ABC):
     # XXX: There are more coupling cooperations to reveal?
     call_invalid_rules: bool
 
-    def __init__(self, *, verbose_stream: Optional[TextIO] = sys.stdout):
+    def __init__(self, *, verbose_stream: Optional[TextIO] = None):
         self._verbose = verbose_stream is not None
         if self._verbose:
             self._vprint = partial(print, file=verbose_stream)
@@ -308,7 +308,7 @@ class DefaultParser(BaseParser):
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> Self:
         return cls(Tokenizer.from_stream(stream), *args, **kwargs)
 
-    def __init__(self, tokenizer: Tokenizer, *, verbose_stream: Optional[TextIO] = sys.stdout):
+    def __init__(self, tokenizer: Tokenizer, *, verbose_stream: Optional[TextIO] = None):
         super().__init__(verbose_stream=verbose_stream)
         self._tokenizer = tokenizer
 
@@ -388,7 +388,7 @@ class CharBasedParser(BaseParser):
         #stream.seek(0) #XXX: ?
         return cls(stream.read(), *args, **kwargs)
 
-    def __init__(self, text: str, *, verbose_stream: Optional[TextIO] = sys.stdout):
+    def __init__(self, text: str, *, verbose_stream: Optional[TextIO] = None):
         super().__init__(verbose_stream=verbose_stream)
         self._text = text
         self._pos = 0

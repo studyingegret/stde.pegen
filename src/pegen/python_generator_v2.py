@@ -112,7 +112,9 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
         self.keywords: Set[str] = set()
         self.soft_keywords: Set[str] = set()
 
-    def visit_NameLeaf(self, node: NameLeaf) -> Tuple[str, str]:
+    def visit_NameLeaf(self, node: NameLeaf) -> Tuple[Optional[str], str]:
+        if node.value == "ENDMARKER":
+            return None, "self.endmarker()"
         name = node.value.lower()
         if iskeyword(name):
             name += "_"
@@ -374,17 +376,18 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         has_invalid: bool,
     ) -> None:
         if not action:
+            names = self.local_variable_names
             if is_gather:
-                assert len(self.local_variable_names) == 2
-                action = f"[{self.local_variable_names[0]}] + {self.local_variable_names[1]}"
+                assert len(names) == 2
+                action = f"[{names[0]}] + {names[1]}"
             else:
                 if has_invalid:
                     assert unreachable
                     assert isinstance(action, str)  # for type checker
-                elif len(self.local_variable_names) == 1:
-                    action = f"{self.local_variable_names[0]}"
+                elif len(names) == 1:
+                    action = f"{names[0]}"
                 else:
-                    action = f"[{', '.join(self.local_variable_names)}]"
+                    action = f"[{', '.join(names)}]"
 
         if locations:
             self.print("end_lineno, end_colno = self.nextpos()")
@@ -445,8 +448,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("):")
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(
-                    action, locations, unreachable, is_gather, is_loop, has_invalid)
+                self.print_action(action, locations, unreachable, is_gather, is_loop, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.

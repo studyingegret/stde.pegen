@@ -80,7 +80,7 @@ follow_imports = "normal"
 no_implicit_optional = true
 strict_optional = true
 
-enable_error_codes = ["deprecated"]
+enable_error_codes = ["deprecated"] #? Unrecognized?
 
 disallow_untyped_calls = true
 disallow_untyped_defs = false
@@ -108,7 +108,7 @@ module = ["pegen", "scripts"]
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = "pegen.grammar_parser"
+module = ["pegen.grammar_parser", "pegen.grammar_parser_v2"]
 strict_optional = false
 
 [[tool.mypy.overrides]]

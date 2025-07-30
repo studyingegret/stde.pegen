@@ -253,10 +253,11 @@ and returned for the alternative:
 
 If the action is omitted, a default action is generated:
 
--  If there’s a single name in the rule in the rule, it gets returned.
+-  If there’s a single item, it gets returned.
 
--  If there is more than one name in the rule, a collection with all
-   parsed expressions gets returned.
+-  If there is more than one item, a ``list`` of all parsed values (in order) gets returned.
+
+-  Exception: The token ``ENDMARKER`` or ``$`` is not considered.
 
 This default behaviour is primarily made for very simple situations and
 for debugging purposes.
