@@ -1,4 +1,3 @@
-# Remake of build.py, in progress
 """Build pegen products from sources.
 
     load_grammar_from_string: Grammar string → Grammar

@@ -1,4 +1,4 @@
-@subheader """\
+@header """\
 from ast import literal_eval
 
 from pegen.grammar import (
@@ -30,7 +30,7 @@ from pegen.grammar import (
 )
 """
 
-start[Grammar]: grammar ENDMARKER { grammar }
+start[Grammar]: grammar $
 
 grammar[Grammar]:
     | metas rules { Grammar(rules, metas) }

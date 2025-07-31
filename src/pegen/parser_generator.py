@@ -42,15 +42,34 @@ class RuleCheckingVisitor(GrammarVisitor):
         self.visit(node.item)
 
 
+def _validate_rule_names(rules: Dict[str, Rule]) -> None:
+    for rule in rules:
+        if rule.startswith("_"):
+            raise GrammarError(f"Rule names cannot start with underscore: '{rule}'")
+
+
 class ParserGenerator:
+    """ParserGenerators should keep the following convention:
+    - __init__ should validate the grammar (except for checks
+      that can only be done at generation time or checks
+      that are too costly to be practical, etc).
+    - Potentially costly operations (e.g. downloading a file) should be
+      done in method `generate` instead of `__init__`.
+
+    This way, calling the ParserGenerator class becomes a way to
+    check if the ParserGenerator accepts the grammar. (?)
+    """
+
     callmakervisitor: GrammarVisitor
 
-    #XXX: I can't see how the code accepts file == None
+    # validator.validate_grammar[_v2] should not be called by ParserGenerator.
+    # Instead, v1/v2 subclasses of ParserGenerator will call them
+    # since only at that time they know if they are v1/v2.
     def __init__(self, grammar: Grammar, tokens: Set[str], file: TextIO):
         self.grammar = grammar
         self.tokens = tokens
         self.rules = grammar.rules
-        self.validate_rule_names()
+        _validate_rule_names(self.rules)
         if "trailer" not in grammar.metas and "start" not in self.rules:
             raise GrammarError("Grammar without a trailer must have a 'start' rule")
         checker = RuleCheckingVisitor(self.rules, self.tokens)
@@ -58,17 +77,12 @@ class ParserGenerator:
             checker.visit(rule)
         self.file = file
         self.level = 0
-        compute_nullables(self.rules)
+        compute_nullables(self.rules) #XXX: Value is thrown away intentionally???
         self.first_graph, self.first_sccs = compute_left_recursives(self.rules)
         self.todo = self.rules.copy()  # Rules to generate
         self.counter = 0  # For name_rule()/name_loop()
         self.all_rules: Dict[str, Rule] = {}  # Rules + temporal rules
         self._local_variable_stack: List[List[str]] = []
-
-    def validate_rule_names(self) -> None:
-        for rule in self.rules:
-            if rule.startswith("_"):
-                raise GrammarError(f"Rule names cannot start with underscore: '{rule}'")
 
     @contextlib.contextmanager
     def local_variable_context(self) -> Iterator[None]:
@@ -81,8 +95,7 @@ class ParserGenerator:
         return self._local_variable_stack[-1]
 
     @abstractmethod
-    def generate(self, filename: str) -> None:
-        raise NotImplementedError
+    def generate(self, filename: str) -> None: ...
 
     @contextlib.contextmanager
     def indent(self) -> Iterator[None]:

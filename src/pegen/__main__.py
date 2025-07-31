@@ -10,13 +10,15 @@ import sys
 import time
 import token
 import traceback
-from typing import Union
+from typing import Any, Union
 
+#TODO: Clean types
 from pegen.build import (
     BuiltProducts,
     generate_code_from_file,
     WithGrammar, WithGrammarParser, WithGrammarTokenizer, WithParserCodeGenerator, WithParserCode
 )
+from pegen.build_v2 import generate_code_from_file as generate_code_from_file_v2, CodeFromFileProducts
 from pegen.validator import validate_grammar
 
 
@@ -43,10 +45,31 @@ def generate_python_code(
         sys.exit(1)
 
 
+def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProducts:
+    verbose: int = args.verbose
+    verbose_tokenizer = verbose >= 3
+    verbose_parser = verbose == 2 or verbose >= 4
+    try:
+        return generate_code_from_file_v2(
+            args.grammar_filename,
+            args.output,
+            sys.stdout if verbose_tokenizer else None,
+            sys.stdout if verbose_parser else None,
+            skip_actions=args.skip_actions,
+        )
+    except Exception as err:
+        if args.verbose:
+            raise  # Show traceback
+        traceback.print_exception(err.__class__, err, None)
+        sys.stderr.write("For full traceback, use -v\n")
+        sys.exit(1)
+
+
 argparser = argparse.ArgumentParser(
     prog="pegen", description="Experimental PEG-like parser generator"
 )
 argparser.add_argument("-q", "--quiet", action="store_true", help="Don't print the parsed grammar")
+argparser.add_argument("-v2", "--v2", action="store_true", help="Use v2 mode")
 argparser.add_argument(
     "-v",
     "--verbose",
@@ -73,9 +96,15 @@ argparser.add_argument(
 def main() -> None:
     args = argparser.parse_args()
 
-    t0 = time.time()
-    products = generate_python_code(args)
-    t1 = time.time()
+    products: Any
+    if args.v2:
+        t0 = time.time()
+        products = generate_python_code_v2(args)
+        t1 = time.time()
+    else:
+        t0 = time.time()
+        products = generate_python_code(args)
+        t1 = time.time()
 
     validate_grammar(products.grammar)
 

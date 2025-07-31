@@ -295,7 +295,11 @@ class BaseParser(ABC):
         return SyntaxError(message, (filename, line, col, line_text))
 
 
-#TODO: Now untested
+# Tokens added in Python 3.12
+FSTRING_START = getattr(token, "FSTRING_START", None)
+FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
+FSTRING_END = getattr(token, "FSTRING_END", None)
+
 class DefaultParser(BaseParser):
     Mark: TypeAlias = int  #pyright:ignore
 
@@ -327,6 +331,103 @@ class DefaultParser(BaseParser):
 
     def endmarker(self) -> bool:
         return self._tokenizer.peek().type == token.ENDMARKER
+
+    def diagnose(self) -> Tuple[int, int, str]:
+        t = self._tokenizer.diagnose()
+        end_line = t.end[0]
+        if t.type == token.ENDMARKER:
+            end_line -= 1
+        return (end_line, t.end[1], t.line)
+
+    @memoize
+    def name(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == token.NAME and tok.string not in self.KEYWORDS:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def number(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == token.NUMBER:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def string(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == token.STRING:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def fstring_start(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == FSTRING_START:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def fstring_middle(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == FSTRING_MIDDLE:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def fstring_end(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == FSTRING_END:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def op(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == token.OP:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def type_comment(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == token.TYPE_COMMENT:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def soft_keyword(self) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.type == token.NAME and tok.string in self.SOFT_KEYWORDS:
+            return self._tokenizer.getnext()
+        return None
+
+    @memoize
+    def newline(self) -> Optional[tokenize.TokenInfo]:
+        return self.expect("NEWLINE")
+
+    @memoize
+    def indent(self) -> Optional[tokenize.TokenInfo]:
+        return self.expect("INDENT")
+
+    @memoize
+    def dedent(self) -> Optional[tokenize.TokenInfo]:
+        return self.expect("DEDENT")
+
+    #@memoize
+    def expect(self, type: str) -> Optional[tokenize.TokenInfo]:
+        tok = self._tokenizer.peek()
+        if tok.string == type:
+            return self._tokenizer.getnext()
+        if type in exact_token_types:
+            if tok.type == exact_token_types[type]:
+                return self._tokenizer.getnext()
+        if type in token.__dict__:
+            if tok.type == token.__dict__[type]:
+                return self._tokenizer.getnext()
+        if tok.type == token.OP and tok.string == type:
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
     def match_string(self, type: str) -> Optional[tokenize.TokenInfo]: #pyright:ignore
@@ -364,6 +465,17 @@ def _count_nlines_and_last_col(s: str) -> Tuple[int, int]:
             i += 1
     # If Line 1 starts at a, Line 2 starts at b, then length of Line 1 is b - a
     return (0, 0) if nlines == 0 else (nlines, length - last_line_start)
+
+def _get_last_line(s: str) -> str:
+    length = len(s)
+    i = length - 1
+    while i >= 0:
+        #XXX: Omit empty lines?
+        if s[i] == "\n" or s[i] == "\r":
+            return s[i+1:]
+        else:
+            i -= 1
+    return s  # There is no newline character
 
 
 class CharBasedParser(BaseParser):
@@ -406,8 +518,9 @@ class CharBasedParser(BaseParser):
     def nextpos(self) -> Tuple[int, int]:
         return self._line, self._col
 
-    def diagnose(self) -> Any:
-        return self._farthest
+    def diagnose(self) -> Tuple[int, int, str]:
+        m = self._farthest
+        return (m.line, m.col, _get_last_line(self._text))
 
     def endmarker(self) -> bool:
         return self._pos == len(self._text)
@@ -428,21 +541,25 @@ class CharBasedParser(BaseParser):
         self._farthest = max(mark, self._farthest)
 
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
-        tok = self.diagnose()
-        return SyntaxError(message, (filename, tok.start[0], 1 + tok.start[1], tok.line))
+        line, col, line_text = self.diagnose()
+        return SyntaxError(message, (filename, line, col, line_text))
 
 
 #? How to change this?
-def simple_parser_main(parser_class: Type[DefaultParser]) -> None:
+def simple_parser_main(parser_class: Type[BaseParser]) -> None:
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("-v", "--verbose", action="count", default=0,
-                           help="Print timing stats; repeat for more debug output")
-    argparser.add_argument("-q", "--quiet", action="store_true",
-                           help="Don't print the parsed program")
-    argparser.add_argument("-r", "--run", action="store_true",
-                           help="Run the parsed program")
-    argparser.add_argument("filename",
-                           help="Input file ('-' to use stdin)")
+    argparser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Print timing stats; repeat for more debug output",
+    )
+    argparser.add_argument(
+        "-q", "--quiet", action="store_true", help="Don't print the parsed program"
+    )
+    argparser.add_argument("-r", "--run", action="store_true", help="Run the parsed program")
+    argparser.add_argument("filename", help="Input file ('-' to use stdin)")
 
     args = argparser.parse_args()
     verbose = args.verbose
@@ -458,9 +575,7 @@ def simple_parser_main(parser_class: Type[DefaultParser]) -> None:
     else:
         file = open(args.filename)
     try:
-        tokengen = tokenize.generate_tokens(file.readline)
-        tokenizer = Tokenizer(tokengen, verbose_stream=sys.stdout if verbose_tokenizer else None)
-        parser = parser_class(tokenizer, verbose_stream=sys.stdout if verbose_parser else None)
+        parser = parser_class.from_stream(file, verbose_stream=sys.stdout if verbose_parser else None)
         tree = parser.start()
         try:
             if file.isatty():
@@ -494,10 +609,7 @@ def simple_parser_main(parser_class: Type[DefaultParser]) -> None:
 
     if verbose:
         dt = t1 - t0
-        diag = tokenizer.diagnose()
-        nlines = diag.end[0]
-        if diag.type == token.ENDMARKER:
-            nlines -= 1
+        nlines = parser.diagnose()[0]
         print(f"Total time: {dt:.3f} sec; {nlines} lines", end="")
         if endpos:
             print(f" ({endpos} bytes)", end="")
@@ -506,6 +618,6 @@ def simple_parser_main(parser_class: Type[DefaultParser]) -> None:
         else:
             print()
         print("Caches sizes:")
-        print(f"  token array : {len(tokenizer._tokens):10}")
+        #print(f"  token array : {len(tokenizer._tokens):10}")
         print(f"        cache : {len(parser._cache):10}")
         ## print_memstats()

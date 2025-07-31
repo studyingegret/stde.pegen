@@ -24,7 +24,7 @@ def test_not_whitespace_tokenized() -> None:
 def test_locations() -> None:
     grammar = dedent("""
         @base "CharBasedParser"
-        @locations_format "(start, end)"
+        @location_format "(start, end)"
 
         start: parens_contents $
         parens_contents: items=",".item+ [","] { (items, LOCATIONS) }
@@ -37,10 +37,10 @@ def test_locations() -> None:
     parser = generate_parser_from_grammar(grammar).parser_class
     #TODO
     assert parser.from_text("").start() is None
-    assert parser.from_text("a,b,a").start() == [
+    assert parser.from_text("a,b,a").start() == ([
         ("a", ((0, 0), (0, 1))),
         ("b", ((0, 2), (0, 3))),
         ("a", ((0, 4), (0, 5))),
-    ]
+    ], ((0, 0), (0, 5)))
     assert parser.from_text(" ").start() is None
     assert parser.from_text("a, b").start() is None
