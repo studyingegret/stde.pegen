@@ -52,7 +52,12 @@ ADDITIONAL_TOKENS = {
     "FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END",
 }
 
-ALLOWED_METAS = {"class", "base", "location_format", "metaheader", "header", "trailer"}
+ALLOWED_METAS = {"class", "base", "location_format", "metaheader",
+                 "header", "trailer", "require"}
+
+# TODO: Doc
+# All v2 generators should accept the require string "v2".
+ALLOWED_REQUIRES = {"v2", "v2-python"}
 
 
 class InvalidNodeVisitor(GrammarVisitor[bool]): #?
@@ -229,16 +234,18 @@ class UsedNamesVisitor(ast.NodeVisitor):
 
 
 
-def _check_grammar_metas(grammar: Grammar) -> None:
+def _check_grammar(grammar: Grammar) -> None:
     if (m := set(grammar.metas.keys())) > ALLOWED_METAS:
         raise ValidationError(f"Unrecognized metas: {','.join(m - ALLOWED_METAS)}")
+    if "require" in grammar.metas and grammar.metas["require"] not in ALLOWED_REQUIRES:
+        raise ValidationError("Grammar is not adapted for this parser generator "
+                              f"(it requires {grammar.metas["require"]!r})")
 
 
 class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def __init__(
         self,
         grammar: Grammar,
-        file: TextIO,
         tokens: Set[str] = set(token.tok_name.values()) | ADDITIONAL_TOKENS,
         unreachable_formatting: Optional[str] = None,
         *, # For maximum compatibility
@@ -246,8 +253,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     ):
         # TODO: tokens customizable based on parser?
         # TODO: How to handle LOCATIONS?
-        super().__init__(grammar, tokens, file)
-        _check_grammar_metas(self.grammar)
+        super().__init__(grammar, tokens)
+        _check_grammar(self.grammar)
         validate_grammar_v2(self.grammar)
         self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self) #pyright:ignore
         self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
@@ -259,7 +266,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.cleanup_statements: List[str] = []
         self.skip_actions = skip_actions
 
-    def generate(self, filename: str) -> None:
+    def generate(self, file: TextIO, filename: str) -> None:
+        super().generate(file, filename)
         metaheader = self.grammar.metas.get("metaheader", MODULE_PREFIX)
         if metaheader is not None:
             self.print(metaheader.rstrip("\n").format(filename=filename))

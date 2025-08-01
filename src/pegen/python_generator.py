@@ -239,7 +239,6 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def __init__(
         self,
         grammar: grammar.Grammar,
-        file: TextIO,
         tokens: Set[str] = set(token.tok_name.values()),
         location_formatting: Optional[str] = None,
         unreachable_formatting: Optional[str] = None,
@@ -251,8 +250,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             # used in metagrammar to support Python 3.12 f-strings; don't exist in 3.11
             "FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END"
         ])
-        super().__init__(grammar, tokens, file)
-        self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self)
+        super().__init__(grammar, tokens)
+        self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self) #pyright:ignore
         self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
         self._usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
         self.unreachable_formatting = unreachable_formatting or "None  # pragma: no cover"
@@ -262,7 +261,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.cleanup_statements: List[str] = []
         self.skip_actions = skip_actions
 
-    def generate(self, filename: str) -> None:
+    def generate(self, file: TextIO, filename: str) -> None:
+        super().generate(file, filename)
         header = self.grammar.metas.get("header", MODULE_PREFIX)
         if header is not None:
             self.print(header.rstrip("\n").format(filename=filename))

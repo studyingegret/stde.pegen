@@ -169,15 +169,14 @@ def generate_code_from_grammar(
 ) -> CodeFromGrammarProducts:
     if grammar_file_name is None:
         grammar_file_name = "<generate_code_from_grammar>"
+    gen = PythonParserGenerator(grammar, skip_actions=skip_actions)
     if output_file is Flags.RETURN:
         with io.StringIO() as file:
-            gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
-            gen.generate(grammar_file_name)
+            gen.generate(file, grammar_file_name)
             return CodeFromGrammarProducts(gen, file.getvalue())
     else:
         with open_file(output_file, "w") as file:
-            gen = PythonParserGenerator(grammar, file, skip_actions=skip_actions)
-            gen.generate(grammar_file_name)
+            gen.generate(file, grammar_file_name)
             return CodeFromGrammarProducts(gen, None)
 
 

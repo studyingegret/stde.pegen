@@ -65,7 +65,7 @@ class ParserGenerator:
     # validator.validate_grammar[_v2] should not be called by ParserGenerator.
     # Instead, v1/v2 subclasses of ParserGenerator will call them
     # since only at that time they know if they are v1/v2.
-    def __init__(self, grammar: Grammar, tokens: Set[str], file: TextIO):
+    def __init__(self, grammar: Grammar, tokens: Set[str]):
         self.grammar = grammar
         self.tokens = tokens
         self.rules = grammar.rules
@@ -75,7 +75,7 @@ class ParserGenerator:
         checker = RuleCheckingVisitor(self.rules, self.tokens)
         for rule in self.rules.values():
             checker.visit(rule)
-        self.file = file
+        self.file: TextIO
         self.level = 0
         compute_nullables(self.rules) #XXX: Value is thrown away intentionally???
         self.first_graph, self.first_sccs = compute_left_recursives(self.rules)
@@ -95,7 +95,8 @@ class ParserGenerator:
         return self._local_variable_stack[-1]
 
     @abstractmethod
-    def generate(self, filename: str) -> None: ...
+    def generate(self, file: TextIO, filename: str) -> None:
+        self.file = file
 
     @contextlib.contextmanager
     def indent(self) -> Iterator[None]:

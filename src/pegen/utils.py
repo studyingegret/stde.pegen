@@ -38,8 +38,8 @@ def generate_parser(
 ) -> Type[Parser]:
     # Generate a parser.
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out)
-    genr.generate(source_name)
+    genr = PythonParserGenerator(grammar)
+    genr.generate(out, source_name)
 
     # Load the generated parser class.
     ns: Dict[str, Any] = {}

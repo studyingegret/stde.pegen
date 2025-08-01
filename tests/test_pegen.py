@@ -371,9 +371,11 @@ def test_nullable() -> None:
     sign: ['-' | '+']
     """
     grammar: Grammar = parse_string(grammar_source, GrammarParser)
-    out = io.StringIO()
+    #out = io.StringIO()
+    #XXX:?
     # Called to visit the grammar which updates the rules
-    PythonParserGenerator(grammar, out)
+    #PythonParserGenerator(grammar, out)
+    PythonParserGenerator(grammar)
     rules = grammar.rules
     assert rules["start"].nullable is False  # Not None!
     assert rules["sign"].nullable
@@ -385,9 +387,8 @@ def test_advanced_left_recursive() -> None:
     sign: ['-']
     """
     grammar: Grammar = parse_string(grammar_source, GrammarParser)
-    out = io.StringIO()
     # Called to visit the grammar which updates the rules
-    PythonParserGenerator(grammar, out)
+    PythonParserGenerator(grammar)
     rules = grammar.rules
     assert rules["start"].nullable is False  # Not None!
     assert rules["sign"].nullable
@@ -403,12 +404,12 @@ def test_mutually_left_recursive() -> None:
     """
     grammar: Grammar = parse_string(grammar_source, GrammarParser)
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out)
+    genr = PythonParserGenerator(grammar)
     rules = grammar.rules
     assert not rules["start"].left_recursive
     assert rules["foo"].left_recursive
     assert rules["bar"].left_recursive
-    genr.generate("<string>")
+    genr.generate(out, "<string>")
     ns: Dict[str, Any] = {}
     exec(out.getvalue(), ns)
     parser_class: Type[Parser] = ns["GeneratedParser"]
@@ -457,8 +458,8 @@ def test_nasty_mutually_left_recursive() -> None:
     """
     grammar: Grammar = parse_string(grammar_source, GrammarParser)
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out)
-    genr.generate("<string>")
+    genr = PythonParserGenerator(grammar)
+    genr.generate(out, "<string>")
     ns: Dict[str, Any] = {}
     exec(out.getvalue(), ns)
     parser_class = ns["GeneratedParser"]
@@ -624,8 +625,8 @@ def test_unreachable_explicit() -> None:
     """
     grammar = parse_string(source, GrammarParser)
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out, unreachable_formatting=UNREACHABLE)
-    genr.generate("<string>")
+    genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
+    genr.generate(out, "<string>")
     assert UNREACHABLE in out.getvalue()
 
 
@@ -636,8 +637,8 @@ def test_unreachable_implicit1() -> None:
     """
     grammar = parse_string(source, GrammarParser)
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out, unreachable_formatting=UNREACHABLE)
-    genr.generate("<string>")
+    genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
+    genr.generate(out, "<string>")
     assert UNREACHABLE in out.getvalue()
 
 
@@ -648,8 +649,8 @@ def test_unreachable_implicit2() -> None:
     """
     grammar = parse_string(source, GrammarParser)
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out, unreachable_formatting=UNREACHABLE)
-    genr.generate("<string>")
+    genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
+    genr.generate(out, "<string>")
     assert UNREACHABLE in out.getvalue()
 
 
@@ -660,8 +661,8 @@ def test_unreachable_implicit3() -> None:
     """
     grammar = parse_string(source, GrammarParser)
     out = io.StringIO()
-    genr = PythonParserGenerator(grammar, out, unreachable_formatting=UNREACHABLE)
-    genr.generate("<string>")
+    genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
+    genr.generate(out, "<string>")
     assert UNREACHABLE not in out.getvalue()
 
 
