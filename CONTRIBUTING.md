@@ -1,5 +1,7 @@
 # Contributing to this Pegen fork
 
+[TODO: Outdated]
+
 This project welcomes contributions in the form of Pull Requests.
 For clear bug-fixes / typos etc. just submit a PR.
 For new features or if there is any doubt in how to fix a bug, you might want

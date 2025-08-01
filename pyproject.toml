@@ -101,8 +101,6 @@ show_column_numbers = true
 show_error_end = true
 show_error_codes = true
 
-always_false = ["PEGEN_ENABLE_ENHANCED_TYPE_HINTS"]
-
 [[tool.mypy.overrides]]
 module = ["pegen", "scripts"]
 disallow_untyped_defs = true
@@ -127,8 +125,6 @@ ignore_missing_imports = true
 
 [tool.pyright]
 reportInvalidTypeForm = "none"
-# Skip analyzing build_types.py, instead refer to _typings_not_mypy/build_typings.py for better hints
-defineConstant = { PEGEN_ENABLE_ENHANCED_TYPE_HINTS = true }
 
 [tool.coverage.run]
 branch = true
@@ -149,7 +145,6 @@ exclude_lines = [
     "pass",
 
     "if TYPE_CHECKING:",
-    "if PEGEN_ENABLE_ENHANCED_TYPE_HINTS:",
 ]
 skip_covered = true
 show_missing = true

@@ -13,19 +13,15 @@ import traceback
 from typing import Any, Union
 
 #TODO: Clean types
-from pegen.build import (
-    BuiltProducts,
-    generate_code_from_file,
-    WithGrammar, WithGrammarParser, WithGrammarTokenizer, WithParserCodeGenerator, WithParserCode
-)
-from pegen.build_v2 import generate_code_from_file as generate_code_from_file_v2, CodeFromFileProducts
+from pegen.build import generate_code_from_file, CodeFromFileProducts
+from pegen.build_v2 import (generate_code_from_file as generate_code_from_file_v2,
+                            CodeFromFileProducts as CodeFromFileProductsV2)
 from pegen.validator import validate_grammar
 
 
 def generate_python_code(
     args: argparse.Namespace,
-) -> BuiltProducts[WithGrammar, WithGrammarParser, WithGrammarTokenizer,
-                   WithParserCodeGenerator, Union[WithParserCode, None], None]:
+) -> CodeFromFileProducts:
     verbose: int = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
@@ -45,7 +41,7 @@ def generate_python_code(
         sys.exit(1)
 
 
-def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProducts:
+def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProductsV2:
     verbose: int = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
@@ -66,31 +62,17 @@ def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProducts:
 
 
 argparser = argparse.ArgumentParser(
-    prog="pegen", description="Experimental PEG-like parser generator"
-)
+    prog="pegen",
+    description="Experimental PEG-like parser generator")
 argparser.add_argument("-q", "--quiet", action="store_true", help="Don't print the parsed grammar")
 argparser.add_argument("-v2", "--v2", action="store_true", help="Use v2 mode")
-argparser.add_argument(
-    "-v",
-    "--verbose",
-    action="count",
-    default=0,
-    help="Print timing stats; repeat for more debug output",
-)
-
+argparser.add_argument("-v", "--verbose", action="count", default=0,
+                       help="Print timing stats; repeat for more debug output")
 argparser.add_argument("grammar_filename", help="Grammar description")
-argparser.add_argument(
-    "-o",
-    "--output",
-    metavar="OUT",
-    default="parse.py",
-    help="Where to write the generated parser",
-)
-argparser.add_argument(
-    "--skip-actions",
-    action="store_true",
-    help="Suppress code emission for rule actions",
-)
+argparser.add_argument("-o", "--output", metavar="OUT", default="parse.py",
+                       help="Where to write the generated parser")
+argparser.add_argument("--skip-actions", action="store_true",
+                       help="Suppress code emission for rule actions")
 
 
 def main() -> None:

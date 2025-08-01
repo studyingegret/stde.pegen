@@ -36,27 +36,6 @@ Install with `pip` or your favorite PyPI package manager.
 pip install pegen
 ```
 
-For better typings (for module `build`), if you use Pyright, add the following to
-your `pyproject.toml`:
-
-```toml
-[tool.pyright]
-defineConstant = { PEGEN_ENABLE_ENHANCED_TYPE_HINTS = true }
-```
-
-(or [equivalently](https://github.com/microsoft/pyright/blob/main/docs/configuration.md),
-to `pyrightconfig.json` in your workspace root)
-
-and if you use mypy, add the following:
-
-```toml
-[tool.mypy]
-always_false = ["PEGEN_ENABLE_ENHANCED_TYPE_HINTS"]
-```
-
-(or [equivalently](https://mypy.readthedocs.io/en/stable/config_file.html)
-in another form of configuration)
-
 # Documentation
 
 The documentation is available [here](https://we-like-parsers.github.io/pegen/).
