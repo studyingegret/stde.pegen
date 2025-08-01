@@ -78,6 +78,7 @@ alt[Alt]:
     | items '$' { Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None) }
     | items action { Alt(items, action=action) }
     | items { Alt(items, action=None) }
+    | '$' { Alt([], action=None) }
     #| items e='$'? action=action? {
     #    Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
 

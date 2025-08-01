@@ -264,7 +264,7 @@ class GeneratedParser(DefaultParser):
 
     @memoize
     def alt(self) -> Optional[Alt]:
-        # alt: items '$' action | items '$' | items action | items
+        # alt: items '$' action | items '$' | items action | items | '$'
         mark = self.mark()
         if (
             (items := self.items())
@@ -293,6 +293,11 @@ class GeneratedParser(DefaultParser):
             (items := self.items())
         ):
             return Alt ( items , action = None )
+        self.reset(mark)
+        if (
+            (self.match_string('$'))
+        ):
+            return Alt ( [] , action = None )
         self.reset(mark)
         return None
 

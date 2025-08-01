@@ -327,7 +327,7 @@ class DefaultParser(BaseParser):
 
     def showpeek(self) -> str:
         tok = self._tokenizer.peek()
-        return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
+        return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]} {tok.string!r}"
 
     def endmarker(self) -> bool:
         return self._tokenizer.peek().type == token.ENDMARKER
@@ -547,21 +547,17 @@ class CharBasedParser(BaseParser):
 
 #? How to change this?
 def simple_parser_main(parser_class: Type[BaseParser]) -> None:
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="Print timing stats; repeat for more debug output",
-    )
-    argparser.add_argument(
-        "-q", "--quiet", action="store_true", help="Don't print the parsed program"
-    )
-    argparser.add_argument("-r", "--run", action="store_true", help="Run the parsed program")
-    argparser.add_argument("filename", help="Input file ('-' to use stdin)")
+    p = argparse.ArgumentParser()
+    p.add_argument("-v", "--verbose", action="count", default=0,
+                   help="Print timing stats; repeat for more debug output",)
+    p.add_argument("-q", "--quiet", action="store_true",
+                   help="Don't print the parsed program")
+    p.add_argument("-r", "--run", action="store_true",
+                   help="Run the parsed program")
+    p.add_argument("filename",
+                   help="Input file ('-' to use stdin)")
 
-    args = argparser.parse_args()
+    args = p.parse_args()
     verbose = args.verbose
     verbose_tokenizer = verbose >= 3
     verbose_parser = verbose == 2 or verbose >= 4
@@ -619,5 +615,5 @@ def simple_parser_main(parser_class: Type[BaseParser]) -> None:
             print()
         print("Caches sizes:")
         #print(f"  token array : {len(tokenizer._tokens):10}")
-        print(f"        cache : {len(parser._cache):10}")
+        print(f"cache : {len(parser._cache):10}")
         ## print_memstats()
