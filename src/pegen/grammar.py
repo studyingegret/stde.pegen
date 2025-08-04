@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+import itertools
 from typing import (
     TYPE_CHECKING,
     AbstractSet,
@@ -16,6 +17,7 @@ from typing import (
     Union,
     cast,
 )
+from pegen.common import ValidationError # Also re-export
 
 if TYPE_CHECKING:
     from pegen.parser_generator import ParserGenerator
@@ -59,26 +61,48 @@ class GrammarVisitor(Generic[VisitReturnType]):
                 self.visit(value, *args, **kwargs)
 
 
+def _check_duplicate_names(names: Iterable[str]) -> None:
+    seen_names = set()
+    for name in names:
+        if name in seen_names:
+            raise ValidationError(f"Duplicate name {name}")
+        else:
+            seen_names.add(name)
+
+
+
 class Grammar:
     #def __init__(self, rules: Iterable[Rule], metas: Iterable[Tuple[str, Optional[str]]]):
-    def __init__(self, rules: Iterable[Rule], metas: Any): #?
+    def __init__(self, rules: Iterable[Rule], extern_decls: Iterable[ExternDecl], metas: Any): #?
+        rules = list(rules)
+        extern_decls = list(extern_decls)
+        _check_duplicate_names(itertools.chain(
+            (rule.name for rule in rules),
+            (extern_decl.name for extern_decl in extern_decls)
+        ))
         self.rules = {rule.name: rule for rule in rules}
+        self.extern_decls = {extern_decl.name: extern_decl for extern_decl in extern_decls}
         self.metas = dict(metas)
+        self.items = self.rules | self.extern_decls
+
+    def __getitem__(self, name: str) -> GrammarItem:
+        return self.items[name]
 
     def __str__(self) -> str:
-        return "\n".join(str(rule) for name, rule in self.rules.items())
+        return "\n".join(map(str, itertools.chain(self.rules.values(), self.extern_decls.values())))
 
     def __repr__(self) -> str:
-        return "\n".join([
+        return "\n".join(itertools.chain([
             "Grammar(",
             "  ["
-        ] + [f"    {repr(rule)}," for rule in self.rules.values()] + [
-            "  ],",
+        ], (f"    {repr(rule)}," for rule in self.rules.values()), [
+            "  ],"
+        ], (f"    {repr(extern_decl)}" for extern_decl in self.extern_decls.values()), [
             f"  {repr(list(self.metas.items()))}",
             ")"
-        ])
+        ]))
 
-    def __iter__(self) -> Iterator[Rule]:
+    def __iter__(self) -> Iterator[Rule]: #XXX: Include extern_decls?
         return iter(self.rules.values())
 
 
@@ -92,7 +116,7 @@ class Rule:
         self.type = type
         self.rhs = rhs
         self.memo = bool(memo)
-        self.visited = False
+        #self.visited = False #unused
         self.nullable = False
         self.left_recursive = False
         self.leader = False
@@ -141,6 +165,18 @@ class Rule:
         rhs.collect_todo(gen)
 
 
+class ExternDecl:
+    def __init__(self, name: str, type: Optional[str]):
+        self.name = name
+        self.type = type
+
+    def __str__(self):
+        return f"extern {self.name}" + (f"[{self.type}]" if self.type else "")
+
+    def __repr__(self) -> str:
+        return f"ExternDecl({self.name!r}, {self.type!r})"
+
+
 class Leaf:
     def __init__(self, value: str):
         self.value = value
@@ -152,8 +188,7 @@ class Leaf:
         return iter([])
 
     @abstractmethod
-    def initial_names(self) -> AbstractSet[str]:
-        raise NotImplementedError
+    def initial_names(self) -> AbstractSet[str]: ...
 
 
 class NameLeaf(Leaf):
@@ -448,9 +483,7 @@ class Cut:
 
 Plain = Union[Leaf, Group]
 Item = Union[Plain, Opt, Repeat, Forced, Lookahead, Rhs, Cut]
+GrammarItem = Union[Rule, ExternDecl]
 RuleName = Tuple[str, Optional[str]]
 MetaTuple = Tuple[str, Optional[str]]
-MetaList = List[MetaTuple]
-RuleList = List[Rule]
-TopLevelItemList = List[TopLevelItem]
 LookaheadOrCut = Union[Lookahead, Forced, Cut]

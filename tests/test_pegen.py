@@ -9,7 +9,7 @@ from typing import Any, Dict, Type, cast
 
 import pytest
 from pegen.build import generate_parser_from_grammar, generate_code_from_grammar, load_grammar_from_string
-from pegen.grammar import Grammar, GrammarError
+from pegen.grammar import Grammar, ValidationError
 from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.parser import Parser
 from pegen.python_generator import PythonParserGenerator
@@ -554,7 +554,7 @@ def test_dangling_reference() -> None:
     start: foo ENDMARKER
     foo: bar NAME
     """
-    with pytest.raises(GrammarError):
+    with pytest.raises(ValidationError):
         generate_parser_from_string(grammar)
 
 
@@ -563,7 +563,7 @@ def test_bad_token_reference() -> None:
     start: foo
     foo: NAMEE
     """
-    with pytest.raises(GrammarError):
+    with pytest.raises(ValidationError):
         generate_parser_from_string(grammar)
 
 
@@ -571,7 +571,7 @@ def test_missing_start() -> None:
     grammar = """
     foo: NAME
     """
-    with pytest.raises(GrammarError):
+    with pytest.raises(ValidationError):
         generate_parser_from_string(grammar)
 
 
@@ -599,7 +599,6 @@ def test_forced() -> None:
     assert parse_string("number :", parser_class, verbose=True)
     with pytest.raises(SyntaxError) as e:
         parse_string("a", parser_class, verbose=True)
-
     assert "expected ':'" in str(e.exconly())
 
 

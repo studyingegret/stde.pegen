@@ -1,5 +1,6 @@
 @subheader """\
 from ast import literal_eval
+from typing import List
 
 from pegen.grammar import (
     Alt,
@@ -11,10 +12,8 @@ from pegen.grammar import (
     Lookahead,
     LookaheadOrCut,
     MetaTuple,
-    MetaList,
     NameLeaf,
     TopLevelItem,
-    TopLevelItemList,
     NegativeLookahead,
     Opt,
     Plain,
@@ -23,7 +22,6 @@ from pegen.grammar import (
     Repeat1,
     Rhs,
     Rule,
-    RuleList,
     RuleName,
     Grammar,
     StringLeaf,
@@ -33,10 +31,10 @@ from pegen.grammar import (
 start[Grammar]: grammar ENDMARKER { grammar }
 
 grammar[Grammar]:
-    | metas rules { Grammar(rules, metas) }
-    | rules { Grammar(rules, []) }
+    | metas rules { Grammar(rules, [], metas) }
+    | rules { Grammar(rules, [], []) }
 
-metas[MetaList]:
+metas[List[MetaTuple]]:
     | meta metas { [meta] + metas }
     | meta { [meta] }
 
@@ -45,7 +43,7 @@ meta[MetaTuple]:
     | "@" a=NAME b=NAME NEWLINE { (a.string, b.string) }
     | "@" NAME STRING NEWLINE { (name.string, literal_eval(string.string)) }
 
-rules[RuleList]:
+rules[List[Rule]]:
     | rule rules { [rule] + rules }
     | rule { [rule] }
 
@@ -81,7 +79,7 @@ alt[Alt]:
     #| items e='$'? action=action? {
     #    Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
 
-items[TopLevelItemList]:
+items[List[TopLevelItem]]:
     | top_level_item items { [top_level_item] + items }
     | top_level_item { [top_level_item] }
 

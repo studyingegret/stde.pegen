@@ -1,4 +1,5 @@
 #!/usr/bin/env python3.8
+#TODO: Port to have v2 version
 
 """ Convert a grammar into a dot-file suitable for use with GraphViz
 
@@ -39,6 +40,7 @@ from pegen.grammar import (
     Repeat,
     Rhs,
     Rule,
+    ExternDecl,
 )
 
 argparser = argparse.ArgumentParser(
@@ -78,6 +80,8 @@ def references_for_item(item: Any) -> List[Any]:
         return [_ref for alt in item.alts for _ref in references_for_item(alt)]
     elif isinstance(item, Rule):
         return references_for_item(item.rhs)
+    elif isinstance(item, ExternDecl): #TODO
+        return [item.name]
     else:
         raise RuntimeError(f"Unknown item: {type(item)}")
 

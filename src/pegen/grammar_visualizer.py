@@ -1,6 +1,6 @@
 import argparse
 import sys
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, List, Tuple
 
 from pegen.build import load_grammar_from_file
 from pegen.grammar import Grammar, Rule
@@ -11,37 +11,37 @@ argparser = argparse.ArgumentParser(
 argparser.add_argument("filename", help="Grammar description")
 
 
+# Note: self is not heavily used so it is possible to write this
+# with functions, without using a class without too much trouble.
 class ASTGrammarPrinter:
-    def children(self, node: Rule) -> Iterator[Any]:
+    def print_grammar_ast(self, grammar: Grammar, printer: Callable[..., None] = print) -> None:
+        for rule in grammar.rules.values():
+            printer(self.print_nodes_recursively(rule))
+
+    def children(self, node: Any) -> Iterator[Any]:
         for value in node:
             if isinstance(value, list):
                 yield from value
             else:
                 yield value
 
-    def name(self, node: Rule) -> str:
-        if not list(self.children(node)):
-            return repr(node)
-        return node.__class__.__name__
-
-    def print_grammar_ast(self, grammar: Grammar, printer: Callable[..., None] = print) -> None:
-        for rule in grammar.rules.values():
-            printer(self.print_nodes_recursively(rule))
-
-    def print_nodes_recursively(self, node: Rule, prefix: str = "", istail: bool = True) -> str:
+    def children_and_name(self, node: Any) -> Tuple[List[Any], str]:
         children = list(self.children(node))
-        value = self.name(node)
+        if not children:
+            return children, repr(node)
+        return children, node.__class__.__name__
 
-        line = prefix + ("└──" if istail else "├──") + value + "\n"
-        sufix = "   " if istail else "│  "
-
+    def print_nodes_recursively(self, node: Any, prefix: str = "", istail: bool = True) -> str:
+        children, name = self.children_and_name(node)
+        line = prefix + ("└──" if istail else "├──") + name + "\n"
         if not children:
             return line
+        suffix = "   " if istail else "│  "
 
         *children, last = children
         for child in children:
-            line += self.print_nodes_recursively(child, prefix + sufix, False)
-        line += self.print_nodes_recursively(last, prefix + sufix, True)
+            line += self.print_nodes_recursively(child, prefix + suffix, False)
+        line += self.print_nodes_recursively(last, prefix + suffix, True)
 
         return line
 

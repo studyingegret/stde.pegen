@@ -4,10 +4,13 @@
 from typing import Any, Optional
 from pegen.parser_v2 import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser
 from ast import literal_eval
+from typing import List, Union
 
 from pegen.grammar import (
     Alt,
+    GrammarItem,
     Cut,
+    ExternDecl,
     Forced,
     Gather,
     Group,
@@ -15,10 +18,8 @@ from pegen.grammar import (
     Lookahead,
     LookaheadOrCut,
     MetaTuple,
-    MetaList,
     NameLeaf,
     TopLevelItem,
-    TopLevelItemList,
     NegativeLookahead,
     Opt,
     Plain,
@@ -27,7 +28,6 @@ from pegen.grammar import (
     Repeat1,
     Rhs,
     Rule,
-    RuleList,
     RuleName,
     Grammar,
     StringLeaf,
@@ -51,24 +51,21 @@ class GeneratedParser(DefaultParser):
 
     @memoize
     def grammar(self) -> Optional[Grammar]:
-        # grammar: metas rules | rules
+        # grammar: metas? rules extern_rules?
         mark = self.mark()
         if (
-            (metas := self.metas())
+            (metas := self.metas(),)
             and
             (rules := self.rules())
+            and
+            (extern_rules := self.extern_rules(),)
         ):
-            return Grammar ( rules , metas )
-        self.reset(mark)
-        if (
-            (rules := self.rules())
-        ):
-            return Grammar ( rules , [] )
+            return Grammar ( rules , extern_rules or [] , metas or [] )
         self.reset(mark)
         return None
 
     @memoize
-    def metas(self) -> Optional[MetaList]:
+    def metas(self) -> Optional[List [MetaTuple]]:
         # metas: meta metas | meta
         mark = self.mark()
         if (
@@ -123,7 +120,7 @@ class GeneratedParser(DefaultParser):
         return None
 
     @memoize
-    def rules(self) -> Optional[RuleList]:
+    def rules(self) -> Optional[List [Rule]]:
         # rules: rule rules | rule
         mark = self.mark()
         if (
@@ -158,6 +155,41 @@ class GeneratedParser(DefaultParser):
         return None
 
     @memoize
+    def extern_rules(self) -> Optional[List [ExternDecl]]:
+        # extern_rules: extern_rule extern_rules | extern_rule
+        mark = self.mark()
+        if (
+            (extern_rule := self.extern_rule())
+            and
+            (extern_rules := self.extern_rules())
+        ):
+            return [extern_rule] + extern_rules
+        self.reset(mark)
+        if (
+            (extern_rule := self.extern_rule())
+        ):
+            return [extern_rule]
+        self.reset(mark)
+        return None
+
+    @memoize
+    def extern_rule(self) -> Optional[ExternDecl]:
+        # extern_rule: "extern" NAME annotation? NEWLINE
+        mark = self.mark()
+        if (
+            (self.match_string("extern"))
+            and
+            (name := self.name())
+            and
+            (ann := self.annotation(),)
+            and
+            (self.newline())
+        ):
+            return ExternDecl ( name . string , ann )
+        self.reset(mark)
+        return None
+
+    @memoize
     def rulename(self) -> Optional[RuleName]:
         # rulename: NAME annotation | NAME
         mark = self.mark()
@@ -177,7 +209,7 @@ class GeneratedParser(DefaultParser):
 
     @memoize
     def rule_rhs(self) -> Optional[Rhs]:
-        # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | alts NEWLINE
+        # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | NEWLINE INDENT alt DEDENT | alts NEWLINE
         mark = self.mark()
         if (
             (alts := self.alts(),)
@@ -191,6 +223,17 @@ class GeneratedParser(DefaultParser):
             (self.dedent())
         ):
             return Rhs ( alts . alts + more_alts . alts ) if alts else more_alts
+        self.reset(mark)
+        if (
+            (self.newline())
+            and
+            (self.indent())
+            and
+            (alt := self.alt())
+            and
+            (self.dedent())
+        ):
+            return Rhs ( [alt] )
         self.reset(mark)
         if (
             (alts := self.alts())
@@ -302,7 +345,7 @@ class GeneratedParser(DefaultParser):
         return None
 
     @memoize
-    def items(self) -> Optional[TopLevelItemList]:
+    def items(self) -> Optional[List [TopLevelItem]]:
         # items: top_level_item items | top_level_item
         mark = self.mark()
         if (
@@ -683,7 +726,7 @@ class GeneratedParser(DefaultParser):
         return children
 
     KEYWORDS = ()
-    SOFT_KEYWORDS = ('memo',)
+    SOFT_KEYWORDS = ('extern', 'memo')
 
 
 if __name__ == '__main__':

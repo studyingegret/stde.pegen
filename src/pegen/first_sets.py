@@ -1,15 +1,17 @@
 #!/usr/bin/env python3.8
+# TODO: Port to v2
 
 import argparse
 import pprint
 import sys
-from typing import Dict, Set
+from typing import Dict, NamedTuple, Set, Union
 
 from pegen.build import load_grammar_from_file
 from pegen.parser_generator import compute_nullables
 from pegen.grammar import (
     Alt,
     Cut,
+    ExternDecl,
     Gather,
     GrammarVisitor,
     Group,
@@ -22,6 +24,7 @@ from pegen.grammar import (
     Repeat1,
     Rhs,
     Rule,
+    GrammarItem,
     StringLeaf,
 )
 
@@ -32,14 +35,17 @@ argparser = argparse.ArgumentParser(
 argparser.add_argument("grammar_file", help="The grammar file")
 
 
+Value = Union[str, ExternDecl]
+
+
 class FirstSetCalculator(GrammarVisitor):
     def __init__(self, rules: Dict[str, Rule]) -> None:
         self.rules = rules
         compute_nullables(self.rules)
-        self.first_sets: Dict[str, Set[str]] = dict()
+        self.first_sets: Dict[str, Set[Value]] = dict()
         self.in_process: Set[str] = set()
 
-    def calculate(self) -> Dict[str, Set[str]]:
+    def calculate(self) -> Dict[str, Set[Value]]:
         for name, rule in self.rules.items():
             self.visit(rule)
         return self.first_sets
@@ -98,7 +104,7 @@ class FirstSetCalculator(GrammarVisitor):
     def visit_Repeat1(self, item: Repeat1) -> Set[str]:
         return self.visit(item.node)
 
-    def visit_NameLeaf(self, item: NameLeaf) -> Set[str]:
+    def visit_NameLeaf(self, item: NameLeaf) -> Set[Value]:
         if item.value not in self.rules:
             return {item.value}
 
@@ -119,7 +125,7 @@ class FirstSetCalculator(GrammarVisitor):
             result |= self.visit(alt)
         return result
 
-    def visit_Rule(self, item: Rule) -> Set[str]:
+    def visit_Rule(self, item: Rule) -> Set[Value]:
         if item.name in self.in_process:
             return set()
         elif item.name not in self.first_sets:
@@ -130,6 +136,10 @@ class FirstSetCalculator(GrammarVisitor):
             self.first_sets[item.name] = terminals
             self.in_process.remove(item.name)
         return self.first_sets[item.name]
+
+    def visit_ExternDecl(self, item: ExternDecl) -> Set[ExternDecl]:
+        self.first_sets[item.name] = {item}
+        return {item}
 
 
 def main() -> None:

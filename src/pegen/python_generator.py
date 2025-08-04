@@ -302,12 +302,12 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print(stmt)
         self.print(f"return {ret_val}")
 
-    def visit_Rule(self, node: Rule) -> None:
-        is_loop = node.is_loop()
-        is_gather = node.is_gather()
-        rhs = node.flatten()
-        if node.left_recursive:
-            if node.leader:
+    def visit_Rule(self, rule: Rule) -> None:
+        is_loop = rule.is_loop()
+        is_gather = rule.is_gather()
+        rhs = rule.flatten()
+        if rule.left_recursive:
+            if rule.leader:
                 self.print("@memoize_left_rec")
             else:
                 # Non-leader rules in a cycle are not memoized,
@@ -315,20 +315,20 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 self.print("@logger")
         else:
             self.print("@memoize")
-        node_type = node.type or "Any"
-        self.print(f"def {node.name}(self) -> Optional[{node_type}]:")
+        node_type = rule.type or "Any"
+        self.print(f"def {rule.name}(self) -> Optional[{node_type}]:")
         with self.indent():
-            self.print(f"# {node.name}: {rhs}")
-            if node.nullable:
-                self.print(f"# nullable={node.nullable}")
+            self.print(f"# {rule.name}: {rhs}")
+            if rule.nullable:
+                self.print(f"# nullable={rule.nullable}")
 
-            if node.name.endswith("without_invalid"):
+            if rule.name.endswith("without_invalid"):
                 self.print("_prev_call_invalid = self.call_invalid_rules")
                 self.print("self.call_invalid_rules = False")
                 self.cleanup_statements.append("self.call_invalid_rules = _prev_call_invalid")
 
             self.print("mark = self.mark()")
-            if self.alts_uses_locations(node.rhs.alts):
+            if self.alts_uses_locations(rule.rhs.alts):
                 self.print("tok = self._tokenizer.peek()")
                 self.print("start_lineno, start_col_offset = tok.start")
             if is_loop:
@@ -339,20 +339,20 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             else:
                 self.add_return("None")
 
-        if node.name.endswith("without_invalid"):
+        if rule.name.endswith("without_invalid"):
             self.cleanup_statements.pop()
 
     def visit_TopLevelItem(
-        self, node: TopLevelItem, used: Optional[Set[str]], unreachable: bool
+        self, item: TopLevelItem, used: Optional[Set[str]], unreachable: bool
     ) -> None:
         """used: Actually used variables of action of belonging Alt.
         used == None when belonging Alt has no action.
         """
-        name, call = self.callmakervisitor.visit(node.item)
+        name, call = self.callmakervisitor.visit(item.item)
         if unreachable:
             name = None
-        elif node.name:
-            name = node.name
+        elif item.name:
+            name = item.name
 
         #TODO: Option to disable eliminating unused captures
         if used is not None and name not in used:
@@ -366,10 +366,10 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 name = self.dedupe_and_add_var(name)
             self.print(f"({name} := {call})")
 
-    def visit_Rhs(self, node: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
+    def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
         if is_loop:
-            assert len(node.alts) == 1
-        for alt in node.alts:
+            assert len(rhs.alts) == 1
+        for alt in rhs.alts:
             self.visit(alt, is_loop=is_loop, is_gather=is_gather)
 
     def print_action(
@@ -404,11 +404,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         else:
             self.add_return(f"{action}")
 
-    def visit_Alt(self, node: Alt, is_loop: bool, is_gather: bool) -> None:
-        has_cut = any(isinstance(item.item, Cut) for item in node.items)
-        has_invalid = self.has_invalid(node)
+    def visit_Alt(self, alt: Alt, is_loop: bool, is_gather: bool) -> None:
+        has_cut = any(isinstance(item.item, Cut) for item in alt.items)
+        has_invalid = self.has_invalid(alt)
 
-        action = None if self.skip_actions else node.action
+        action = None if self.skip_actions else alt.action
         if action is None and not is_gather and has_invalid:
             action = "UNREACHABLE"
 
@@ -440,7 +440,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 if has_invalid:
                     self.print("self.call_invalid_rules")
                     first = False
-                for item in node.items:
+                for item in alt.items:
                     if first:
                         first = False
                     else:

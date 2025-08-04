@@ -1,9 +1,12 @@
 @header """\
 from ast import literal_eval
+from typing import List, Union
 
 from pegen.grammar import (
     Alt,
+    GrammarItem,
     Cut,
+    ExternDecl,
     Forced,
     Gather,
     Group,
@@ -11,10 +14,8 @@ from pegen.grammar import (
     Lookahead,
     LookaheadOrCut,
     MetaTuple,
-    MetaList,
     NameLeaf,
     TopLevelItem,
-    TopLevelItemList,
     NegativeLookahead,
     Opt,
     Plain,
@@ -23,7 +24,6 @@ from pegen.grammar import (
     Repeat1,
     Rhs,
     Rule,
-    RuleList,
     RuleName,
     Grammar,
     StringLeaf,
@@ -33,10 +33,9 @@ from pegen.grammar import (
 start[Grammar]: grammar $
 
 grammar[Grammar]:
-    | metas rules { Grammar(rules, metas) }
-    | rules { Grammar(rules, []) }
+    | metas=metas? rules extern_rules=extern_rules? { Grammar(rules, extern_rules or [], metas or []) }
 
-metas[MetaList]:
+metas[List[MetaTuple]]:
     | meta metas { [meta] + metas }
     | meta { [meta] }
 
@@ -45,12 +44,20 @@ meta[MetaTuple]:
     | "@" a=NAME b=NAME NEWLINE { (a.string, b.string) }
     | "@" NAME STRING NEWLINE { (name.string, literal_eval(string.string)) }
 
-rules[RuleList]:
+rules[List[Rule]]:
     | rule rules { [rule] + rules }
     | rule { [rule] }
 
 rule[Rule]:
     | rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
+
+# TODO: "nullable" / "not nullable" mark? (which?) (for first_sets.py)
+extern_rules[List[ExternDecl]]:
+    | extern_rule extern_rules { [extern_rule] + extern_rules }
+    | extern_rule { [extern_rule] }
+
+extern_rule[ExternDecl]:
+    |"extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann) }
 
 rulename[RuleName]:
     | NAME annotation { (name.string, annotation) }
@@ -59,6 +66,7 @@ rulename[RuleName]:
 
 rule_rhs[Rhs]:
     | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
+    | NEWLINE INDENT alt DEDENT { Rhs([alt]) }
     | alts NEWLINE { alts }
 
 # In the future this may return something more complicated
@@ -82,7 +90,7 @@ alt[Alt]:
     #| items e='$'? action=action? {
     #    Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
 
-items[TopLevelItemList]:
+items[List[TopLevelItem]]:
     | top_level_item items { [top_level_item] + items }
     | top_level_item { [top_level_item] }
 
@@ -116,6 +124,8 @@ atom[Plain]:
 
 action[str]: "{" ~ target_atoms "}" { target_atoms }
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
+#annotation[str]: "[" ~ text("]") "]" { target_atoms }
+#annotation[str]: "->" ~ target_atoms !":" { target_atoms }
 
 target_atoms[str]:
     | target_atom target_atoms { target_atom + " " + target_atoms }
@@ -138,3 +148,6 @@ target_fstring_middle[str]:
     | "{" { "{" }
     | "}" { "}" }
     | target_atom { target_atom }
+
+#annotation[str]: "[" ~ target_atoms "]" { target_atoms }
+#extern action_contents[str]

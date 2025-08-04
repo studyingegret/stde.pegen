@@ -7,10 +7,12 @@ from pegen import sccutils
 from pegen.grammar import (
     Alt,
     Cut,
+    ExternDecl,
     Forced,
     Gather,
     Grammar,
-    GrammarError,
+    ValidationError,
+    GrammarItem,
     GrammarVisitor,
     Group,
     Lookahead,
@@ -26,26 +28,30 @@ from pegen.grammar import (
 )
 
 
-class RuleCheckingVisitor(GrammarVisitor):
-    def __init__(self, rules: Dict[str, Rule], tokens: Set[str]):
-        self.rules = rules
-        self.tokens = tokens
+class CheckingVisitor(GrammarVisitor):
+    def __init__(self, items: Dict[str, GrammarItem], extra_names: Set[str]):
+        self.items = items
+        self.extra_names = extra_names
+
+    def visit_Rule(self, rule: Rule) -> None:
+        if rule.name.startswith("_"):
+            raise ValidationError(f"Rule names cannot start with underscore ({rule.name})")
+        self.visit(rule.rhs)
 
     def visit_NameLeaf(self, node: NameLeaf) -> None:
-        if node.value not in self.rules and node.value not in self.tokens:
+        if node.value not in self.items and node.value not in self.extra_names:
             # TODO: Add line/col info to (leaf) nodes
-            raise GrammarError(f"Dangling reference to rule {node.value!r}")
+            raise ValidationError(f"Unknown name {node.value!r}")
 
     def visit_TopLevelItem(self, node: TopLevelItem) -> None:
         if node.name and node.name.startswith("_"):
-            raise GrammarError(f"Variable names cannot start with underscore: '{node.name}'")
+            raise ValidationError(f"Variable names cannot start with underscore ({node.name})")
         self.visit(node.item)
 
 
-def _validate_rule_names(rules: Dict[str, Rule]) -> None:
-    for rule in rules:
-        if rule.startswith("_"):
-            raise GrammarError(f"Rule names cannot start with underscore: '{rule}'")
+def validate_items(items: Dict[str, GrammarItem], tokens: Set[str]) -> None:
+    checker = CheckingVisitor(items, tokens)
+    checker.visit(items.values())
 
 
 class ParserGenerator:
@@ -69,12 +75,9 @@ class ParserGenerator:
         self.grammar = grammar
         self.tokens = tokens
         self.rules = grammar.rules
-        _validate_rule_names(self.rules)
+        validate_items(self.grammar.items, self.tokens)
         if "trailer" not in grammar.metas and "start" not in self.rules:
-            raise GrammarError("Grammar without a trailer must have a 'start' rule")
-        checker = RuleCheckingVisitor(self.rules, self.tokens)
-        for rule in self.rules.values():
-            checker.visit(rule)
+            raise ValidationError("Grammar without a trailer must have a 'start' rule")
         self.file: TextIO
         self.level = 0
         compute_nullables(self.rules) #XXX: Value is thrown away intentionally???
@@ -245,6 +248,11 @@ class NullableVisitor(GrammarVisitor):
     def visit_StringLeaf(self, node: StringLeaf) -> bool:
         # The string token '' is considered empty.
         return not node.value
+
+    def visit_ExternDecl(self, node: ExternDecl) -> bool:
+        # Considered possibly empty.
+        # XXX: "non-nullable" mark for ExternDecl?
+        return True
 
 
 def compute_nullables(rules: Dict[str, Rule]) -> None:

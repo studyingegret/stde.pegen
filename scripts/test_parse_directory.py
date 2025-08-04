@@ -177,8 +177,8 @@ def parse_directory(
         def parse(filepath):
             with open(filepath) as f:
                 tokengen = tokenize.generate_tokens(f.readline)
-                tokenizer = Tokenizer(tokengen, verbose=False)
-                parser = GeneratedParser(tokenizer, verbose=verbose)
+                tokenizer = Tokenizer(tokengen)
+                parser = GeneratedParser(tokenizer, verbose_stream=sys.stdout if verbose else None)
                 return parser.start()
 
     except:

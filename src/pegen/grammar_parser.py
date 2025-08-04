@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from pegen.parser import memoize, memoize_left_rec, logger, Parser
 from ast import literal_eval
+from typing import List
 
 from pegen.grammar import (
     Alt,
@@ -20,10 +21,8 @@ from pegen.grammar import (
     Lookahead,
     LookaheadOrCut,
     MetaTuple,
-    MetaList,
     NameLeaf,
     TopLevelItem,
-    TopLevelItemList,
     NegativeLookahead,
     Opt,
     Plain,
@@ -32,7 +31,6 @@ from pegen.grammar import (
     Repeat1,
     Rhs,
     Rule,
-    RuleList,
     RuleName,
     Grammar,
     StringLeaf,
@@ -63,17 +61,17 @@ class GeneratedParser(Parser):
             and
             (rules := self.rules())
         ):
-            return Grammar ( rules , metas )
+            return Grammar ( rules , [] , metas )
         self.reset(mark)
         if (
             (rules := self.rules())
         ):
-            return Grammar ( rules , [] )
+            return Grammar ( rules , [] , [] )
         self.reset(mark)
         return None
 
     @memoize
-    def metas(self) -> Optional[MetaList]:
+    def metas(self) -> Optional[List [MetaTuple]]:
         # metas: meta metas | meta
         mark = self.mark()
         if (
@@ -128,7 +126,7 @@ class GeneratedParser(Parser):
         return None
 
     @memoize
-    def rules(self) -> Optional[RuleList]:
+    def rules(self) -> Optional[List [Rule]]:
         # rules: rule rules | rule
         mark = self.mark()
         if (
@@ -302,7 +300,7 @@ class GeneratedParser(Parser):
         return None
 
     @memoize
-    def items(self) -> Optional[TopLevelItemList]:
+    def items(self) -> Optional[List [TopLevelItem]]:
         # items: top_level_item items | top_level_item
         mark = self.mark()
         if (

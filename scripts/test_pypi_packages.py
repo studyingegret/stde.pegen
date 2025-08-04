@@ -8,7 +8,7 @@ import zipfile
 import shutil
 import sys
 
-from typing import Generator, Any
+from typing import Generator, Any, TYPE_CHECKING
 
 sys.path.insert(0, ".")
 from pegen import build
@@ -48,7 +48,7 @@ def find_dirname(package_name: str) -> str:
         full_path = os.path.join("data", "pypi", name)
         if os.path.isdir(full_path) and name in package_name:
             return full_path
-    assert False  # This is to fix mypy, should never be reached
+    if TYPE_CHECKING: assert False
 
 
 def run_tests(dirname: str, tree: int) -> int:
