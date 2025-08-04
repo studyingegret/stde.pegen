@@ -33,7 +33,7 @@ from pegen.grammar import (
 start[Grammar]: grammar $
 
 grammar[Grammar]:
-    | metas=metas? rules extern_rules=extern_rules? { Grammar(rules, extern_rules or [], metas or []) }
+    metas=metas? rules extern_rules=extern_rules? { Grammar(rules, extern_rules or [], metas or []) }
 
 metas[List[MetaTuple]]:
     | meta metas { [meta] + metas }
@@ -49,7 +49,7 @@ rules[List[Rule]]:
     | rule { [rule] }
 
 rule[Rule]:
-    | rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
+    rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
 
 # TODO: "nullable" / "not nullable" mark? (which?) (for first_sets.py)
 extern_rules[List[ExternDecl]]:
@@ -57,7 +57,7 @@ extern_rules[List[ExternDecl]]:
     | extern_rule { [extern_rule] }
 
 extern_rule[ExternDecl]:
-    |"extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann) }
+    "extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann) }
 
 rulename[RuleName]:
     | NAME annotation { (name.string, annotation) }
@@ -66,12 +66,12 @@ rulename[RuleName]:
 
 rule_rhs[Rhs]:
     | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
-    | NEWLINE INDENT alt DEDENT { Rhs([alt]) }
+    | NEWLINE INDENT alt NEWLINE DEDENT { Rhs([alt]) }
     | alts NEWLINE { alts }
 
 # In the future this may return something more complicated
 memoflag[str]:
-    | '(' "memo" ')' { "memo" }
+    '(' "memo" ')' { "memo" }
 
 alts[Rhs]:
     | alt "|" alts { Rhs([alt] + alts.alts) }

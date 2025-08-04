@@ -209,7 +209,7 @@ class GeneratedParser(DefaultParser):
 
     @memoize
     def rule_rhs(self) -> Optional[Rhs]:
-        # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | NEWLINE INDENT alt DEDENT | alts NEWLINE
+        # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | NEWLINE INDENT alt NEWLINE DEDENT | alts NEWLINE
         mark = self.mark()
         if (
             (alts := self.alts(),)
@@ -230,6 +230,8 @@ class GeneratedParser(DefaultParser):
             (self.indent())
             and
             (alt := self.alt())
+            and
+            (self.newline())
             and
             (self.dedent())
         ):

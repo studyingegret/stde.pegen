@@ -24,13 +24,9 @@ argparser.add_argument(
 
 
 def get_packages() -> Generator[str, None, None]:
-    all_packages = (
-        glob.glob("./data/pypi/*.tar.gz")
-        + glob.glob("./data/pypi/*.zip")
-        + glob.glob("./data/pypi/*.tgz")
-    )
-    for package in all_packages:
-        yield package
+    yield from glob.iglob("./data/pypi/*.tar.gz")
+    yield from glob.iglob("./data/pypi/*.zip")
+    yield from glob.iglob("./data/pypi/*.tgz")
 
 
 def extract_files(filename: str) -> None:

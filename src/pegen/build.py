@@ -232,6 +232,7 @@ class ParserFromGrammarProducts(NamedTuple):
     grammar_parser: Optional[Parser]
     grammar_tokenizer: Optional[Tokenizer]
     parser_code_generator: ParserGenerator
+    parser_code: str
     parser_class: Type[Parser]
 
 class _NullProducts1(NamedTuple):
@@ -269,7 +270,7 @@ def generate_parser_from_grammar(
     # Parser code → Parser class
     return ParserFromGrammarProducts(
         generated_grammar, p.grammar_parser, p.grammar_tokenizer, p2.parser_code_generator,
-                         generate_parser_from_code(p2.parser_code, parser_class_name).parser_class)
+        p2.parser_code, generate_parser_from_code(p2.parser_code, parser_class_name).parser_class)
 
 
 class ParserFromFileProducts(NamedTuple):
