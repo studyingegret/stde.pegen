@@ -5,6 +5,9 @@ from typing import Any, Optional
 from pegen.parser_v2 import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser
 from ast import literal_eval
 from typing import List, Union
+import token
+import tokenize
+from tokenize import TokenInfo
 
 from pegen.grammar import (
     Alt,
@@ -33,8 +36,45 @@ from pegen.grammar import (
     StringLeaf,
 )
 
+def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
+    assert tokens
+    # first token has line 1
+    line_subtract = tokens[0].start[0] - 1
+    # TODO: column
+    return [token._replace(start=(token.start[0] - line_subtract, token.start[1]),
+                           end=(token.end[0] - line_subtract, token.end[1]))
+            for token in tokens]
+
+
+class Base(DefaultParser):
+    @memoize
+    def action_contents(self) -> Optional[str]:
+        m = self.mark()
+        level = 1
+        tokens = []
+        prevmark = m
+        while True:
+            t = self._tokenizer.peek()
+            if t.type == token.ENDMARKER:
+                self.reset(m)
+                return None
+            self._tokenizer.getnext()
+            if t.string == "}":
+                level -= 1
+                if level == 0:
+                    break
+            tokens.append(t)
+            if t.string == "{":
+                level += 1
+            prevmark = self.mark()
+        self.reset(prevmark) # Don't consume the last right brace
+        tokens = _normalize_linecol(tokens)
+        #print(tokens)
+        #print(tokenize.untokenize(tokens))
+        return tokenize.untokenize(tokens)
+
 # Keywords and soft keywords are listed at the end of the parser definition.
-class GeneratedParser(DefaultParser):
+class GeneratedParser(Base):
 
     @memoize
     def start(self) -> Optional[Grammar]:
@@ -548,7 +588,7 @@ class GeneratedParser(DefaultParser):
 
     @memoize
     def action(self) -> Optional[str]:
-        # action: "{" ~ target_atoms "}"
+        # action: "{" ~ action_contents "}"
         mark = self.mark()
         cut = False
         if (
@@ -556,11 +596,11 @@ class GeneratedParser(DefaultParser):
             and
             (cut := True)
             and
-            (target_atoms := self.target_atoms())
+            (action_contents := self.action_contents())
             and
             (self.match_string("}"))
         ):
-            return target_atoms
+            return action_contents
         self.reset(mark)
         if cut:
             return None

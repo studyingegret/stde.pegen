@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Never,
     Optional,
     Set,
     Tuple,
@@ -176,6 +177,10 @@ class ExternDecl:
     def __repr__(self) -> str:
         return f"ExternDecl({self.name!r}, {self.type!r})"
 
+    # Don't make an error if GrammarVisitor doesn't process it
+    def __iter__(self) -> Iterable[Never]:
+        return iter([])
+
 
 class Leaf:
     def __init__(self, value: str):
@@ -184,7 +189,7 @@ class Leaf:
     def __str__(self) -> str:
         return self.value
 
-    def __iter__(self) -> Iterable[str]:
+    def __iter__(self) -> Iterable[Never]:
         return iter([])
 
     @abstractmethod
@@ -245,7 +250,7 @@ class Rhs:
 class Alt:
     #XXX: icut currently unused? (Not even in metagrammar.gram)
     #XXX: Purpose of icut?
-    def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
+    def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[Action] = None):
         self.items = items
         self.icut = icut
         self.action = action
@@ -253,7 +258,7 @@ class Alt:
     def __str__(self) -> str:
         core = " ".join(str(item) for item in self.items)
         if not SIMPLE_STR and self.action:
-            return f"{core} {{ {self.action} }}"
+            return f"{core} {self.action}"
         else:
             return core
 
@@ -469,7 +474,7 @@ class Cut:
     def __str__(self) -> str:
         return "~"
 
-    def __iter__(self) -> Iterator[Tuple[str, str]]:
+    def __iter__(self) -> Iterator[Never]:
         return iter([])
 
     def __eq__(self, other: object) -> bool:
@@ -479,6 +484,18 @@ class Cut:
 
     def initial_names(self) -> AbstractSet[str]:
         return set()
+
+
+class Action:
+    def __init__(self, code: str, block: bool = False):
+        self.code = code
+        self.block = block
+
+    def __str__(self) -> str:
+        return "{ " + self.code + " }" #XXX:?
+
+    def __repr__(self) -> str:
+        return f"Action({self.code!r})" if not self.block else f"Action({self.code!r}, block=True)"
 
 
 Plain = Union[Leaf, Group]

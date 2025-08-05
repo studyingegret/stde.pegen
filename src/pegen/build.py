@@ -296,7 +296,7 @@ def generate_parser_from_file(
         p.grammar, tokenizer_verbose_stream, parser_verbose_stream, skip_actions,
         grammar_file_name=grammar_file_name)
     return ParserFromFileProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
-                                 p2.parser_code_generator, p2.parser_class)
+                                  p2.parser_code_generator, p2.parser_class)
 
 
 # XXX: Legacy functions are untested

@@ -80,7 +80,7 @@ def references_for_item(item: Any) -> List[Any]:
         return [_ref for alt in item.alts for _ref in references_for_item(alt)]
     elif isinstance(item, Rule):
         return references_for_item(item.rhs)
-    elif isinstance(item, ExternDecl): #TODO
+    elif isinstance(item, ExternDecl):
         return [item.name]
     else:
         raise RuntimeError(f"Unknown item: {type(item)}")

@@ -5,6 +5,7 @@ from io import TextIOBase
 
 from pegen import sccutils
 from pegen.grammar import (
+    Action,
     Alt,
     Cut,
     ExternDecl,
@@ -47,6 +48,10 @@ class CheckingVisitor(GrammarVisitor):
         if node.name and node.name.startswith("_"):
             raise ValidationError(f"Variable names cannot start with underscore ({node.name})")
         self.visit(node.item)
+
+    def visit_ExternDecl(self, node: TopLevelItem) -> None:
+        if node.name and node.name.startswith("_"):
+            raise ValidationError(f"Variable names cannot start with underscore ({node.name})")
 
 
 def validate_items(items: Dict[str, GrammarItem], tokens: Set[str]) -> None:
@@ -158,7 +163,7 @@ class ParserGenerator:
         extra_function_name = f"_loop0_{self.counter}"
         extra_function_alt = Alt(
             [TopLevelItem(None, node.separator), TopLevelItem("elem", node.node)],
-            action="elem",
+            action=Action("elem"),
         )
         self.todo[extra_function_name] = Rule(
             extra_function_name,

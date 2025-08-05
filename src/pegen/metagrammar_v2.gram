@@ -1,9 +1,13 @@
 @header """\
 from ast import literal_eval
 from typing import List, Union
+import token
+import tokenize
+from tokenize import TokenInfo
 
 from pegen.grammar import (
     Alt,
+    Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -28,7 +32,52 @@ from pegen.grammar import (
     Grammar,
     StringLeaf,
 )
+
+#TODO: Blocks (having its own return) vs. expressions
+def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
+    assert tokens
+    # first token has line 1
+    first_line = tokens[0].start[0]
+    line_subtract = tokens[0].start[0] - 1
+    column_subtract = tokens[0].start[1] - 1
+    # TODO: column
+    for token in tokens:
+        if token.line != first_line:
+            ...
+    return [token._replace(start=(token.start[0] - line_subtract, token.start[1]),
+                           end=(token.end[0] - line_subtract, token.end[1]))
+            for token in tokens]
+
+
+class Base(DefaultParser):
+    @memoize
+    def action_contents(self) -> Optional[Action]:
+        m = self.mark()
+        level = 1
+        tokens = []
+        prevmark = m
+        while True:
+            t = self._tokenizer.peek()
+            if t.type == token.ENDMARKER:
+                self.reset(m)
+                return None
+            self._tokenizer.getnext()
+            if t.string == "}":
+                level -= 1
+                if level == 0:
+                    break
+            tokens.append(t)
+            if t.string == "{":
+                level += 1
+            prevmark = self.mark()
+        self.reset(prevmark) # Don't consume the last right brace
+        tokens = _normalize_linecol(tokens)
+        #print(tokens)
+        #print(tokenize.untokenize(tokens))
+        return tokenize.untokenize(tokens)
 """
+
+@base Base
 
 start[Grammar]: grammar $
 
@@ -122,7 +171,8 @@ atom[Plain]:
 
 # Mini-grammar for the actions and annotations
 
-action[str]: "{" ~ target_atoms "}" { target_atoms }
+#action[str]: "{" ~ target_atoms "}" { target_atoms }
+action[Action]: "{" ~ action_contents "}" { action_contents }
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
 #annotation[str]: "[" ~ text("]") "]" { target_atoms }
 #annotation[str]: "->" ~ target_atoms !":" { target_atoms }
@@ -150,4 +200,4 @@ target_fstring_middle[str]:
     | target_atom { target_atom }
 
 #annotation[str]: "[" ~ target_atoms "]" { target_atoms }
-#extern action_contents[str]
+extern action_contents[Action]

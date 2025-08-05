@@ -2,12 +2,13 @@ import ast
 from keyword import iskeyword
 import re
 import token
-from typing import Any, Dict, List, Optional, Sequence, Set, Text, TextIO, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Text, TextIO, Tuple, cast
 from io import TextIOBase
 
 from pegen.validator import ValidationError, validate_grammar_v2
 
 from pegen.grammar import (
+    Action,
     Alt,
     Cut,
     Forced,
@@ -242,6 +243,7 @@ def _check_grammar(grammar: Grammar) -> None:
                               f"(it requires {grammar.metas["require"]!r})")
 
 
+#TODO: print indented text
 class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def __init__(
         self,
@@ -296,7 +298,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     def alts_uses_locations(self, alts: Sequence[Alt]) -> bool:
         for alt in alts:
-            if alt.action and "LOCATIONS" in alt.action:
+            if alt.action and "LOCATIONS" in alt.action.code:
                 return True
             for item in map(lambda node: node.item, alt.items):
                 if isinstance(item, Group) and self.alts_uses_locations(item.rhs.alts):
@@ -395,7 +397,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             else:
                 if has_invalid:
                     assert unreachable
-                    assert isinstance(action, str)  # for type checker
+                    if TYPE_CHECKING: assert isinstance(action, str)
                 else:
                     #...
                     if len(names) == 1:
@@ -420,17 +422,17 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
         action = None if self.skip_actions else node.action
         if action is None and not is_gather and has_invalid:
-            action = "UNREACHABLE"
+            action = Action("UNREACHABLE")
 
         locations = False
         unreachable = False
         used = None
         if action:
             # Replace magic name in the action rule
-            if "LOCATIONS" in action:
+            if "LOCATIONS" in action.code:
                 locations = True
                 action = action.replace("LOCATIONS", self.location_formatting)
-            if "UNREACHABLE" in action:
+            if "UNREACHABLE" in action.code:
                 unreachable = True
                 action = action.replace("UNREACHABLE", self.unreachable_formatting)
 

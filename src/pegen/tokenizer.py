@@ -4,7 +4,7 @@ import tokenize
 from weakref import finalize
 from tokenize import TokenInfo
 from typing import Any, Dict, Iterator, List, Optional, Self, TextIO
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 Mark = int  # NewType('Mark', int)
 
@@ -15,7 +15,7 @@ def shorttok(tok: TokenInfo) -> str:
     return "%-25.25s" % f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]}:{tok.string!r}"
 
 
-class AbstractTokenizer(ABC):
+class AbstractTokenizer:
     """Abstract interface for tokenizers with position tracking and error diagnostics."""
 
     @classmethod
