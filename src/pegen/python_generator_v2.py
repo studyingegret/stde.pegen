@@ -5,9 +5,9 @@ import token
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Text, TextIO, Tuple, cast
 from io import TextIOBase
 
-from pegen.validator import ValidationError, validate_grammar_v2
+from pegen.validator_v2 import ValidationError, validate_grammar_v2
 
-from pegen.grammar import (
+from pegen.grammar_v2 import (
     Action,
     Alt,
     Cut,
@@ -28,7 +28,7 @@ from pegen.grammar import (
     StringLeaf,
     Grammar,
 )
-from pegen.parser_generator import ParserGenerator
+from pegen.parser_generator_v2 import ParserGenerator
 
 #XXX: Should we change the shebang?
 MODULE_PREFIX = """\
@@ -298,7 +298,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     def alts_uses_locations(self, alts: Sequence[Alt]) -> bool:
         for alt in alts:
-            if alt.action and "LOCATIONS" in alt.action.code:
+            if alt.action and "LOCATIONS" in alt.action:
                 return True
             for item in map(lambda node: node.item, alt.items):
                 if isinstance(item, Group) and self.alts_uses_locations(item.rhs.alts):
@@ -420,23 +420,24 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         has_cut = any(isinstance(item.item, Cut) for item in node.items)
         has_invalid = self.has_invalid(node)
 
-        action = None if self.skip_actions else node.action
-        if action is None and not is_gather and has_invalid:
-            action = Action("UNREACHABLE")
+        action_code = None if self.skip_actions else node.action
+        if action_code is None and not is_gather and has_invalid:
+            action_code = "UNREACHABLE"
+        #has_return_stmt = False if node.action is None else node.action.has_return_stmt
 
         locations = False
         unreachable = False
         used = None
-        if action:
-            # Replace magic name in the action rule
-            if "LOCATIONS" in action.code:
+        if action_code:
+            # Replace magic name in the action_code rule
+            if "LOCATIONS" in action_code:
                 locations = True
-                action = action.replace("LOCATIONS", self.location_formatting)
-            if "UNREACHABLE" in action.code:
+                action_code = action_code.replace("LOCATIONS", self.location_formatting)
+            if "UNREACHABLE" in action_code:
                 unreachable = True
-                action = action.replace("UNREACHABLE", self.unreachable_formatting)
+                action_code = action_code.replace("UNREACHABLE", self.unreachable_formatting)
 
-            used = self.actually_used_names_in_action(action)
+            used = self.actually_used_names_in_action(action_code)
             if has_cut:
                 used.add("cut")
 
@@ -464,7 +465,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("):")
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(action, locations, unreachable, is_gather, is_loop, has_invalid)
+                self.print_action(action_code, locations, unreachable,
+                                  is_gather, is_loop, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.

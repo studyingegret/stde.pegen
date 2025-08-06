@@ -209,7 +209,7 @@ class BaseParser(ABC):
     # XXX: There are more coupling cooperations to reveal?
     call_invalid_rules: bool
 
-    def __init__(self, *, verbose_stream: Optional[TextIO] = None):
+    def __init__(self, *args: Any, verbose_stream: Optional[TextIO] = None, **kwargs: Any):
         self._verbose = verbose_stream is not None
         if self._verbose:
             self._vprint = partial(print, file=verbose_stream)

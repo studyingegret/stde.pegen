@@ -1,0 +1,5 @@
+# Not an example, just for testing scripts/grammar_grapher_2.py
+start: a
+a: b
+b: "?"
+c: "?"

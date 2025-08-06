@@ -486,6 +486,19 @@ class Cut:
         return set()
 
 
+class Action:
+    def __init__(self, code: str, has_return_stmt: bool = False):
+        self.code = code
+        self.has_return_stmt = has_return_stmt
+
+    def __str__(self) -> str:
+        return "{ " + self.code + " }" #XXX:?
+
+    def __repr__(self) -> str:
+        return (f"Action({self.code!r})" if not self.has_return_stmt
+                else f"Action({self.code!r}, has_return_stmt=True)")
+
+
 Plain = Union[Leaf, Group]
 Item = Union[Plain, Opt, Repeat, Forced, Lookahead, Rhs, Cut]
 GrammarItem = Union[Rule, ExternDecl]

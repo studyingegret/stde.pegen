@@ -1,13 +1,13 @@
-@header """\
+@header '''\
 from ast import literal_eval
 from typing import List, Union
 import token
 import tokenize
 from tokenize import TokenInfo
 
-from pegen.grammar import (
+from pegen.grammar_v2 import (
     Alt,
-    Action,
+    #Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -35,25 +35,29 @@ from pegen.grammar import (
 
 #TODO: Blocks (having its own return) vs. expressions
 def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
-    assert tokens
+    if not tokens:
+        return []
     # first token has line 1
     first_line = tokens[0].start[0]
-    line_subtract = tokens[0].start[0] - 1
-    column_subtract = tokens[0].start[1] - 1
-    # TODO: column
-    for token in tokens:
-        if token.line != first_line:
-            ...
-    return [token._replace(start=(token.start[0] - line_subtract, token.start[1]),
-                           end=(token.end[0] - line_subtract, token.end[1]))
-            for token in tokens]
+    line_subtract = tokens[0].start[0] - 1  # Start with line 1
+    column_subtract = tokens[0].start[1]  # Start with column 0
+    def replace(t: TokenInfo) -> TokenInfo:
+        if t.start[0] == first_line:
+            return t._replace(start=(t.start[0] - line_subtract, t.start[1] - column_subtract),
+                              end=(t.end[0] - line_subtract, t.end[1] - column_subtract))
+        else:
+            return t._replace(start=(t.start[0] - line_subtract, t.start[1]),
+                              end=(t.end[0] - line_subtract, t.end[1]))
+    return list(map(replace, tokens))
 
 
 class Base(DefaultParser):
     @memoize
-    def action_contents(self) -> Optional[Action]:
+    def action_contents(self) -> Optional[str]:
+        """Note: The result should be parsable by ast.parse."""
         m = self.mark()
         level = 1
+        has_return_stmt = False
         tokens = []
         prevmark = m
         while True:
@@ -69,13 +73,16 @@ class Base(DefaultParser):
             tokens.append(t)
             if t.string == "{":
                 level += 1
+            elif t.string == "return":
+                has_return_stmt = True
             prevmark = self.mark()
         self.reset(prevmark) # Don't consume the last right brace
         tokens = _normalize_linecol(tokens)
-        #print(tokens)
-        #print(tokenize.untokenize(tokens))
-        return tokenize.untokenize(tokens)
-"""
+        s = tokenize.untokenize(tokens)
+        if self._verbose:
+            print("##", repr(s))
+        return s
+'''
 
 @base Base
 
@@ -172,7 +179,7 @@ atom[Plain]:
 # Mini-grammar for the actions and annotations
 
 #action[str]: "{" ~ target_atoms "}" { target_atoms }
-action[Action]: "{" ~ action_contents "}" { action_contents }
+action[str]: "{" ~ action_contents "}" { action_contents }
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
 #annotation[str]: "[" ~ text("]") "]" { target_atoms }
 #annotation[str]: "->" ~ target_atoms !":" { target_atoms }
@@ -200,4 +207,4 @@ target_fstring_middle[str]:
     | target_atom { target_atom }
 
 #annotation[str]: "[" ~ target_atoms "]" { target_atoms }
-extern action_contents[Action]
+extern action_contents[str]

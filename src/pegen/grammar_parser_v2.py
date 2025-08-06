@@ -9,8 +9,9 @@ import token
 import tokenize
 from tokenize import TokenInfo
 
-from pegen.grammar import (
+from pegen.grammar_v2 import (
     Alt,
+    #Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -36,21 +37,31 @@ from pegen.grammar import (
     StringLeaf,
 )
 
+#TODO: Blocks (having its own return) vs. expressions
 def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
-    assert tokens
+    if not tokens:
+        return []
     # first token has line 1
-    line_subtract = tokens[0].start[0] - 1
-    # TODO: column
-    return [token._replace(start=(token.start[0] - line_subtract, token.start[1]),
-                           end=(token.end[0] - line_subtract, token.end[1]))
-            for token in tokens]
+    first_line = tokens[0].start[0]
+    line_subtract = tokens[0].start[0] - 1  # Start with line 1
+    column_subtract = tokens[0].start[1]  # Start with column 0
+    def replace(t: TokenInfo) -> TokenInfo:
+        if t.start[0] == first_line:
+            return t._replace(start=(t.start[0] - line_subtract, t.start[1] - column_subtract),
+                              end=(t.end[0] - line_subtract, t.end[1] - column_subtract))
+        else:
+            return t._replace(start=(t.start[0] - line_subtract, t.start[1]),
+                              end=(t.end[0] - line_subtract, t.end[1]))
+    return list(map(replace, tokens))
 
 
 class Base(DefaultParser):
     @memoize
     def action_contents(self) -> Optional[str]:
+        """Note: The result should be parsable by ast.parse."""
         m = self.mark()
         level = 1
+        has_return_stmt = False
         tokens = []
         prevmark = m
         while True:
@@ -66,12 +77,15 @@ class Base(DefaultParser):
             tokens.append(t)
             if t.string == "{":
                 level += 1
+            elif t.string == "return":
+                has_return_stmt = True
             prevmark = self.mark()
         self.reset(prevmark) # Don't consume the last right brace
         tokens = _normalize_linecol(tokens)
-        #print(tokens)
-        #print(tokenize.untokenize(tokens))
-        return tokenize.untokenize(tokens)
+        s = tokenize.untokenize(tokens)
+        if self._verbose:
+            print("##", repr(s))
+        return s
 
 # Keywords and soft keywords are listed at the end of the parser definition.
 class GeneratedParser(Base):
@@ -100,7 +114,7 @@ class GeneratedParser(Base):
             and
             (extern_rules := self.extern_rules(),)
         ):
-            return Grammar ( rules , extern_rules or [] , metas or [] )
+            return Grammar(rules, extern_rules or [], metas or [])
         self.reset(mark)
         return None
 
@@ -133,7 +147,7 @@ class GeneratedParser(Base):
             and
             (self.newline())
         ):
-            return ( name . string , None )
+            return (name.string, None)
         self.reset(mark)
         if (
             (self.match_string("@"))
@@ -144,7 +158,7 @@ class GeneratedParser(Base):
             and
             (self.newline())
         ):
-            return ( a . string , b . string )
+            return (a.string, b.string)
         self.reset(mark)
         if (
             (self.match_string("@"))
@@ -155,7 +169,7 @@ class GeneratedParser(Base):
             and
             (self.newline())
         ):
-            return ( name . string , literal_eval ( string . string ) )
+            return (name.string, literal_eval(string.string))
         self.reset(mark)
         return None
 
@@ -190,7 +204,7 @@ class GeneratedParser(Base):
             and
             (rule_rhs := self.rule_rhs())
         ):
-            return Rule ( rulename [0] , rulename [1] , rule_rhs , memo = opt )
+            return Rule(rulename[0], rulename[1], rule_rhs, memo=opt)
         self.reset(mark)
         return None
 
@@ -225,7 +239,7 @@ class GeneratedParser(Base):
             and
             (self.newline())
         ):
-            return ExternDecl ( name . string , ann )
+            return ExternDecl(name.string, ann)
         self.reset(mark)
         return None
 
@@ -238,12 +252,12 @@ class GeneratedParser(Base):
             and
             (annotation := self.annotation())
         ):
-            return ( name . string , annotation )
+            return (name.string, annotation)
         self.reset(mark)
         if (
             (name := self.name())
         ):
-            return ( name . string , None )
+            return (name.string, None)
         self.reset(mark)
         return None
 
@@ -262,7 +276,7 @@ class GeneratedParser(Base):
             and
             (self.dedent())
         ):
-            return Rhs ( alts . alts + more_alts . alts ) if alts else more_alts
+            return Rhs(alts.alts + more_alts.alts) if alts else more_alts
         self.reset(mark)
         if (
             (self.newline())
@@ -275,7 +289,7 @@ class GeneratedParser(Base):
             and
             (self.dedent())
         ):
-            return Rhs ( [alt] )
+            return Rhs([alt])
         self.reset(mark)
         if (
             (alts := self.alts())
@@ -312,12 +326,12 @@ class GeneratedParser(Base):
             and
             (alts := self.alts())
         ):
-            return Rhs ( [alt] + alts . alts )
+            return Rhs([alt] + alts.alts)
         self.reset(mark)
         if (
             (alt := self.alt())
         ):
-            return Rhs ( [alt] )
+            return Rhs([alt])
         self.reset(mark)
         return None
 
@@ -334,7 +348,7 @@ class GeneratedParser(Base):
             and
             (more_alts := self.more_alts())
         ):
-            return Rhs ( alts . alts + more_alts . alts )
+            return Rhs(alts.alts + more_alts.alts)
         self.reset(mark)
         if (
             (self.match_string("|"))
@@ -343,7 +357,7 @@ class GeneratedParser(Base):
             and
             (self.newline())
         ):
-            return Rhs ( alts . alts )
+            return Rhs(alts.alts)
         self.reset(mark)
         return None
 
@@ -358,31 +372,31 @@ class GeneratedParser(Base):
             and
             (action := self.action())
         ):
-            return Alt ( items + [TopLevelItem ( None , NameLeaf ( 'ENDMARKER' ) )] , action = action )
+            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action)
         self.reset(mark)
         if (
             (items := self.items())
             and
             (self.match_string('$'))
         ):
-            return Alt ( items + [TopLevelItem ( None , NameLeaf ( 'ENDMARKER' ) )] , action = None )
+            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None)
         self.reset(mark)
         if (
             (items := self.items())
             and
             (action := self.action())
         ):
-            return Alt ( items , action = action )
+            return Alt(items, action=action)
         self.reset(mark)
         if (
             (items := self.items())
         ):
-            return Alt ( items , action = None )
+            return Alt(items, action=None)
         self.reset(mark)
         if (
             (self.match_string('$'))
         ):
-            return Alt ( [] , action = None )
+            return Alt([], action=None)
         self.reset(mark)
         return None
 
@@ -420,7 +434,7 @@ class GeneratedParser(Base):
             and
             (item := self.item())
         ):
-            return TopLevelItem ( name . string , item , annotation )
+            return TopLevelItem(name.string, item, annotation)
         self.reset(mark)
         if cut:
             return None
@@ -434,19 +448,19 @@ class GeneratedParser(Base):
             and
             (item := self.item())
         ):
-            return TopLevelItem ( name . string , item )
+            return TopLevelItem(name.string, item)
         self.reset(mark)
         if cut:
             return None
         if (
             (item := self.item())
         ):
-            return TopLevelItem ( None , item )
+            return TopLevelItem(None, item)
         self.reset(mark)
         if (
             (it := self.top_level_others())
         ):
-            return TopLevelItem ( None , it )
+            return TopLevelItem(None, it)
         self.reset(mark)
         return None
 
@@ -464,7 +478,7 @@ class GeneratedParser(Base):
             and
             (atom := self.atom())
         ):
-            return Forced ( atom )
+            return Forced(atom)
         self.reset(mark)
         if cut:
             return None
@@ -476,7 +490,7 @@ class GeneratedParser(Base):
             and
             (atom := self.atom())
         ):
-            return PositiveLookahead ( atom )
+            return PositiveLookahead(atom)
         self.reset(mark)
         if cut:
             return None
@@ -488,14 +502,14 @@ class GeneratedParser(Base):
             and
             (atom := self.atom())
         ):
-            return NegativeLookahead ( atom )
+            return NegativeLookahead(atom)
         self.reset(mark)
         if cut:
             return None
         if (
             (self.match_string('~'))
         ):
-            return Cut ( )
+            return Cut()
         self.reset(mark)
         return None
 
@@ -513,7 +527,7 @@ class GeneratedParser(Base):
             and
             (self.match_string(']'))
         ):
-            return Opt ( alts )
+            return Opt(alts)
         self.reset(mark)
         if cut:
             return None
@@ -522,21 +536,21 @@ class GeneratedParser(Base):
             and
             (self.match_string('?'))
         ):
-            return Opt ( atom )
+            return Opt(atom)
         self.reset(mark)
         if (
             (atom := self.atom())
             and
             (self.match_string('*'))
         ):
-            return Repeat0 ( atom )
+            return Repeat0(atom)
         self.reset(mark)
         if (
             (atom := self.atom())
             and
             (self.match_string('+'))
         ):
-            return Repeat1 ( atom )
+            return Repeat1(atom)
         self.reset(mark)
         if (
             (sep := self.atom())
@@ -547,7 +561,7 @@ class GeneratedParser(Base):
             and
             (self.match_string('+'))
         ):
-            return Gather ( sep , node )
+            return Gather(sep, node)
         self.reset(mark)
         if (
             (atom := self.atom())
@@ -570,19 +584,19 @@ class GeneratedParser(Base):
             and
             (self.match_string(')'))
         ):
-            return Group ( alts )
+            return Group(alts)
         self.reset(mark)
         if cut:
             return None
         if (
             (name := self.name())
         ):
-            return NameLeaf ( name . string )
+            return NameLeaf(name.string)
         self.reset(mark)
         if (
             (string := self.string())
         ):
-            return StringLeaf ( string . string )
+            return StringLeaf(string.string)
         self.reset(mark)
         return None
 
@@ -658,7 +672,7 @@ class GeneratedParser(Base):
             and
             (self.match_string("}"))
         ):
-            return "{" + ( atoms or "" ) + "}"
+            return "{" + (atoms or "") + "}"
         self.reset(mark)
         if cut:
             return None
@@ -672,7 +686,7 @@ class GeneratedParser(Base):
             and
             (self.match_string("]"))
         ):
-            return "[" + ( atoms or "" ) + "]"
+            return "[" + (atoms or "") + "]"
         self.reset(mark)
         if cut:
             return None
@@ -681,22 +695,22 @@ class GeneratedParser(Base):
             and
             (self.match_string("*"))
         ):
-            return name . string + "*"
+            return name.string + "*"
         self.reset(mark)
         if (
             (name := self.name())
         ):
-            return name . string
+            return name.string
         self.reset(mark)
         if (
             (number := self.number())
         ):
-            return number . string
+            return number.string
         self.reset(mark)
         if (
             (string := self.string())
         ):
-            return string . string
+            return string.string
         self.reset(mark)
         if (
             (l := self.fstring_start())
@@ -705,7 +719,7 @@ class GeneratedParser(Base):
             and
             (r := self.fstring_end())
         ):
-            return l . string + "" . join ( m ) + r . string
+            return l.string + "".join(m) + r.string
         self.reset(mark)
         if (
             (self.match_string("?"))
@@ -724,7 +738,7 @@ class GeneratedParser(Base):
             and
             (op := self.op())
         ):
-            return op . string
+            return op.string
         self.reset(mark)
         return None
 
@@ -735,7 +749,7 @@ class GeneratedParser(Base):
         if (
             (fstring_middle := self.fstring_middle())
         ):
-            return fstring_middle . string
+            return fstring_middle.string
         self.reset(mark)
         if (
             (self.match_string("{"))

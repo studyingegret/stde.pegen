@@ -1,11 +1,33 @@
 #!/usr/bin/env python3.8
+#TODO
 #TODO: Port to have v2 version
 
-"""Convert a grammar into a dot-file suitable for use with GraphViz
+"""[TODO] Search tokens in a rule.
 
-Recommended usage:
+See which rules may reach the token "==" within 3 recursions:
 
-    python scripts/grammar_grapher_2.py data/python.gram | dot -Tsvg > python.svg
+    python scripts/grammar_searcher.py data/python.gram "'==':<=3" | dot -Tsvg > python.svg
+
+See which rules may use the rule "primary" directly:
+
+    python scripts/grammar_searcher.py data/python.gram "primary:<=1" | dot -Tsvg > python.svg
+
+Query format:
+    query = match ":" strict? op number
+    match = <Python string> # Matches a string (single or double quoted)
+          | <Python name> # Matches a rule or extern declaration
+    op = "<" | "==" | ">" | "<=" | ">="
+                      # Rule must possibly reach [match] in
+                      # (less than/equal to/more than etc.) [number] recursions
+    strict = "strict" # When present, rule must only possibly reach [match]
+                      # in (less than/equal to/more than etc.) [number] recursions.
+                      # e.g. With "a: b | c; c: b",
+                      # a is accepted by "b:>1"
+                      # but rejected by query "b:strict>1"
+
+Multiple queries are possible: just pass them as a list of arguments.
+
+Output format: [TODO]
 
 Open the result SVG file in an photo viewer that supports SVG.
 If you don't have one, you can open it in your browser.
@@ -14,23 +36,11 @@ If you don't have one, you can open it in your browser.
 It is also possible to generate PNG, though resolution will be worse
 (worse than screenshotting SVG rendering):
 
-    python scripts/grammar_grapher_2.py data/python.gram | dot -Tpng > python.png
+    python scripts/grammar_searcher.py data/python.gram "NAME:<=3" | dot -Tpng > python.png
 
 Or just get the dot-file:
 
-    python scripts/grammar_grapher_2.py data/python.gram
-
-By default, rules starting with invalid_ are skipped.
-
----
-
-Current limitation: Rules that aren't used by any other rule are not shown.
-For example, try graphing data/isolated.gram.
-
-This limitation applies after options (e.g. --ignore) are applied.
-(e.g. If B is the only rule that uses A, and `--ignore B` is used, then A does not appear.)
-
-Note: This limitation also exists in the old grammar grapher.
+    python scripts/grammar_searcher.py data/python.gram "NAME:<=3"
 """
 
 import argparse
@@ -214,37 +224,11 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
+    raise NotImplementedError("Script is TODO")
     p = argparse.ArgumentParser(
         prog="graph_grammar",
         description=__doc__, #type:ignore
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("grammar_file", type=argparse.FileType("r"),
                    help="The grammar file to graph ('-' for stdin).")
-    p.add_argument("-s", "--subgraph", metavar="rule",
-                   help="Only display the subgraph of the grammar tree that rule uses.")
-    p.add_argument("-v2", action="store_true",
-                   help="Parse grammar as v2.")
-    p.add_argument("-t", "--terminals", type=_parse_terminals, default=(True, set()),
-                   help="Mark these names as terminals (they will not be followed). "
-                        "[comma-separated list of names; also see below] "
-                        "e.g. 'some_detail_to_skip,other_detail_to_skip'. "
-                        "This replaces the list of default terminals, unless a '+' "
-                        "is present before the list of names (e.g. '+one,two').")
-    p.add_argument("-hl", "--highlight", type=lambda x: set(x.split(",")), default=set(),
-                   help="Highlight these names. [comma-separated list of names]")
-    p.add_argument("--skip", "--ignore", type=lambda x: set(x.split(",")), default={"ENDMARKER"},
-                   help="Skip these names. [comma-separated list of names]")
-    p.add_argument("--include-invalid", action="store_true",
-                   help="Don't ignore rules that start with 'invalid_'.")
-    p.add_argument("--canonical", choices=["name_sort", "dfn_order", "none"], default="dfn_order",
-                   help="Canonicalize graph dict to avoid iteration order randomness. "
-                        "Default dfn_order.")
-    p.add_argument("--no-terminals", action="store_true",
-                   help="Skip terminal nodes.")
-    p.add_argument("--reverse-alts", action="store_true",
-                   help="Reverse traverse order of top-level branches of each rule "
-                        "(gives another view of the graph).")
-    p.add_argument("--reverse-alt", action="store_true",
-                   help="Reverse traverse order of items of each branch "
-                        "(gives another view of the graph).")
     main(p.parse_args())
