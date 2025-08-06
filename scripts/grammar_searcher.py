@@ -13,17 +13,21 @@ See which rules may use the rule "primary" directly:
     python scripts/grammar_searcher.py data/python.gram "primary:<=1" | dot -Tsvg > python.svg
 
 Query format:
-    query = match ":" strict? op number
-    match = <Python string> # Matches a string (single or double quoted)
-          | <Python name> # Matches a rule or extern declaration
+    query = item ":" strict? op limit
+    item = <Python string> # Matches a string (single or double quoted)
+         | <Python name> # Matches a rule or extern declaration (in v2)
     op = "<" | "==" | ">" | "<=" | ">="
-                      # Rule must possibly reach [match] in
-                      # (less than/equal to/more than etc.) [number] recursions
-    strict = "strict" # When present, rule must only possibly reach [match]
-                      # in (less than/equal to/more than etc.) [number] recursions.
+                      # Rule must possibly reach [item] in
+                      # ([op]: less than/equal to/more than etc.) [limit] recursions
+    strict = "strict" # When present, rule must only possibly reach [item]
+                      # in (less than/equal to/more than etc.) [limit] recursions.
                       # e.g. With "a: b | c; c: b",
                       # a is accepted by "b:>1"
                       # but rejected by query "b:strict>1"
+    limit = [0-9]+
+          | "*" # = infinity
+
+Note: strict flag is not supported yet.
 
 Multiple queries are possible: just pass them as a list of arguments.
 
@@ -41,14 +45,32 @@ It is also possible to generate PNG, though resolution will be worse
 Or just get the dot-file:
 
     python scripts/grammar_searcher.py data/python.gram "NAME:<=3"
+
+---
+
+Example:
+
+    python scripts/grammar_searcher.py data/expr.gram "term:==1" "atom:<=3" "'+':<=2"
+
+Expected output:
+
+    expr
+    factor,term,expr
+    expr,start,factor
+
 """
 
 import argparse
+from enum import Enum, IntEnum
 import sys
-from typing import Any, Iterable, Iterator, List, Set, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, List, NamedTuple, Set, Dict, Tuple, Union, cast
 from dataclasses import dataclass
 from collections import deque
 from contextlib import contextmanager
+import operator
+from ast import literal_eval
+
+from pegen import build, build_v2, grammar as grammar_mod, grammar_v2
 
 sys.path.insert(0, ".")
 
@@ -61,7 +83,8 @@ from pegen.grammar import (
     Grammar,
     Group,
     Leaf,
-    Lookahead,
+    PositiveLookahead,
+    NegativeLookahead,
     TopLevelItem,
     NameLeaf,
     Opt,
@@ -77,82 +100,170 @@ TERMINALS_V1 = {"SOFT_KEYWORD", "NAME", "NUMBER", "STRING",
                 "FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END", "OP", "TYPE_COMMENT",
                 "NEWLINE", "DEDENT", "INDENT", "ENDMARKER", "ASYNC", "AWAIT"}
 
+parser_class = build_v2.generate_parser_from_grammar("""
+@base CharBasedParser
+@header '''
+from ast import literal_eval
+def process_string(s):
+    return literal_eval(s)
+'''
+start: item ":" strict? op limit $
+item: string { (True, string) } | name { (False, name) }
+name: a=letter+ { "".join(a) }
+letter: "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h"
+      | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p"
+      | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x"
+      | "y" | "z" | "A" | "B" | "C" | "D" | "E" | "F"
+      | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N"
+      | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V"
+      | "W" | "X" | "Y" | "Z"
+string: '"' a=(!'"' any_char)* '"' { process_string('"' + "".join(a) + '"') }
+      | "'" a=(!"'" any_char)* "'" { process_string("'" + "".join(a) + "'") }
+op: "<=" | ">=" | "<" | "==" | ">"
+strict: "strict"
+limit: integer | "*"
+integer: a=number+ { int("".join(a)) }
+number: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+extern any_char
+""").parser_class
 
-#@dataclass
-#class Item:
-#    string: str
-#    #type:
+class ItemType(IntEnum):
+    NAME = 0
+    STRING = 1
+
+    def __repr__(self) -> str:
+        #return f"{self.__class__.__name__}.{self._name_}"
+        return self._name_
+
+class Compare(Enum):
+    # cast is necessary or Pylance treats as functions(methods?)
+    LT = cast(Callable[..., bool], operator.lt)
+    EQ = cast(Callable[..., bool], operator.eq)
+    GT = cast(Callable[..., bool], operator.gt)
+    LE = cast(Callable[..., bool], operator.le)
+    GE = cast(Callable[..., bool], operator.ge)
+
+compare_table = {
+    "<": Compare.LT,
+    "==": Compare.EQ,
+    ">": Compare.GT,
+    "<=": Compare.LE,
+    ">=": Compare.GE,
+}
+
+class Item(NamedTuple):
+    type: ItemType
+    string: str
+
+    def __repr__(self) -> str:
+        if self.type == ItemType.NAME:
+            return f"Name({self.string!r})"
+        else:
+            return f"String({self.string!r})"
+
+class Query(NamedTuple):
+    item: Item
+    strict: bool
+    op: Compare
+    limit: int
+
+def _parse_query(s: str) -> Query:
+    parser = parser_class.from_text(s)
+    res = parser.start()
+    if res is None:
+        raise parser.make_syntax_error(f"Cannot parse query {s}.")
+    #print(res)
+    item = Item(ItemType.STRING if res[0][0] else ItemType.NAME, res[0][1])
+    return Query(item, bool(res[2]), compare_table[res[3]], res[4]) #type:ignore
 
 
 class Visitor(GrammarVisitor):
-    def __init__(self, grammar: Grammar, terminals: Set[str],
-                 reverse_alts: bool = False, reverse_alt: bool = False):
+    def __init__(self, grammar: "build.Grammar | build_v2.Grammar",
+                 positive_lookahead_as_usage: bool = False,
+                 negative_lookahead_as_usage: bool = False,):
         self.grammar = grammar
-        self.terminals = terminals
-        self.reverse_alts = reverse_alts
-        self.reverse_alt = reverse_alt
-        self.unordered_graph: Dict[str, Set[str]] = {}
-        self.graph: Dict[str, List[str]] = {}
-        self._current_rule_name_stack: deque[str] = deque()
-        self.dfn_order: List[str] = []
+        self.positive_lookahead_as_usage = positive_lookahead_as_usage
+        self.negative_lookahead_as_usage = negative_lookahead_as_usage
+        self.graph: Dict[Item, List[str]] = {}
+        self.dedupe_graph: Dict[Item, Set[str]] = {}
+        self.current_rule_name: str = ""
+
+    def compute_graph(self) -> None:
+        self.visit(self.grammar.rules.values())
 
     @contextmanager
     def in_rule(self, name: str) -> Iterator[None]:
-        self._current_rule_name_stack.append(name)
+        self.current_rule_name = name
         yield
-        self._current_rule_name_stack.pop()
+        self.current_rule_name = ""
 
-    def init_name(self, name: str) -> None:
-        self.unordered_graph[name] = set()
-        self.graph[name] = []
+    def add_item(self, item: Item) -> None:
+        if item not in self.dedupe_graph:
+            self.dedupe_graph[item] = set()
+            self.graph[item] = []
+        if self.current_rule_name not in self.dedupe_graph[item]:
+            self.dedupe_graph[item].add(self.current_rule_name)
+            self.graph[item].append(self.current_rule_name)
 
-    def link_to(self, name: str) -> None:
-        if self._current_rule_name_stack:
-            current_rule_name = self._current_rule_name_stack[-1]
-            if name not in self.unordered_graph[current_rule_name]:
-                self.unordered_graph[current_rule_name].add(name)
-                self.graph[current_rule_name].append(name)
+    def visit_PositiveLookahead(self, lkh: PositiveLookahead) -> None:
+        if not self.positive_lookahead_as_usage:
+            return
+        self.visit(lkh.node)
+
+    def visit_NegativeLookahead(self, lkh: NegativeLookahead) -> None:
+        if not self.negative_lookahead_as_usage:
+            return
+        self.visit(lkh.node)
 
     def visit_Rule(self, rule: Rule) -> None:
-        if rule.name in self.unordered_graph:
-            return
-        self.init_name(rule.name)
-        self.dfn_order.append(rule.name)
-        if rule.name not in self.terminals:
-            with self.in_rule(rule.name):
-                self.visit(rule.rhs)
+        with self.in_rule(rule.name):
+            self.visit(rule.rhs)
 
-    def visit_Rhs(self, rhs: Rhs) -> None:
-        self.visit(reversed(rhs.alts) if self.reverse_alts else rhs.alts)
+    def visit_NameLeaf(self, leaf: Union[grammar_mod.NameLeaf, grammar_v2.NameLeaf]) -> None:
+        self.add_item(Item(ItemType.NAME, leaf.value))
 
-    def visit_Alt(self, alt: Alt) -> None:
-        self.visit(reversed(alt.items) if self.reverse_alt else alt.items)
-
-    def visit_NameLeaf(self, nameleaf: NameLeaf) -> None:
-        self.link_to(nameleaf.value)
-        if nameleaf.value not in self.terminals:
-            if nameleaf.value not in self.grammar.items:
-                print(f"Warning: Unknown name {nameleaf.value}")
-            else:
-                self.visit(self.grammar[nameleaf.value])
-
-    #TODO: Untested
-    def visit_ExternDecl(self, decl: ExternDecl) -> None:
-        if decl.name not in self.unordered_graph:
-            self.dfn_order.append(decl.name)
-            self.init_name(decl.name)
-        # ExternDecl may also be visited as the root item
-        # but link_to handles this this case
-        self.link_to(decl.name)
+    def visit_StringLeaf(self, leaf: Union[grammar_mod.StringLeaf, grammar_v2.StringLeaf]) -> None:
+        self.add_item(Item(ItemType.STRING, literal_eval(leaf.value)))
 
 
-def _parse_terminals(s: str) -> Tuple[bool, Set[str]]:
-    if s.startswith("+"):
-        s = s[1:]
-        extend = True
-    else:
-        extend = False
-    return (extend, set(s.split(",")))
+def make_used_by_graph(grammar: "build.Grammar | build_v2.Grammar", args: argparse.Namespace
+                       ) -> Dict[Item, List[str]]:
+    visitor = Visitor(grammar, args.positive_lookahead_as_usage, args.negative_lookahead_as_usage)
+    visitor.compute_graph()
+    return visitor.graph
+
+
+class Node(NamedTuple):
+    item: Item
+    distance: int
+
+
+def process_query(query: Query, graph: Dict[Item, List[str]]) -> List[str]:
+    if query.strict:
+        raise NotImplementedError("strict feature in progress")
+    max_distance = (query.limit - 1 if query.op == Compare.LT
+                    else query.limit if query.op == Compare.EQ
+                    else float("inf"))
+    q: deque[Node] = deque([Node(query.item, 0)])
+    visited: Set[str] = set()
+    res: List[str] = []
+    while q:
+        x, distance = q.popleft()
+        if x.type == ItemType.NAME and x.string in visited: continue
+        visited.add(x.string)
+
+        if x in graph:
+            for y in graph[x]:
+                if y not in visited:
+                    new_distance = distance + 1
+                    if new_distance > max_distance:
+                        continue # Prune
+                    # Note: Always a name since strings cannot use other rules
+                    q.append(Node(Item(ItemType.NAME, y), new_distance))
+                    if query.op._value_(new_distance, query.limit):
+                        res.append(y)
+
+    return res
 
 
 def main(args: argparse.Namespace) -> None:
@@ -168,67 +279,28 @@ def main(args: argparse.Namespace) -> None:
         print("ERROR: Failed to parse grammar file", file=sys.stderr)
         sys.exit(1)
 
-    if args.terminals[0]:
-        terminals |= args.terminals[1]
-    else:
-        terminals = args.terminals[1]
+    graph = make_used_by_graph(grammar, args)
+    #print(graph)
 
-    visitor = Visitor(grammar, terminals, args.reverse_alts, args.reverse_alt) #type:ignore #... Migrating
-    if args.subgraph:
-        visitor.visit(grammar[args.subgraph])
-    else:
-        for rule in grammar.rules.values():
-            visitor.visit(rule)
-
-    root_node = (args.subgraph if args.subgraph
-                 else "start" if "start" in grammar.items
-                 else None)
-    print("digraph g1 {")
-    print('\toverlap="scale";')  # Force twopi to scale the graph to avoid overlaps
-    print('\tnode [fontname="Consolas", shape=box, style="rounded,filled", color=none, fillcolor="#f0f0f0"]')
-    print('\tedge [color="#666", arrowhead=vee]')
-    if root_node:
-        print(f'\troot="{root_node}";')
-        print(f'\t{root_node} [color=green, fontcolor="#427934", shape=circle, fillcolor=white]')
-
-    for name in args.highlight:
-        # Note: `color` is picked deeper and `fillcolor` lighter to make it more colorblind-friendly
-        print(f'\t{name} [color="#b9b400", fillcolor="#fffedf", penwidth="1.5"]')
-
-    items: Iterable[Tuple[str, Iterable[str]]] #Settle mypy
-    if args.canonical == "dfn_order":
-        items = ((name, visitor.graph[name]) for name in visitor.dfn_order)
-    elif args.canonical == "name_sort":
-        items = sorted(visitor.graph.items(), key=lambda x: x[0])
-    else:
-        items = visitor.graph.items()
-    for name, edges in items:
-        if name in args.skip:
-            continue
-        edges = (name for name in edges if name not in args.skip)
-        if not args.include_invalid:
-            if name.startswith("invalid_"):
-                continue
-            edges = (name for name in edges if not name.startswith("invalid_"))
-        if args.no_terminals:
-            if name in terminals:
-                continue
-            edges = (name for name in edges if name not in terminals)
-        if args.canonical == "name_sort":
-            edges = sorted(edges)
-        s = ','.join(edges)
-        if not s:
-            continue # "name -> ;" is syntax error; s is empty means all edges are filtered out
-        print(f"\t{name} -> {s};")
-    print("}")
+    for query in args.queries:
+        res = process_query(query, graph)
+        print(",".join(res) or "(none)")
 
 
 if __name__ == "__main__":
-    raise NotImplementedError("Script is TODO")
+    #raise NotImplementedError("Script is TODO")
     p = argparse.ArgumentParser(
         prog="graph_grammar",
         description=__doc__, #type:ignore
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("grammar_file", type=argparse.FileType("r"),
-                   help="The grammar file to graph ('-' for stdin).")
+                   help="The grammar file ('-' for stdin).")
+    p.add_argument("queries", nargs="*", type=_parse_query,
+                   help="Queries.")
+    p.add_argument("-v2", action="store_true",
+                   help="Parse grammar as v2.")
+    p.add_argument("--positive-lookahead-as-usage", "--lkh-as-usage", action="store_false",
+                   help="Treat positive lookahead (&x) as usage.")
+    p.add_argument("--negative-lookahead-as-usage", "--neglkh-as-usage", action="store_true",
+                   help="Treat negative lookahead (!x) as usage.")
     main(p.parse_args())

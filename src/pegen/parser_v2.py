@@ -471,6 +471,7 @@ def _get_last_line(s: str) -> str:
     i = length - 1
     while i >= 0:
         #XXX: Omit empty lines?
+        #XXX: Only accept "\n" as newline?
         if s[i] == "\n" or s[i] == "\r":
             return s[i+1:]
         else:
@@ -525,17 +526,29 @@ class CharBasedParser(BaseParser):
     def endmarker(self) -> bool:
         return self._pos == len(self._text)
 
+    def any_char(self) -> Optional[str]:
+        if self._pos == len(self._text):
+            return None
+        if self._text[self._pos] == "\n":
+            self._line += 1
+            self._col = 0
+        else:
+            self._col += 1
+        char = self._text[self._pos]
+        self._pos += 1
+        self._update_farthest(self.mark())
+        return char
+
     @memoize
     def match_string(self, s: str) -> Optional[str]:
-        if self._text.startswith(s, self._pos):
-            nlines, last_col = _count_nlines_and_last_col(s)
-            self._pos += len(s)
-            self._line += nlines
-            self._col = last_col if nlines else self._col + len(s)
-            self._update_farthest(self.mark())
-            return s
-        else:
+        if not self._text.startswith(s, self._pos):
             return None
+        nlines, last_col = _count_nlines_and_last_col(s)
+        self._pos += len(s)
+        self._line += nlines
+        self._col = last_col if nlines else self._col + len(s)
+        self._update_farthest(self.mark())
+        return s
 
     def _update_farthest(self, mark: Mark) -> None:
         self._farthest = max(mark, self._farthest)

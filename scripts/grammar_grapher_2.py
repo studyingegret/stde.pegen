@@ -31,6 +31,14 @@ This limitation applies after options (e.g. --ignore) are applied.
 (e.g. If B is the only rule that uses A, and `--ignore B` is used, then A does not appear.)
 
 Note: This limitation also exists in the old grammar grapher.
+
+---
+
+Try these examples:
+python scripts/grammar_grapher_2.py data/python.gram -hl return_stmt | dot -Tsvg > python.svg
+python scripts/grammar_grapher_2.py data/python.gram -hl return_stmt --no-terminals | dot -Tsvg > python.svg
+python scripts/grammar_grapher_2.py data/python.gram -s return_stmt | dot -Tsvg > python.svg
+python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --reverse-alts | dot -Tsvg > python-reverse.svg
 """
 
 import argparse
@@ -76,9 +84,11 @@ TERMINALS_V1 = {"SOFT_KEYWORD", "NAME", "NUMBER", "STRING",
 
 class Visitor(GrammarVisitor):
     def __init__(self, grammar: Grammar, terminals: Set[str],
+                 include_invalid: bool = False,
                  reverse_alts: bool = False, reverse_alt: bool = False):
         self.grammar = grammar
         self.terminals = terminals
+        self.include_invalid = include_invalid
         self.reverse_alts = reverse_alts
         self.reverse_alt = reverse_alt
         self.unordered_graph: Dict[str, Set[str]] = {}
@@ -106,6 +116,8 @@ class Visitor(GrammarVisitor):
     def visit_Rule(self, rule: Rule) -> None:
         if rule.name in self.unordered_graph:
             return
+        if not self.include_invalid and rule.name.startswith("invalid_"):
+            return
         self.init_name(rule.name)
         self.dfn_order.append(rule.name)
         if rule.name not in self.terminals:
@@ -119,6 +131,8 @@ class Visitor(GrammarVisitor):
         self.visit(reversed(alt.items) if self.reverse_alt else alt.items)
 
     def visit_NameLeaf(self, nameleaf: NameLeaf) -> None:
+        if not self.include_invalid and nameleaf.value.startswith("invalid_"):
+            return
         self.link_to(nameleaf.value)
         if nameleaf.value not in self.terminals:
             if nameleaf.value not in self.grammar.items:
@@ -126,11 +140,12 @@ class Visitor(GrammarVisitor):
             else:
                 self.visit(self.grammar[nameleaf.value])
 
-    #TODO: Untested
     def visit_ExternDecl(self, decl: ExternDecl) -> None:
+        if not self.include_invalid and decl.name.startswith("invalid_"):
+            return
         if decl.name not in self.unordered_graph:
-            self.dfn_order.append(decl.name)
             self.init_name(decl.name)
+            self.dfn_order.append(decl.name)
         # ExternDecl may also be visited as the root item
         # but link_to handles this this case
         self.link_to(decl.name)
@@ -163,7 +178,7 @@ def main(args: argparse.Namespace) -> None:
     else:
         terminals = args.terminals[1]
 
-    visitor = Visitor(grammar, terminals, args.reverse_alts, args.reverse_alt) #type:ignore #... Migrating
+    visitor = Visitor(grammar, terminals, args.include_invalid, args.reverse_alts, args.reverse_alt) #type:ignore #... Migrating
     if args.subgraph:
         visitor.visit(grammar[args.subgraph])
     else:
@@ -181,10 +196,6 @@ def main(args: argparse.Namespace) -> None:
         print(f'\troot="{root_node}";')
         print(f'\t{root_node} [color=green, fontcolor="#427934", shape=circle, fillcolor=white]')
 
-    for name in args.highlight:
-        # Note: `color` is picked deeper and `fillcolor` lighter to make it more colorblind-friendly
-        print(f'\t{name} [color="#b9b400", fillcolor="#fffedf", penwidth="1.5"]')
-
     items: Iterable[Tuple[str, Iterable[str]]] #Settle mypy
     if args.canonical == "dfn_order":
         items = ((name, visitor.graph[name]) for name in visitor.dfn_order)
@@ -192,6 +203,8 @@ def main(args: argparse.Namespace) -> None:
         items = sorted(visitor.graph.items(), key=lambda x: x[0])
     else:
         items = visitor.graph.items()
+    outlinked: Set[str] = set()
+    mentioned: Set[str] = set()
     for name, edges in items:
         if name in args.skip:
             continue
@@ -209,7 +222,38 @@ def main(args: argparse.Namespace) -> None:
         s = ','.join(edges)
         if not s:
             continue # "name -> ;" is syntax error; s is empty means all edges are filtered out
+        outlinked.add(name)
+        mentioned.add(name)
+        mentioned.update(s.split(","))
         print(f"\t{name} -> {s};")
+
+    # Note: printing nodes before edges affects rendered layout
+    # Precedence: args.highlight > mentioned - outlinked
+
+    final: Set[str] = set()
+    penwidth = "2.5" if args.higher_contrast_highlight else "1.6"
+    color = "#7b7800" if args.higher_contrast_highlight else "#b9b400"
+    #fillcolor = "#fffedf"
+    fillcolor = "#fffeea"
+    for name in args.highlight:
+        if name in mentioned:
+            # Note: `color` is picked deeper and `fillcolor` lighter to make it more colorblind-friendly
+            # (even when higher_contrast_highlight is off -- people can forget)
+            if name == root_node:
+                print(f'\t{name} [color="{color}", fontcolor=black, fillcolor="{fillcolor}", penwidth="{penwidth}"]')
+            else:
+                print(f'\t{name} [color="{color}", fillcolor="{fillcolor}", penwidth="{penwidth}"]')
+            final.add(name)
+        else:
+            print(f"warning: {name} is not highlighted because it is not present in the result graph",
+                  file=sys.stderr)
+
+    if not args.dont_fade_no_outgoing_rules:
+        for name in mentioned - outlinked:
+            if name not in final:
+                print(f'\t{name} [fontcolor="#777", fillcolor="#fafafa"]')
+                #final.add(name)
+
     print("}")
 
 
@@ -220,19 +264,18 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("grammar_file", type=argparse.FileType("r"),
                    help="The grammar file to graph ('-' for stdin).")
-    p.add_argument("-s", "--subgraph", metavar="rule",
-                   help="Only display the subgraph of the grammar tree that rule uses.")
+    p.add_argument("-s", "--subgraph", metavar="NAME",
+                   help="Only display the subgraph of the grammar tree that NAME uses.")
     p.add_argument("-v2", action="store_true",
                    help="Parse grammar as v2.")
-    p.add_argument("-t", "--terminals", type=_parse_terminals, default=(True, set()),
+    p.add_argument("-t", "--terminals", metavar="NAMES", type=_parse_terminals, default=(True, set()),
                    help="Mark these names as terminals (they will not be followed). "
                         "[comma-separated list of names; also see below] "
-                        "e.g. 'some_detail_to_skip,other_detail_to_skip'. "
                         "This replaces the list of default terminals, unless a '+' "
                         "is present before the list of names (e.g. '+one,two').")
-    p.add_argument("-hl", "--highlight", type=lambda x: set(x.split(",")), default=set(),
+    p.add_argument("-hl", "--highlight", metavar="NAMES", type=lambda x: set(x.split(",")), default=set(),
                    help="Highlight these names. [comma-separated list of names]")
-    p.add_argument("--skip", "--ignore", type=lambda x: set(x.split(",")), default={"ENDMARKER"},
+    p.add_argument("--skip", "--ignore", metavar="NAMES", type=lambda x: set(x.split(",")), default={"ENDMARKER"},
                    help="Skip these names. [comma-separated list of names]")
     p.add_argument("--include-invalid", action="store_true",
                    help="Don't ignore rules that start with 'invalid_'.")
@@ -240,11 +283,15 @@ if __name__ == "__main__":
                    help="Canonicalize graph dict to avoid iteration order randomness. "
                         "Default dfn_order.")
     p.add_argument("--no-terminals", action="store_true",
-                   help="Skip terminal nodes.")
+                   help="Skip terminal nodes.") #...
     p.add_argument("--reverse-alts", action="store_true",
                    help="Reverse traverse order of top-level branches of each rule "
                         "(gives another view of the graph).")
     p.add_argument("--reverse-alt", action="store_true",
                    help="Reverse traverse order of items of each branch "
                         "(gives another view of the graph).")
+    p.add_argument("--dont-fade-no-outgoing-rules", action="store_true",
+                   help="Don't fade rules that don't use other rules.")
+    p.add_argument("--higher-contrast-highlight", action="store_true",
+                   help="Use more visible highlight style (darker and thicker outline).")
     main(p.parse_args())

@@ -11,24 +11,20 @@ to open an issue prior to starting work to discuss it first.
 
 To ensure your workflow:
 
-- You need to install black, flake8, mypy, pytest and tox.
+- You need mypy and pytest.
 
   ```
-  python -m pip -r dev_requirements.txt
+  python -m pip mypy pytest
   ```
 
-  Note: pep517.build is present in Makefile but I cannot find usage of its belonging task.
+  Some old workflow files also use black and flake8, but I don't use them currently.
+
+  ```
+  python -m pip -r old_dev_requirements.txt
+  ```
+
+  Note: pep517.build is present in Makefile but the task that uses it is not seen.
 - make is required. [A version of make for Windows](https://github.com/mbuilov/gnumake-windows).
-- (Optional) [TODO: This item needs rewriting] For better typings for module `build`:
-  Add `src/_typings_not_mypy` to your IDE's extra import paths (or whatever it is called).
-  - If it can understand these type hints, ask it to ignore `src/_typings_mypy` and `src/pegen/build_types.py` (2).
-  - If it cannot understand them, ask it to ignore `src/_typings_not_mypy` and `src/pegen/build_types.py` and not ignore `src/_typings_mypy` (3).
-
-  For example, in VS Code this is done by "Python › Analysis: Extra Paths" and "Python › Analysis: Exclude".
-
-  Note: If your IDE is configured to use Pyright, you might not need to do these
-  because I [configured](https://github.com/microsoft/pyright/blob/main/docs/configuration.md) so
-  in `pyproject.toml`.
 - In case you are not used to it, this fork stores tool options in `pyproject.toml`.
   If you change an option, and consider it valuable to make the change persist,
   put it there.
@@ -38,12 +34,22 @@ To ensure your workflow:
 ## Known possibly broken aspects
 - Support for different versions of Python. I can pass the tests with 3.13.2 but didn't
   test any other versions.
-- 
+- Workflow files are inconsistent with what I'm using. [TODO]
+- ...
 
-## Installation type stubs
-[TODO:?]
+## Generating the grammar parser from metagrammar
+Since the generated file will become broken if generation breaks halfway
+(e.g. the grammar parser itself has a bug),
+I recommend backing up `grammar_parser[_v2].py` before generating the grammar parser.
+There is currently no automated utility to do that [TODO].
 
-## Generating the grammar parser
+When generating the grammar parser, two generations are required to make sure
+the metagrammar is working (the first generation can only prove the grammar parser
+*before* your modifications is working; the second generation can prove
+the grammar parser *after* your modifications is working).
+
+## Generating the v1 grammar parser
+
 Pegen's grammar parser (`grammar_parser.py`) is self-generated from `metagrammar.gram`.
 
 ```
@@ -53,6 +59,14 @@ python -m pegen src/pegen/metagrammar.gram -o src/pegen/grammar_parser.py
 Add `-v` flag for verbose output and full traceback on errors.
 
 The make `regen-metaparser` task does a similar thing.
+
+## Generating the v2 grammar parser
+
+```
+python -m pegen src/pegen/metagrammar_v2.gram -v2 -o src/pegen/grammar_parser_v2.py
+```
+
+No make task for it yet.
 
 ## All checks (?)
 
@@ -102,7 +116,10 @@ You can use [mypy's daemon server](https://mypy.readthedocs.io/en/stable/mypy_da
 save time and computation over multiple runs:
 
 ```
-dmypy run
+# Windows
+dmypy start & dmypy run
+# Linux
+dmypy start & dmypy run
 ```
 
 > dmypy is used in this fork's tox.ini and Makefile.
@@ -116,7 +133,7 @@ python -m mypy src
 dmypy run -- src
 ```
 
-## Lints
+## Lints [Note: Not used]
 
 Checks code style with `black` and `flake8` (in folders `src`, `tests` only)
 and type checks with `mypy`.
@@ -129,7 +146,7 @@ make lint
 
 Please add type annotations for all new code.
 
-## Code Formatting
+## Code Formatting [Note: Not used]
 
 `pegen` uses [`black`](https://github.com/psf/black) for code formatting.
 I recommend setting up black in your editor to format on save.
@@ -137,3 +154,9 @@ I recommend setting up black in your editor to format on save.
 [XXX: But flake8 is also present in Makefile?]
 
 To run black from the command line, use `make format` to format and write to the files.
+
+## If one day you find this project dusted
+
+Abandoned projects can be forked but forks may not get the same attention.
+If this project's last commit time is < 6 months ago, feel free to
+open an issue to point to an alternative project/fork.
