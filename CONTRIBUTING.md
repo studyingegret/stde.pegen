@@ -43,6 +43,28 @@ To ensure your workflow:
 - Workflow files are inconsistent with what I'm using. [TODO]
 - ...
 
+## PR requirements
+Requirements for all PRs:
+- Tests must all pass.
+- PRs must add/adapt tests to cover all features that it provides/changes etc.
+  This criteria is soft-judged: usually one test case for each feature is a minimum,
+  but depending on the situation, I may accept PRs with near-complete test coverage.
+  Use your common sense for this judgement.
+
+  A reason for this is that tests make it ultimately clear what
+  your feature/change is supposed to look like in usage.
+
+Requirements for a PR to be merged into branch `main`:
+- Type check must pass.
+- Design that is okay in its own right but doesn't match my ideas of the library may be rejected to enter branch `main`.
+
+If these requirements aren't satisfied, it is still okay to merge
+the PR into a branch *other than* `main`. e.g. If you're not good at static typing,
+I may be willing to do these (depending on the time I have, of course).
+
+So I recommend starting a PR against branch `main`, then if I don't approve of
+merging into `main`, I can create a new branch for you to re-submit the PR. (?)
+
 ## Building documentation
 
 Generate HTML under directory `docbuild`:

@@ -2,10 +2,10 @@ stde.pegen guide
 ================
 
 
+.. Code examples are tested in tests/v2/doc_tests/test_guide.py.
+
 Parsing a simple arithmetic expression
 --------------------------------------
-
-.. Test: v2.test_simple
 
 First we write a grammar::
 
