@@ -615,19 +615,27 @@ It will return a tuple of (R, G, B, A) (when alpha is omitted, we take alpha=255
 
     @base CharBasedParser
 
-    start: "#" r=field g=field b=field a=field { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
-         | "#" r=field g=field b=field { (int(r, 16), int(g, 16), int(b, 16), 255) }
+    start: "#" r=field g=field b=field a=field $ { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
+         | "#" r=field g=field b=field $ { (int(r, 16), int(g, 16), int(b, 16), 255) }
 
     field: a=char b=char { a + b }
     char: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
         | "a" | "b" | "c" | "d" | "e" | "f"
         | "A" | "B" | "C" | "D" | "E" | "F"
 
-This grammar will parse ``#ff33cc`` as ``(255, 51, 204, 255)``, ``#002134aa`` as ``(0, 33, 52, 170)``,
-and rejects ``#0021 34aa``.
+This grammar will parse ``#1f1e33`` as ``(31, 30, 51, 255)``, ``#002134aa`` as ``(0, 33, 52, 170)``,
+and rejects ``#0021 34aa`` and ``#e0e1ccull``.
 
 .. note::
    You cannot just list "0-9a-fA-F" for rule ``char`` yet. This feature is TODO.
+
+The disadvantages is that you must deal with whitespace yourself:
+
+.. code-block:: none
+
+    [TODO] Not put here because it's not working because of a stde.pegen bug
+
+so in this case it's trading convenience for maneuverability.
 
 Parser presets (aka modes)
 --------------------------

@@ -366,6 +366,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         if used is not None and name not in used:
             name = None  # Eliminate unused capture
 
+        # No!! We need specialized judgements for each node type!
         if not name:
             # Parentheses are needed because the trailing comma may appear :>
             self.print(f"({call})")
@@ -478,5 +479,6 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
     def has_invalid(self, node: Any) -> bool:
         return self._invalidvisitor.visit(node)
 
+    #...
     def actually_used_names_in_action(self, action: str) -> Set[str]:
         return self._usednamesvisitor.visit(ast.parse(action))

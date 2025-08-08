@@ -117,8 +117,8 @@ def test_graphviz_color_parsing_char_based() -> None:
     grammar = dedent('''
     @base CharBasedParser
 
-    start: "#" r=field g=field b=field a=field { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
-         | "#" r=field g=field b=field { (int(r, 16), int(g, 16), int(b, 16), 255) }
+    start: "#" r=field g=field b=field a=field $ { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
+         | "#" r=field g=field b=field $ { (int(r, 16), int(g, 16), int(b, 16), 255) }
 
     field: a=char b=char { a + b }
     char: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
@@ -126,12 +126,10 @@ def test_graphviz_color_parsing_char_based() -> None:
         | "A" | "B" | "C" | "D" | "E" | "F"
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    parser = parser_class.from_text("#ff33cc")
-    assert parser.start() == (255, 51, 204, 255)
-    parser = parser_class.from_text("#002134aa")
-    assert parser.start() == (0, 33, 52, 170)
-    parser = parser_class.from_text("#0021 34aa")
-    assert parser.start() is None
+    assert parser_class.from_text("#1f1e33").start() == (31, 30, 51, 255)
+    assert parser_class.from_text("#002134aa").start() == (0, 33, 52, 170)
+    assert parser_class.from_text("#0021 34aa").start() is None
+    assert parser_class.from_text("#e0e1ccull").start() is None
 
 @pytest.mark.xfail
 def test_graphviz_color_parsing_with_default_parser() -> None:
