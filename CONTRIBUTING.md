@@ -47,8 +47,8 @@ To ensure your workflow:
 Requirements for all PRs:
 - Tests must all pass.
 - PRs must add/adapt tests to cover all features that it provides/changes etc.
-  This criteria is soft-judged: usually one test case for each feature is a minimum,
-  but depending on the situation, I may accept PRs with near-complete test coverage.
+  This criteria is soft-judged: usually one test case for each feature is a minimum (??),
+  but depending on the situation, I may accept PRs with slightly less test coverage.
   Use your common sense for this judgement.
 
   A reason for this is that tests make it ultimately clear what
@@ -56,7 +56,11 @@ Requirements for all PRs:
 
 Requirements for a PR to be merged into branch `main`:
 - Type check must pass.
-- Design that is okay in its own right but doesn't match my ideas of the library may be rejected to enter branch `main`.
+- If present, explain significant design changes from original code's:
+  why you decided not to follow the original design;
+  how the original design is blocking you / makes you dislike it; etc.
+
+  Such design needs to be approved by me to enter branch `main`.
 
 If these requirements aren't satisfied, it is still okay to merge
 the PR into a branch *other than* `main`. e.g. If you're not good at static typing,

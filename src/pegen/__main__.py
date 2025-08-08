@@ -27,7 +27,7 @@ def generate_python_code(
     verbose_parser = verbose == 2 or verbose >= 4
     try:
         return generate_code_from_file(
-            args.grammar_filename,
+            args.grammar_file,
             args.output,
             sys.stdout if verbose_tokenizer else None,
             sys.stdout if verbose_parser else None,
@@ -47,7 +47,7 @@ def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProductsV2:
     verbose_parser = verbose == 2 or verbose >= 4
     try:
         return generate_code_from_file_v2(
-            args.grammar_filename,
+            args.grammar_file,
             args.output,
             sys.stdout if verbose_tokenizer else None,
             sys.stdout if verbose_parser else None,
@@ -68,7 +68,7 @@ argparser.add_argument("-q", "--quiet", action="store_true", help="Don't print t
 argparser.add_argument("-v2", "--v2", action="store_true", help="Use v2 mode")
 argparser.add_argument("-v", "--verbose", action="count", default=0,
                        help="Print timing stats; repeat for more debug output")
-argparser.add_argument("grammar_filename", help="Grammar description")
+argparser.add_argument("grammar_file", type=argparse.FileType("r"), help="Grammar description")
 argparser.add_argument("-o", "--output", metavar="OUT", default="parse.py",
                        help="Where to write the generated parser")
 argparser.add_argument("--skip-actions", action="store_true",

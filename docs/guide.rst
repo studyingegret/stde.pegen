@@ -246,6 +246,8 @@ Now try parsing ``1 - 2`` with the updated grammar.
 Compound expressions
 ~~~~~~~~~~~~~~~~~~~~
 
+.. NOTE This section's example is not yet tested.
+
 So far we've only handled adding and subtracting of 2 numbers. To handle more, e.g.
 
 ::
@@ -483,6 +485,11 @@ Curious about which rules use ``NUMBER`` directly?
 
 [TODO]
 
+Single quoted words as keywords (default mode only)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+[TODO]
+
 
 Some useful metas
 -----------------
@@ -577,8 +584,57 @@ The preset to use for the grammar. By default, the default preset is used, equiv
 Presets are described below.
 
 
-Match character by character with ``CharBasedPaser``
-----------------------------------------------------
+Match character by character with ``CharBasedParser``
+-----------------------------------------------------
+
+So far we have been using ``DefaultParser`` as the base parser. However, it has some limitations:
+
+- We can't match character by character, because everything we access through ``DefaultParser``
+  is already processed by Python's tokenizer. For example, if we write ``"a" "b"``,
+  it will only match ``a b``, and not ``ab``. This can be an obstacle
+  when matching character by character is really convenient. Similarly,
+  ``"!" "="`` will not match ``"!="`` which may be convenient when matching Python
+  but can be an obstacle.
+- We lack features like regex matching or matching "any character".
+- Its pre-tokenization skips whitespace in a way beyond our control.
+
+stde.pegen provides another base parser: ``CharBasedParser``, which does no tokenizing and
+allows matching character by character.
+
+Use it through
+
+.. code-block:: none
+
+    @base CharBasedParser
+
+To demonstrate its advantages, let's write a parser that parses a
+`Graphviz color <https://graphviz.org/docs/attr-types/color/>`_ (the RGB and RGBA formats only).
+It will return a tuple of (R, G, B, A) (when alpha is omitted, we take alpha=255).
+
+.. code-block:: none
+
+    @base CharBasedParser
+
+    start: "#" r=field g=field b=field a=field { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
+         | "#" r=field g=field b=field { (int(r, 16), int(g, 16), int(b, 16), 255) }
+
+    field: a=char b=char { a + b }
+    char: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+        | "a" | "b" | "c" | "d" | "e" | "f"
+        | "A" | "B" | "C" | "D" | "E" | "F"
+
+This grammar will parse ``#ff33cc`` as ``(255, 51, 204, 255)``, ``#002134aa`` as ``(0, 33, 52, 170)``,
+and rejects ``#0021 34aa``.
+
+.. note::
+   You cannot just list "0-9a-fA-F" for rule ``char`` yet. This feature is TODO.
+
+Parser presets (aka modes)
+--------------------------
+
+.. note::
+   You will also find presets called modes in this documentation.
+
 
 Custom rules
 -------------------
@@ -590,12 +646,6 @@ Custom rules
 .. ``invalid_`` rules: probe for specifc error messages
 .. ----------------------------------------------------
 
-
-Parser presets (aka modes)
---------------------------
-
-.. note::
-   You will also find presets called modes in this documentation.
 
 Default mode (``@preset default``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
