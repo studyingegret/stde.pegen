@@ -1,0 +1,21 @@
+// dot -Tsvg subexpressions.gv > subexpressions.svg
+digraph {
+	overlap="scale"
+	root="start"
+	bgcolor="none"
+	edge [color="#666", arrowhead=vee]
+	node [fontname="Consolas", shape=circle, style="rounded,filled", color="#777", fillcolor=white]
+	s1 -> s2,a;
+    s2 -> s3,b;
+    s3 -> s4,c;
+    s4 -> d,e;
+	s1 [label="-"]
+	s2 [label="+"]
+	s3 [label="-"]
+	s4 [label="+"]
+    a [label="5", shape=box, color=none, fillcolor="#d0d0d0"]
+    b [label="4", shape=box, color=none, fillcolor="#d0d0d0"]
+    c [label="3", shape=box, color=none, fillcolor="#d0d0d0"]
+    d [label="1", shape=box, color=none, fillcolor="#d0d0d0"]
+    e [label="2", shape=box, color=none, fillcolor="#d0d0d0"]
+}

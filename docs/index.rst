@@ -3,6 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. TODO: Update project links
+.. TODO: "_v2 -> v2."
+
 .. image:: _static/logo.svg
    :width: 600
    :align: center
@@ -10,36 +13,47 @@
 What is this?
 =============
 
-Pegen is the parser generator used in CPython to produce the parser used
-by the interpreter. It allows to produce PEG parsers from a description
-of a formal Grammar.
+stde.pegen is a parser generator library forked from `Pegen <https://github.com/we-like-parsers/pegen>`_.
+It allows to produce PEG parsers from a description of a formal grammar.
 
 Installing
 ==========
 
-Install with ``pip`` or your favorite PyPi package manager.
+Install with ``pip`` or your favorite PyPI package manager.
 
 .. code-block::
 
-   pip install pegen
+   pip install stde.pegen
 
 How to generate a parser
-========================
+------------------------
+Given a grammar compatible with stde.pegen (you can write your own or start with
+one in the `data <https://github.com/we-like-parsers/pegen/tree/main/data>`__ directory):
 
-Given a grammar file compatible with ``pegen`` (you can write your own
-or start with one in the `data <https://github.com/we-like-parsers/pegen/tree/main/data>`__ directory), you can easily
-generate a parser by running:
+Command line
+~~~~~~~~~~~~
+Generate parser.py by running:
 
-.. code-block::
+```
+python -m stde.pegen <path-to-grammar-file> -o parser.py
+```
 
-   python -m pegen <path-to-grammar-file> -o parser.py
+This will generate a file called `parser.py` in the current directory. This can be used to parse code using the grammar that
+we just used:
 
-This will generate a file called ``parser.py`` in the current directory.
-This can be used to parse code using the grammar that we just used:
+```
+python parser.py <file-with-code-to-parse>
+```
 
-.. code-block::
+Also read [how to use the generated code from Python](TODO).
 
-   python parser.py <file-with-code-to-parse>
+### As a library
+```python
+from stde.pegen.build_v2 import generate_parser_from_file
+parser_class = generate_parser_from_file("data/expr.gram")
+parser = parser_class.from_text("1 + 2")
+print(parser.start())
+```
 
 Differences with CPython’s Pegen
 ================================
@@ -64,7 +78,9 @@ Indices and tables
 
 .. toctree::
 
+   guide
    peg_parsers
+   reference
    grammar
 
 * :ref:`genindex`
@@ -74,6 +90,6 @@ Indices and tables
 Developing
 ----------
 
-We welcome contributions to ``pegen``. Check
+We welcome contributions to ``stde.pegen``. Check
 `CONTRIBUTING.md <https://github.com/we-like-parsers/pegen/blob/main/CONTRIBUTING.md>`__
 to get an idea of how to contribute to the project.

@@ -221,6 +221,7 @@ class BaseParser(ABC):
         self.in_recursive_rule = 0
 
         # Are we looking for syntax error ? When true enable matching on invalid rules
+        #XXX
         self.call_invalid_rules = False
 
     @classmethod
@@ -331,6 +332,12 @@ class DefaultParser(BaseParser):
 
     def endmarker(self) -> bool:
         return self._tokenizer.peek().type == token.ENDMARKER
+        #if (t := self._tokenizer.peek().type) == token.ENDMARKER:
+        #    return True
+        #elif t.type == token.NEWLINE:
+        #    m = self.mark()
+        #    self._tokenizer.getnext()
+
 
     def diagnose(self) -> Tuple[int, int, str]:
         t = self._tokenizer.diagnose()
@@ -404,18 +411,17 @@ class DefaultParser(BaseParser):
 
     @memoize
     def newline(self) -> Optional[tokenize.TokenInfo]:
-        return self.expect("NEWLINE")
+        return self._expect("NEWLINE")
 
     @memoize
     def indent(self) -> Optional[tokenize.TokenInfo]:
-        return self.expect("INDENT")
+        return self._expect("INDENT")
 
     @memoize
     def dedent(self) -> Optional[tokenize.TokenInfo]:
-        return self.expect("DEDENT")
+        return self._expect("DEDENT")
 
-    #@memoize
-    def expect(self, type: str) -> Optional[tokenize.TokenInfo]:
+    def _expect(self, type: str) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.string == type:
             return self._tokenizer.getnext()

@@ -38,7 +38,8 @@ Try these examples:
 python scripts/grammar_grapher_2.py data/python.gram -hl return_stmt | dot -Tsvg > python.svg
 python scripts/grammar_grapher_2.py data/python.gram -hl return_stmt --no-terminals | dot -Tsvg > python.svg
 python scripts/grammar_grapher_2.py data/python.gram -s return_stmt | dot -Tsvg > python.svg
-python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --reverse-alts | dot -Tsvg > python-reverse.svg
+python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --no-terminals | dot -Tsvg > python.svg
+python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --reverse-alts --no-terminals | dot -Tsvg > python-reverse.svg
 """
 
 import argparse
@@ -74,6 +75,13 @@ from pegen.grammar import (
 TERMINALS_V1 = {"SOFT_KEYWORD", "NAME", "NUMBER", "STRING",
                 "FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END", "OP", "TYPE_COMMENT",
                 "NEWLINE", "DEDENT", "INDENT", "ENDMARKER", "ASYNC", "AWAIT"}
+
+DEFAULT_STYLE = """\
+    overlap="scale"  // Force twopi to scale the graph to avoid overlaps
+    bgcolor="none"
+    node [fontname="Consolas", shape=box, style="rounded,filled", color=none, fillcolor="#f0f0f0"]
+    edge [color="#666", arrowhead=vee]
+"""
 
 
 #@dataclass
@@ -136,7 +144,11 @@ class Visitor(GrammarVisitor):
         self.link_to(nameleaf.value)
         if nameleaf.value not in self.terminals:
             if nameleaf.value not in self.grammar.items:
-                print(f"Warning: Unknown name {nameleaf.value}")
+                current_rule_name = (self._current_rule_name_stack[-1]
+                                     if self._current_rule_name_stack
+                                     else "(??)")
+                print(f"Warning: Unknown name {nameleaf.value} (in rule {current_rule_name})",
+                      file=sys.stderr)
             else:
                 self.visit(self.grammar[nameleaf.value])
 
@@ -189,12 +201,10 @@ def main(args: argparse.Namespace) -> None:
                  else "start" if "start" in grammar.items
                  else None)
     print("digraph g1 {")
-    print('\toverlap="scale";')  # Force twopi to scale the graph to avoid overlaps
-    print('\tnode [fontname="Consolas", shape=box, style="rounded,filled", color=none, fillcolor="#f0f0f0"]')
-    print('\tedge [color="#666", arrowhead=vee]')
+    print(args.global_style)
     if root_node:
-        print(f'\troot="{root_node}";')
-        print(f'\t{root_node} [color=green, fontcolor="#427934", shape=circle, fillcolor=white]')
+        print(f'    root="{root_node}";')
+        print(f'    {root_node} [color=green, fontcolor="#427934", shape=circle, fillcolor=white]')
 
     items: Iterable[Tuple[str, Iterable[str]]] #Settle mypy
     if args.canonical == "dfn_order":
@@ -225,7 +235,7 @@ def main(args: argparse.Namespace) -> None:
         outlinked.add(name)
         mentioned.add(name)
         mentioned.update(s.split(","))
-        print(f"\t{name} -> {s};")
+        print(f"    {name} -> {s};")
 
     # Note: printing nodes before edges affects rendered layout
     # Precedence: args.highlight > mentioned - outlinked
@@ -240,18 +250,18 @@ def main(args: argparse.Namespace) -> None:
             # Note: `color` is picked deeper and `fillcolor` lighter to make it more colorblind-friendly
             # (even when higher_contrast_highlight is off -- people can forget)
             if name == root_node:
-                print(f'\t{name} [color="{color}", fontcolor=black, fillcolor="{fillcolor}", penwidth="{penwidth}"]')
+                print(f'    {name} [color="{color}", fontcolor=black, fillcolor="{fillcolor}", penwidth="{penwidth}"]')
             else:
-                print(f'\t{name} [color="{color}", fillcolor="{fillcolor}", penwidth="{penwidth}"]')
+                print(f'    {name} [color="{color}", fillcolor="{fillcolor}", penwidth="{penwidth}"]')
             final.add(name)
         else:
-            print(f"warning: {name} is not highlighted because it is not present in the result graph",
+            print(f"{name} is not highlighted because it is not present in the result graph",
                   file=sys.stderr)
 
     if not args.dont_fade_no_outgoing_rules:
         for name in mentioned - outlinked:
             if name not in final:
-                print(f'\t{name} [fontcolor="#777", fillcolor="#fafafa"]')
+                print(f'    {name} [fontcolor="#777", fillcolor="#fafafa"]')
                 #final.add(name)
 
     print("}")
@@ -259,7 +269,7 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(
-        prog="graph_grammar",
+        prog="graph_grammar.py",
         description=__doc__, #type:ignore
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("grammar_file", type=argparse.FileType("r"),
@@ -294,4 +304,8 @@ if __name__ == "__main__":
                    help="Don't fade rules that don't use other rules.")
     p.add_argument("--higher-contrast-highlight", action="store_true",
                    help="Use more visible highlight style (darker and thicker outline).")
+    p.add_argument("--global-style", action="store_true", default=DEFAULT_STYLE,
+                   help="Replace the default style string in output dot, put before"
+                        "all nodes and edges. "
+                        f"Default style string is {DEFAULT_STYLE.replace("\n", "; ")!r}.")
     main(p.parse_args())

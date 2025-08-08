@@ -1,0 +1,11 @@
+start: expr NEWLINE $ { expr }
+
+expr:
+    | a=expr2 "+" b=expr { a + b }
+    | a=expr2 "-" b=expr { a - b }
+    | expr2
+
+expr2:
+    | a=expr2 "*" b=NUMBER { a * int(b.string) }
+    | a=expr2 "/" b=NUMBER { a / int(b.string) }
+    | NUMBER { int(number.string) }

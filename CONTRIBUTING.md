@@ -23,7 +23,13 @@ To ensure your workflow:
   python -m pip -r old_dev_requirements.txt
   ```
 
-  Note: pep517.build is present in Makefile but the task that uses it is not seen.
+  Note: pep517.build is present in Makefile but the task that uses it is not used.
+- If you want to change the documentation, install the requirements
+  in the `docs` extras in pyproject.toml:
+
+  ```
+  pip install sphinx sphinx-copybutton furo
+  ```
 - make is required. [A version of make for Windows](https://github.com/mbuilov/gnumake-windows).
 - In case you are not used to it, this fork stores tool options in `pyproject.toml`.
   If you change an option, and consider it valuable to make the change persist,
@@ -37,16 +43,28 @@ To ensure your workflow:
 - Workflow files are inconsistent with what I'm using. [TODO]
 - ...
 
+## Building documentation
+
+Generate HTML under directory `docbuild`:
+
+```
+make -C docs
+```
+
+The index file will be `docbuild/html/index.html`. If you're using Windows,
+you can open it with `make -C docs open` (I don't know a Unix equivalent).
+
+Use `make -C docs clean` to clean previously built files.
+
 ## Generating the grammar parser from metagrammar
 Since the generated file will become broken if generation breaks halfway
 (e.g. the grammar parser itself has a bug),
 I recommend backing up `grammar_parser[_v2].py` before generating the grammar parser.
 There is currently no automated utility to do that [TODO].
 
-When generating the grammar parser, two generations are required to make sure
-the metagrammar is working (the first generation can only prove the grammar parser
-*before* your modifications is working; the second generation can prove
-the grammar parser *after* your modifications is working).
+When changing the grammar generator or metagrammar, two generations of the grammar parser
+are required to make sure the metagrammar & grammar generator are working
+(because the generated parser is exercised starting from the second generation).
 
 ## Generating the v1 grammar parser
 
