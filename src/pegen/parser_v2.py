@@ -50,10 +50,14 @@ if TYPE_CHECKING:
         """Whether the rule succeeded.
         - For regular rules, True if they syntactically matched content.
         - For node? and node*, True no matter if they syntactically matched content.
+        [TODO]
         """
         # Whether the rule matched some.
-        matched: bool = True
+        inner_ok: bool = True
         value: T2 = cast(T2, None)
+        
+        def __bool__(self):
+            return self.ok
 
 
     # success and failure would be much simpler if we could use
@@ -331,6 +335,12 @@ class BaseParser(ABC):
     @abstractmethod #XXX: ??
     def nextpos(self) -> Tuple[int, int]:
         """Return (line, col) of next token (if tokenizing) or current position"""
+    #@abstractmethod #XXX: ??
+    #def nextpos_as_start_of_rule(self) -> Tuple[int, int]:
+    #    return self._tokenizer.peek().start
+    #@abstractmethod #XXX: ??
+    #def nextpos_as_end_of_rule(self) -> Tuple[int, int]:
+    #    return self._tokenizer.peek().start
 
     def showpeek(self) -> str:
         line, col = self.nextpos()
@@ -440,63 +450,63 @@ class DefaultParser(BaseParser):
         if tok.type == token.NAME and tok.string not in self.KEYWORDS:
             return success(self._tokenizer.getnext())
         #reveal_type(failure[tokenize.TokenInfo]()) # See Note 1 at end of file
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def number(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NUMBER:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def string(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.STRING:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def fstring_start(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_START:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def fstring_middle(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_MIDDLE:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def fstring_end(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_END:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def op(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.OP:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def type_comment(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.TYPE_COMMENT:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def soft_keyword(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NAME and tok.string in self.SOFT_KEYWORDS:
             return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+        return failure()
 
     @memoize
     def newline(self) -> RuleResult[tokenize.TokenInfo]:
@@ -520,14 +530,14 @@ class DefaultParser(BaseParser):
         return failure()
 
     @memoize
-    def match_string(self, type: str) -> Optional[tokenize.TokenInfo]: #pyright:ignore
+    def match_string(self, type: str) -> RuleResult[tokenize.TokenInfo]: #pyright:ignore
         tok = self._tokenizer.peek()
         if (tok.string == type
          or (type in exact_token_types and tok.type == exact_token_types[type])
          or (type in token.__dict__ and tok.type == token.__dict__[type])
          or (tok.type == token.OP and tok.string == type)):
-            return self._tokenizer.getnext()
-        return None
+            return success(self._tokenizer.getnext())
+        return failure()
 
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
         tok = self._tokenizer.diagnose()

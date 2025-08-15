@@ -98,11 +98,12 @@ class GeneratedParser(Base):
         # start: grammar $
         mark = self.mark()
         if (
-            ((_temp := (self.grammar())).ok, grammar := _temp.value)[0]
+            (r_grammar := (self.grammar())).ok
             and
             (self.endmarker()).ok
         ):
-            return [_temp, grammar]
+            grammar = r_grammar.value
+            return [grammar, r_grammar]
         self.reset(mark)
         return failure[Grammar]()
 
@@ -111,12 +112,15 @@ class GeneratedParser(Base):
         # grammar: metas? rules extern_rules?
         mark = self.mark()
         if (
-            ((_temp_1 := (success(_temp.value) if (_temp := (self.metas())).ok else success(RuleResultValue.FAIL_OK))).ok, metas := _temp_1.value)[0]
+            (r_metas := (success(_temp.value) if (_temp := (self.metas())).ok else success(RuleResultValue.FAIL_OK))).ok
             and
-            ((_temp_2 := (self.rules())).ok, rules := _temp_2.value)[0]
+            (r_rules := (self.rules())).ok
             and
-            ((_temp_4 := (success(_temp_3.value) if (_temp_3 := (self.extern_rules())).ok else success(RuleResultValue.FAIL_OK))).ok, extern_rules := _temp_4.value)[0]
+            (r_extern_rules := (success(_temp_1.value) if (_temp_1 := (self.extern_rules())).ok else success(RuleResultValue.FAIL_OK))).ok
         ):
+            metas = r_metas.value
+            rules = r_rules.value
+            extern_rules = r_extern_rules.value
             return Grammar(rules, extern_rules or [], metas or [])
         self.reset(mark)
         return failure[Grammar]()
@@ -126,15 +130,18 @@ class GeneratedParser(Base):
         # metas: meta metas | meta
         mark = self.mark()
         if (
-            ((_temp := (self.meta())).ok, meta := _temp.value)[0]
+            (r_meta := (self.meta())).ok
             and
-            ((_temp_1 := (self.metas())).ok, metas := _temp_1.value)[0]
+            (r_metas := (self.metas())).ok
         ):
+            meta = r_meta.value
+            metas = r_metas.value
             return [meta] + metas
         self.reset(mark)
         if (
-            ((_temp := (self.meta())).ok, meta := _temp.value)[0]
+            (r_meta := (self.meta())).ok
         ):
+            meta = r_meta.value
             return [meta]
         self.reset(mark)
         return failure[List [MetaTuple]]()
@@ -146,32 +153,37 @@ class GeneratedParser(Base):
         if (
             (self.match_string("@")).ok
             and
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
             (self.newline()).ok
         ):
+            name = r_name.value
             return (name.string, None)
         self.reset(mark)
         if (
             (self.match_string("@")).ok
             and
-            ((_temp := (self.name())).ok, a := _temp.value)[0]
+            (r_a := (self.name())).ok
             and
-            ((_temp_1 := (self.name())).ok, b := _temp_1.value)[0]
+            (r_b := (self.name())).ok
             and
             (self.newline()).ok
         ):
+            a = r_a.value
+            b = r_b.value
             return (a.string, b.string)
         self.reset(mark)
         if (
             (self.match_string("@")).ok
             and
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
-            ((_temp_1 := (self.string())).ok, string := _temp_1.value)[0]
+            (r_string := (self.string())).ok
             and
             (self.newline()).ok
         ):
+            name = r_name.value
+            string = r_string.value
             return (name.string, literal_eval(string.string))
         self.reset(mark)
         return failure[MetaTuple]()
@@ -181,15 +193,18 @@ class GeneratedParser(Base):
         # rules: rule rules | rule
         mark = self.mark()
         if (
-            ((_temp := (self.rule())).ok, rule := _temp.value)[0]
+            (r_rule := (self.rule())).ok
             and
-            ((_temp_1 := (self.rules())).ok, rules := _temp_1.value)[0]
+            (r_rules := (self.rules())).ok
         ):
+            rule = r_rule.value
+            rules = r_rules.value
             return [rule] + rules
         self.reset(mark)
         if (
-            ((_temp := (self.rule())).ok, rule := _temp.value)[0]
+            (r_rule := (self.rule())).ok
         ):
+            rule = r_rule.value
             return [rule]
         self.reset(mark)
         return failure[List [Rule]]()
@@ -199,14 +214,17 @@ class GeneratedParser(Base):
         # rule: rulename memoflag? ":" rule_rhs
         mark = self.mark()
         if (
-            ((_temp := (self.rulename())).ok, rulename := _temp.value)[0]
+            (r_rulename := (self.rulename())).ok
             and
-            ((_temp_2 := (success(_temp_1.value) if (_temp_1 := (self.memoflag())).ok else success(RuleResultValue.FAIL_OK))).ok, opt := _temp_2.value)[0]
+            (r_opt := (success(_temp.value) if (_temp := (self.memoflag())).ok else success(RuleResultValue.FAIL_OK))).ok
             and
             (self.match_string(":")).ok
             and
-            ((_temp_3 := (self.rule_rhs())).ok, rule_rhs := _temp_3.value)[0]
+            (r_rule_rhs := (self.rule_rhs())).ok
         ):
+            rulename = r_rulename.value
+            opt = r_opt.value
+            rule_rhs = r_rule_rhs.value
             return Rule(rulename[0], rulename[1], rule_rhs, memo=opt)
         self.reset(mark)
         return failure[Rule]()
@@ -216,15 +234,18 @@ class GeneratedParser(Base):
         # extern_rules: extern_rule extern_rules | extern_rule
         mark = self.mark()
         if (
-            ((_temp := (self.extern_rule())).ok, extern_rule := _temp.value)[0]
+            (r_extern_rule := (self.extern_rule())).ok
             and
-            ((_temp_1 := (self.extern_rules())).ok, extern_rules := _temp_1.value)[0]
+            (r_extern_rules := (self.extern_rules())).ok
         ):
+            extern_rule = r_extern_rule.value
+            extern_rules = r_extern_rules.value
             return [extern_rule] + extern_rules
         self.reset(mark)
         if (
-            ((_temp := (self.extern_rule())).ok, extern_rule := _temp.value)[0]
+            (r_extern_rule := (self.extern_rule())).ok
         ):
+            extern_rule = r_extern_rule.value
             return [extern_rule]
         self.reset(mark)
         return failure[List [ExternDecl]]()
@@ -236,12 +257,14 @@ class GeneratedParser(Base):
         if (
             (self.match_string("extern")).ok
             and
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
-            ((_temp_2 := (success(_temp_1.value) if (_temp_1 := (self.annotation())).ok else success(RuleResultValue.FAIL_OK))).ok, ann := _temp_2.value)[0]
+            (r_ann := (success(_temp.value) if (_temp := (self.annotation())).ok else success(RuleResultValue.FAIL_OK))).ok
             and
             (self.newline()).ok
         ):
+            name = r_name.value
+            ann = r_ann.value
             return ExternDecl(name.string, ann)
         self.reset(mark)
         return failure[ExternDecl]()
@@ -251,15 +274,18 @@ class GeneratedParser(Base):
         # rulename: NAME annotation | NAME
         mark = self.mark()
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
-            ((_temp_1 := (self.annotation())).ok, annotation := _temp_1.value)[0]
+            (r_annotation := (self.annotation())).ok
         ):
+            name = r_name.value
+            annotation = r_annotation.value
             return (name.string, annotation)
         self.reset(mark)
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
         ):
+            name = r_name.value
             return (name.string, None)
         self.reset(mark)
         return failure[RuleName]()
@@ -269,16 +295,18 @@ class GeneratedParser(Base):
         # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | NEWLINE INDENT alt NEWLINE DEDENT | alts NEWLINE
         mark = self.mark()
         if (
-            ((_temp_1 := (success(_temp.value) if (_temp := (self.alts())).ok else success(RuleResultValue.FAIL_OK))).ok, alts := _temp_1.value)[0]
+            (r_alts := (success(_temp.value) if (_temp := (self.alts())).ok else success(RuleResultValue.FAIL_OK))).ok
             and
             (self.newline()).ok
             and
             (self.indent()).ok
             and
-            ((_temp_2 := (self.more_alts())).ok, more_alts := _temp_2.value)[0]
+            (r_more_alts := (self.more_alts())).ok
             and
             (self.dedent()).ok
         ):
+            alts = r_alts.value
+            more_alts = r_more_alts.value
             return Rhs(alts.alts + more_alts.alts) if alts else more_alts
         self.reset(mark)
         if (
@@ -286,19 +314,21 @@ class GeneratedParser(Base):
             and
             (self.indent()).ok
             and
-            ((_temp := (self.alt())).ok, alt := _temp.value)[0]
+            (r_alt := (self.alt())).ok
             and
             (self.newline()).ok
             and
             (self.dedent()).ok
         ):
+            alt = r_alt.value
             return Rhs([alt])
         self.reset(mark)
         if (
-            ((_temp := (self.alts())).ok, alts := _temp.value)[0]
+            (r_alts := (self.alts())).ok
             and
             (self.newline()).ok
         ):
+            alts = r_alts.value
             return alts
         self.reset(mark)
         return failure[Rhs]()
@@ -323,17 +353,20 @@ class GeneratedParser(Base):
         # alts: alt "|" alts | alt
         mark = self.mark()
         if (
-            ((_temp := (self.alt())).ok, alt := _temp.value)[0]
+            (r_alt := (self.alt())).ok
             and
             (self.match_string("|")).ok
             and
-            ((_temp_1 := (self.alts())).ok, alts := _temp_1.value)[0]
+            (r_alts := (self.alts())).ok
         ):
+            alt = r_alt.value
+            alts = r_alts.value
             return Rhs([alt] + alts.alts)
         self.reset(mark)
         if (
-            ((_temp := (self.alt())).ok, alt := _temp.value)[0]
+            (r_alt := (self.alt())).ok
         ):
+            alt = r_alt.value
             return Rhs([alt])
         self.reset(mark)
         return failure[Rhs]()
@@ -345,21 +378,24 @@ class GeneratedParser(Base):
         if (
             (self.match_string("|")).ok
             and
-            ((_temp := (self.alts())).ok, alts := _temp.value)[0]
+            (r_alts := (self.alts())).ok
             and
             (self.newline()).ok
             and
-            ((_temp_1 := (self.more_alts())).ok, more_alts := _temp_1.value)[0]
+            (r_more_alts := (self.more_alts())).ok
         ):
+            alts = r_alts.value
+            more_alts = r_more_alts.value
             return Rhs(alts.alts + more_alts.alts)
         self.reset(mark)
         if (
             (self.match_string("|")).ok
             and
-            ((_temp := (self.alts())).ok, alts := _temp.value)[0]
+            (r_alts := (self.alts())).ok
             and
             (self.newline()).ok
         ):
+            alts = r_alts.value
             return Rhs(alts.alts)
         self.reset(mark)
         return failure[Rhs]()
@@ -369,31 +405,37 @@ class GeneratedParser(Base):
         # alt: items '$' action | items '$' | items action | items | '$'
         mark = self.mark()
         if (
-            ((_temp := (self.items())).ok, items := _temp.value)[0]
+            (r_items := (self.items())).ok
             and
             (self.match_string('$')).ok
             and
-            ((_temp_1 := (self.action())).ok, action := _temp_1.value)[0]
+            (r_action := (self.action())).ok
         ):
+            items = r_items.value
+            action = r_action.value
             return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action)
         self.reset(mark)
         if (
-            ((_temp := (self.items())).ok, items := _temp.value)[0]
+            (r_items := (self.items())).ok
             and
             (self.match_string('$')).ok
         ):
+            items = r_items.value
             return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None)
         self.reset(mark)
         if (
-            ((_temp := (self.items())).ok, items := _temp.value)[0]
+            (r_items := (self.items())).ok
             and
-            ((_temp_1 := (self.action())).ok, action := _temp_1.value)[0]
+            (r_action := (self.action())).ok
         ):
+            items = r_items.value
+            action = r_action.value
             return Alt(items, action=action)
         self.reset(mark)
         if (
-            ((_temp := (self.items())).ok, items := _temp.value)[0]
+            (r_items := (self.items())).ok
         ):
+            items = r_items.value
             return Alt(items, action=None)
         self.reset(mark)
         if (
@@ -408,15 +450,18 @@ class GeneratedParser(Base):
         # items: top_level_item items | top_level_item
         mark = self.mark()
         if (
-            ((_temp := (self.top_level_item())).ok, top_level_item := _temp.value)[0]
+            (r_top_level_item := (self.top_level_item())).ok
             and
-            ((_temp_1 := (self.items())).ok, items := _temp_1.value)[0]
+            (r_items := (self.items())).ok
         ):
+            top_level_item = r_top_level_item.value
+            items = r_items.value
             return [top_level_item] + items
         self.reset(mark)
         if (
-            ((_temp := (self.top_level_item())).ok, top_level_item := _temp.value)[0]
+            (r_top_level_item := (self.top_level_item())).ok
         ):
+            top_level_item = r_top_level_item.value
             return [top_level_item]
         self.reset(mark)
         return failure[List [TopLevelItem]]()
@@ -427,42 +472,49 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
-            ((_temp_1 := (self.annotation())).ok, annotation := _temp_1.value)[0]
+            (r_annotation := (self.annotation())).ok
             and
             (self.match_string('=')).ok
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp_2 := (self.item())).ok, item := _temp_2.value)[0]
+            (r_item := (self.item())).ok
         ):
+            name = r_name.value
+            annotation = r_annotation.value
+            item = r_item.value
             return TopLevelItem(name.string, item, annotation)
         self.reset(mark)
         if cut:
             return None
         cut = False
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
             (self.match_string('=')).ok
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp_1 := (self.item())).ok, item := _temp_1.value)[0]
+            (r_item := (self.item())).ok
         ):
+            name = r_name.value
+            item = r_item.value
             return TopLevelItem(name.string, item)
         self.reset(mark)
         if cut:
             return None
         if (
-            ((_temp := (self.item())).ok, item := _temp.value)[0]
+            (r_item := (self.item())).ok
         ):
+            item = r_item.value
             return TopLevelItem(None, item)
         self.reset(mark)
         if (
-            ((_temp := (self.top_level_others())).ok, it := _temp.value)[0]
+            (r_it := (self.top_level_others())).ok
         ):
+            it = r_it.value
             return TopLevelItem(None, it)
         self.reset(mark)
         return failure[TopLevelItem]()
@@ -479,8 +531,9 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
         ):
+            atom = r_atom.value
             return Forced(atom)
         self.reset(mark)
         if cut:
@@ -491,8 +544,9 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
         ):
+            atom = r_atom.value
             return PositiveLookahead(atom)
         self.reset(mark)
         if cut:
@@ -503,8 +557,9 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
         ):
+            atom = r_atom.value
             return NegativeLookahead(atom)
         self.reset(mark)
         if cut:
@@ -526,49 +581,56 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.alts())).ok, alts := _temp.value)[0]
+            (r_alts := (self.alts())).ok
             and
             (self.match_string(']')).ok
         ):
+            alts = r_alts.value
             return Opt(Group(alts))
         self.reset(mark)
         if cut:
             return None
         if (
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
             and
             (self.match_string('?')).ok
         ):
+            atom = r_atom.value
             return Opt(atom)
         self.reset(mark)
         if (
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
             and
             (self.match_string('*')).ok
         ):
+            atom = r_atom.value
             return Repeat0(atom)
         self.reset(mark)
         if (
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
             and
             (self.match_string('+')).ok
         ):
+            atom = r_atom.value
             return Repeat1(atom)
         self.reset(mark)
         if (
-            ((_temp := (self.atom())).ok, sep := _temp.value)[0]
+            (r_sep := (self.atom())).ok
             and
             (self.match_string('.')).ok
             and
-            ((_temp_1 := (self.atom())).ok, node := _temp_1.value)[0]
+            (r_node := (self.atom())).ok
             and
             (self.match_string('+')).ok
         ):
+            sep = r_sep.value
+            node = r_node.value
             return Gather(sep, node)
         self.reset(mark)
         if (
-            ((_temp := (self.atom())).ok, atom := _temp.value)[0]
+            (r_atom := (self.atom())).ok
         ):
+            atom = r_atom.value
             return atom
         self.reset(mark)
         return failure[Item]()
@@ -583,22 +645,25 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.alts())).ok, alts := _temp.value)[0]
+            (r_alts := (self.alts())).ok
             and
             (self.match_string(')')).ok
         ):
+            alts = r_alts.value
             return Group(alts)
         self.reset(mark)
         if cut:
             return None
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
         ):
+            name = r_name.value
             return NameLeaf(name.string)
         self.reset(mark)
         if (
-            ((_temp := (self.string())).ok, string := _temp.value)[0]
+            (r_string := (self.string())).ok
         ):
+            string = r_string.value
             return StringLeaf(string.string)
         self.reset(mark)
         return failure[Plain]()
@@ -613,10 +678,11 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.action_contents())).ok, action_contents := _temp.value)[0]
+            (r_action_contents := (self.action_contents())).ok
             and
             (self.match_string("}")).ok
         ):
+            action_contents = r_action_contents.value
             return action_contents
         self.reset(mark)
         if cut:
@@ -633,10 +699,11 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp := (self.target_atoms())).ok, target_atoms := _temp.value)[0]
+            (r_target_atoms := (self.target_atoms())).ok
             and
             (self.match_string("]")).ok
         ):
+            target_atoms = r_target_atoms.value
             return target_atoms
         self.reset(mark)
         if cut:
@@ -648,15 +715,18 @@ class GeneratedParser(Base):
         # target_atoms: target_atom target_atoms | target_atom
         mark = self.mark()
         if (
-            ((_temp := (self.target_atom())).ok, target_atom := _temp.value)[0]
+            (r_target_atom := (self.target_atom())).ok
             and
-            ((_temp_1 := (self.target_atoms())).ok, target_atoms := _temp_1.value)[0]
+            (r_target_atoms := (self.target_atoms())).ok
         ):
+            target_atom = r_target_atom.value
+            target_atoms = r_target_atoms.value
             return target_atom + " " + target_atoms
         self.reset(mark)
         if (
-            ((_temp := (self.target_atom())).ok, target_atom := _temp.value)[0]
+            (r_target_atom := (self.target_atom())).ok
         ):
+            target_atom = r_target_atom.value
             return target_atom
         self.reset(mark)
         return failure[str]()
@@ -671,10 +741,11 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp_1 := (success(_temp.value) if (_temp := (self.target_atoms())).ok else success(RuleResultValue.FAIL_OK))).ok, atoms := _temp_1.value)[0]
+            (r_atoms := (success(_temp.value) if (_temp := (self.target_atoms())).ok else success(RuleResultValue.FAIL_OK))).ok
             and
             (self.match_string("}")).ok
         ):
+            atoms = r_atoms.value
             return "{" + (atoms or "") + "}"
         self.reset(mark)
         if cut:
@@ -685,43 +756,51 @@ class GeneratedParser(Base):
             and
             (cut := (success[bool]()).ok)
             and
-            ((_temp_1 := (success(_temp.value) if (_temp := (self.target_atoms())).ok else success(RuleResultValue.FAIL_OK))).ok, atoms := _temp_1.value)[0]
+            (r_atoms := (success(_temp.value) if (_temp := (self.target_atoms())).ok else success(RuleResultValue.FAIL_OK))).ok
             and
             (self.match_string("]")).ok
         ):
+            atoms = r_atoms.value
             return "[" + (atoms or "") + "]"
         self.reset(mark)
         if cut:
             return None
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
             and
             (self.match_string("*")).ok
         ):
+            name = r_name.value
             return name.string + "*"
         self.reset(mark)
         if (
-            ((_temp := (self.name())).ok, name := _temp.value)[0]
+            (r_name := (self.name())).ok
         ):
+            name = r_name.value
             return name.string
         self.reset(mark)
         if (
-            ((_temp := (self.number())).ok, number := _temp.value)[0]
+            (r_number := (self.number())).ok
         ):
+            number = r_number.value
             return number.string
         self.reset(mark)
         if (
-            ((_temp := (self.string())).ok, string := _temp.value)[0]
+            (r_string := (self.string())).ok
         ):
+            string = r_string.value
             return string.string
         self.reset(mark)
         if (
-            ((_temp := (self.fstring_start())).ok, l := _temp.value)[0]
+            (r_l := (self.fstring_start())).ok
             and
-            ((_temp_1 := (self._loop0_1())).ok, m := _temp_1.value)[0]
+            (r_m := (self._loop0_1())).ok
             and
-            ((_temp_2 := (self.fstring_end())).ok, r := _temp_2.value)[0]
+            (r_r := (self.fstring_end())).ok
         ):
+            l = r_l.value
+            m = r_m.value
+            r = r_r.value
             return l.string + "".join(m) + r.string
         self.reset(mark)
         if (
@@ -739,8 +818,9 @@ class GeneratedParser(Base):
             and
             (self.negative_lookahead(self.match_string, "]")).ok
             and
-            ((_temp := (self.op())).ok, op := _temp.value)[0]
+            (r_op := (self.op())).ok
         ):
+            op = r_op.value
             return op.string
         self.reset(mark)
         return failure[str]()
@@ -750,8 +830,9 @@ class GeneratedParser(Base):
         # target_fstring_middle: FSTRING_MIDDLE | "{" | "}" | target_atom
         mark = self.mark()
         if (
-            ((_temp := (self.fstring_middle())).ok, fstring_middle := _temp.value)[0]
+            (r_fstring_middle := (self.fstring_middle())).ok
         ):
+            fstring_middle = r_fstring_middle.value
             return fstring_middle.string
         self.reset(mark)
         if (
@@ -765,8 +846,9 @@ class GeneratedParser(Base):
             return "}"
         self.reset(mark)
         if (
-            ((_temp := (self.target_atom())).ok, target_atom := _temp.value)[0]
+            (r_target_atom := (self.target_atom())).ok
         ):
+            target_atom = r_target_atom.value
             return target_atom
         self.reset(mark)
         return failure[str]()
@@ -777,9 +859,10 @@ class GeneratedParser(Base):
         mark = self.mark()
         children = []
         while (
-            ((_temp := (self.target_fstring_middle())).ok, target_fstring_middle := _temp.value)[0]
+            (r_target_fstring_middle := (self.target_fstring_middle())).ok
         ):
-            children.append([_temp, target_fstring_middle])
+            target_fstring_middle = r_target_fstring_middle.value
+            children.append([target_fstring_middle, r_target_fstring_middle])
             mark = self.mark()
         self.reset(mark)
         return success[Any](children)

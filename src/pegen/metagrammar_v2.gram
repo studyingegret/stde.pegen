@@ -1,4 +1,5 @@
 @header '''\
+#from pegen.parser_v2_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
 from typing import List, Union
 import token

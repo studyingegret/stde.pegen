@@ -37,7 +37,8 @@ MODULE_PREFIX = """\
 
 from typing import Any, Optional
 from pegen.parser_v2 import (memoize, memoize_left_rec, logger,
-                             DefaultParser, CharBasedParser, RuleResult, RuleResultValue)
+                             DefaultParser, CharBasedParser, RuleResult, RuleResultValue,
+                             success, failure)
 """
 
 # TODO
@@ -179,8 +180,8 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
         # markers, e.g: [rule*])
         # XXX: Still allow accessing "failed but accepted" state
         tempname = self.gen.dedupe_and_add_var("_temp")
-        return ("opt", "success({tempname}.value) if ({tempname} := ({call})).ok "
-                       "else success(RuleResultValue.FAIL_OK)") #XXX: Type of success?
+        return ("opt", f"success({tempname}.value) if ({tempname} := ({call})).ok "
+                        "else success(RuleResultValue.FAIL_OK)") #XXX: Type of success?
 
     def visit_Repeat0(self, node: Repeat0) -> Tuple[str, str]:
         if node in self.cache:
@@ -266,7 +267,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.location_formatting = self.grammar.metas.get("location_format",
             "lineno=start_lineno, col_offset=start_colno, "
             "end_lineno=end_lineno, end_col_offset=end_colno")
-        self.cleanup_statements: List[str] = []
+        self.return_cleanup_stmts: List[str] = []
+        self.pre_action_stmts: List[str] = []
         self.skip_actions = skip_actions
 
     def generate(self, file: TextIO, filename: str) -> None:
@@ -307,7 +309,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         return False
 
     def add_return(self, ret_val: str) -> None:
-        for stmt in self.cleanup_statements:
+        for stmt in self.return_cleanup_stmts:
             self.print(stmt)
         self.print(f"return {ret_val}")
 
@@ -334,7 +336,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if rule.name.endswith("without_invalid"):
                 self.print("_prev_call_invalid = self.call_invalid_rules")
                 self.print("self.call_invalid_rules = False")
-                self.cleanup_statements.append("self.call_invalid_rules = _prev_call_invalid")
+                self.return_cleanup_stmts.append("self.call_invalid_rules = _prev_call_invalid")
 
             self.print("mark = self.mark()")
             if self.alts_uses_locations(rule.rhs.alts):
@@ -351,25 +353,24 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 self.add_return(f"failure[{node_type}]()")
 
         if rule.name.endswith("without_invalid"):
-            self.cleanup_statements.pop()
+            self.return_cleanup_stmts.pop()
 
     def visit_TopLevelItem(
-        self, node: TopLevelItem, used: Optional[Set[str]], unreachable: bool
+        self, item: TopLevelItem, used: Optional[Set[str]], unreachable: bool
     ) -> None:
         """used: Actually used variables of action of belonging Alt.
         used == None when belonging Alt has no action.
         """
-        name, call = self.callmakervisitor.visit(node.item)
+        name, call = self.callmakervisitor.visit(item.item)
         if unreachable:
             name = None
-        elif node.name:
-            name = node.name
+        elif item.name:
+            name = item.name
 
         #TODO: Option to disable eliminating unused captures
         if used is not None and name not in used:
             name = None  # Eliminate unused capture
 
-        # No!! We need specialized judgements for each node type!
         if not name:
             # Parentheses are needed because the trailing comma may appear :> (XXX)
             self.print(f"({call}).ok")
@@ -377,14 +378,15 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if name == "cut":
                 self.print(f"(cut := ({call}).ok)")
             else:
-                tempname = self.dedupe_and_add_var("_temp")
                 name = self.dedupe_and_add_var(name)
-                self.print(f"(({tempname} := ({call})).ok, {name} := {tempname}.value)[0]")
+                name_r = self.dedupe_and_add_var("r_" + name)
+                self.print(f"({name_r} := ({call})).ok")
+                self.pre_action_stmts.append(f"{name} = {name_r}.value")
 
-    def visit_Rhs(self, node: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
+    def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
         if is_loop:
-            assert len(node.alts) == 1
-        for alt in node.alts:
+            assert len(rhs.alts) == 1
+        for alt in rhs.alts:
             self.visit(alt, is_loop=is_loop, is_gather=is_gather)
 
     def print_action(
@@ -417,20 +419,22 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("start = (start_lineno, start_colno)")
             self.print("end = (end_lineno, end_colno)")
 
+        for stmt in self.pre_action_stmts:
+            self.print(stmt)
+
         if is_loop:
             self.print(f"children.append({action})")
             self.print("mark = self.mark()")
         else:
             self.add_return(f"{action}")
 
-    def visit_Alt(self, node: Alt, is_loop: bool, is_gather: bool) -> None:
-        has_cut = any(isinstance(item.item, Cut) for item in node.items)
-        has_invalid = self.has_invalid(node)
+    def visit_Alt(self, alt: Alt, is_loop: bool, is_gather: bool) -> None:
+        has_cut = any(isinstance(item.item, Cut) for item in alt.items)
+        has_invalid = self.has_invalid(alt)
 
-        action_code = None if self.skip_actions else node.action
+        action_code = None if self.skip_actions else alt.action
         if action_code is None and not is_gather and has_invalid:
-            action_code = "UNREACHABLE"
-        #has_return_stmt = False if node.action is None else node.action.has_return_stmt
+            action_code = "UNREACHABLE" #...
 
         locations = False
         unreachable = False
@@ -449,6 +453,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 used.add("cut")
 
         with self.local_variable_context():
+            self.pre_action_stmts.clear()
             if has_cut:
                 self.print("cut = False")
             if is_loop:
@@ -460,7 +465,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 if has_invalid:
                     self.print("self.call_invalid_rules")
                     first = False
-                for item in node.items:
+                for item in alt.items:
                     if first:
                         first = False
                     else:
