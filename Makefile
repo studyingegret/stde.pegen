@@ -97,5 +97,5 @@ help:  ## Print this message
 
 demo:
 	PYTHONPATH=$(shell pwd)/src:$(PYTHONPATH) $(PYTHON) -m pegen data/python.gram -o data/python_parser.py
-	PYTHONPATH=$(shell pwd)/src:$(PYTHONPATH) $(PYTHON) data/python_parser.py -r tests/demo.py
+	PYTHONPATH=$(shell pwd)/src:$(PYTHONPATH) $(PYTHON) data/python_parser.py -r tests/legacy/demo.py
 

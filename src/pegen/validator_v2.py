@@ -15,6 +15,7 @@ class GrammarValidator(GrammarVisitor):
         self.rulename = None
 
 
+#TODO: ...
 class SubRuleValidator(GrammarValidator):
     def visit_Rhs(self, node: Rhs) -> None:
         for index, alt in enumerate(node.alts):
@@ -48,11 +49,6 @@ class MetasValidator(GrammarValidator):
 # Should not be called by ParserGenerator.
 # Instead, v1/v2 subclasses of ParserGenerator will call them
 # since only at that time they know if they are v1/v2.
-
-def validate_grammar(grammar: Grammar) -> None:
-    validator = SubRuleValidator(grammar)
-    for rule_name, rule in grammar.rules.items():
-        validator.validate_rule(rule_name, rule)
 
 def validate_grammar_v2(grammar: Grammar) -> None: #...
     validator = SubRuleValidator(grammar)

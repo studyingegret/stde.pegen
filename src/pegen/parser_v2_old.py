@@ -1,6 +1,5 @@
 import argparse
 import ast
-from enum import Enum
 from functools import partial, wraps
 import sys
 import time
@@ -8,105 +7,18 @@ import token
 import tokenize
 import traceback
 from abc import ABC, abstractmethod
-from typing import (TYPE_CHECKING, Any, Callable, ClassVar, Dict, Final, Generic, List, Literal, NamedTuple, Never, Optional,
-                    Self, TextIO, Tuple, Type, TypeAlias, TypeVar, Union, cast, Protocol, overload)
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, NamedTuple, Optional, Self, TextIO, Tuple, Type, TypeAlias, TypeVar, cast, Protocol, overload
 
 from pegen.tokenizer import Tokenizer
 from pegen.tokenizer import exact_token_types
 
 T = TypeVar("T")
-T2 = TypeVar("T2", default=Any)
 F = TypeVar("F", bound=Callable[..., Any])
 
 ## Tokens added in Python 3.12
 #FSTRING_START = getattr(token, "FSTRING_START", None)
 #FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
 #FSTRING_END = getattr(token, "FSTRING_END", None)
-
-"""
-/*enum RuleResult<T, E> {
-    Success(T)
-    Failure(E)
-}*/
-"""
-"""
-enum RuleResult<T> {
-    Success(T)
-    Failure
-}
-"""
-
-
-class RuleResultValue(Enum):
-    FAIL_OK = 0
-
-
-if TYPE_CHECKING:
-    # Type checker defects are annoying sdfiajioioshdf!!!
-
-    class _Base(NamedTuple, Generic[T2]):
-        # Need to fake defaults or Pyright complains (should be Pyright defect)
-        ok: bool = True
-        """Whether the rule succeeded.
-        - For regular rules, True if they syntactically matched content.
-        - For node? and node*, True no matter if they syntactically matched content.
-        """
-        # Whether the rule matched some.
-        matched: bool = True
-        value: T2 = cast(T2, None)
-
-
-    # success and failure would be much simpler if we could use
-    # parameterized functions
-    # -- No. Parameterized functions in Python 3.12 still don't work with
-    #    the subscript notation. This is a trouble because failure doesn't
-    #    have a source of T2 from arguments, it has to be supplied
-    #    via e.g. generics, and that means creating a new class.
-    class success(_Base[T2]):
-        ok: Literal[True] #type:ignore
-
-        # Need to specify __new__ or Pyright deduces wrongly (should be Pyright defect)
-        def __new__(cls, value: T2) -> "success[T2]":
-            #return cast("success", super().__new__(cls, True, value))
-            return cast("success[T2]", None)
-
-        def __init__(self, value: T2):
-            # mypy: Too many arguments for "__init__" of "object" (mypy bug?)
-            super().__init__(True, value)  #type:ignore
-
-
-    class failure(_Base[T2]):
-        ok: Literal[False]  #type:ignore
-
-        # Interestingly, no need to specify __new__ here, Pyright gives no false negatives
-
-        # `-> None` is necessary or mypy says "Call to untyped function "failure" in typed context"
-        # might be a mypy bug
-        def __init__(self) -> None:
-            # mypy: Too many arguments for "__init__" of "object" (mypy bug?)
-            super().__init__(True, cast(T2, None))  #type:ignore
-
-    # Unintended split & union.
-    RuleResult = Union[success[T2], failure[T2]]
-else:
-    # The same, without type checker magic
-
-    class RuleResult(NamedTuple):
-        ok: bool
-        value: Any # Unknown at definition time
-
-        def __class_getitem__(x):
-            return RuleResult
-
-    def success(value: Any) -> RuleResult:
-        return RuleResult(True, value)
-
-    class failure:
-        def __class_getitem__(x):
-            return failure
-
-        def __new__(cls) -> RuleResult:
-            return RuleResult(False, None)
 
 
 class MarkRequirements(Protocol):
@@ -389,7 +301,6 @@ FSTRING_START = getattr(token, "FSTRING_START", None)
 FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
 FSTRING_END = getattr(token, "FSTRING_END", None)
 
-
 class DefaultParser(BaseParser):
     Mark: TypeAlias = int  #pyright:ignore
 
@@ -427,6 +338,7 @@ class DefaultParser(BaseParser):
         #    m = self.mark()
         #    self._tokenizer.getnext()
 
+
     def diagnose(self) -> Tuple[int, int, str]:
         t = self._tokenizer.diagnose()
         end_line = t.end[0]
@@ -435,89 +347,93 @@ class DefaultParser(BaseParser):
         return (end_line, t.end[1], t.line)
 
     @memoize
-    def name(self) -> RuleResult[tokenize.TokenInfo]:
+    def name(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NAME and tok.string not in self.KEYWORDS:
-            return success(self._tokenizer.getnext())
-        #reveal_type(failure[tokenize.TokenInfo]()) # See Note 1 at end of file
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def number(self) -> RuleResult[tokenize.TokenInfo]:
+    def number(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NUMBER:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def string(self) -> RuleResult[tokenize.TokenInfo]:
+    def string(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.STRING:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def fstring_start(self) -> RuleResult[tokenize.TokenInfo]:
+    def fstring_start(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_START:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def fstring_middle(self) -> RuleResult[tokenize.TokenInfo]:
+    def fstring_middle(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_MIDDLE:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def fstring_end(self) -> RuleResult[tokenize.TokenInfo]:
+    def fstring_end(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_END:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def op(self) -> RuleResult[tokenize.TokenInfo]:
+    def op(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.OP:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def type_comment(self) -> RuleResult[tokenize.TokenInfo]:
+    def type_comment(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.TYPE_COMMENT:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def soft_keyword(self) -> RuleResult[tokenize.TokenInfo]:
+    def soft_keyword(self) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NAME and tok.string in self.SOFT_KEYWORDS:
-            return success(self._tokenizer.getnext())
-        return failure[tokenize.TokenInfo]()
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
-    def newline(self) -> RuleResult[tokenize.TokenInfo]:
+    def newline(self) -> Optional[tokenize.TokenInfo]:
         return self._expect("NEWLINE")
 
     @memoize
-    def indent(self) -> RuleResult[tokenize.TokenInfo]:
+    def indent(self) -> Optional[tokenize.TokenInfo]:
         return self._expect("INDENT")
 
     @memoize
-    def dedent(self) -> RuleResult[tokenize.TokenInfo]:
+    def dedent(self) -> Optional[tokenize.TokenInfo]:
         return self._expect("DEDENT")
 
-    def _expect(self, type: str) -> RuleResult[tokenize.TokenInfo]:
+    def _expect(self, type: str) -> Optional[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
-        if (tok.string == type
-         or (type in exact_token_types and tok.type == exact_token_types[type])
-         or (type in token.__dict__ and tok.type == token.__dict__[type])
-         or (tok.type == token.OP and tok.string == type)):
-            return success(self._tokenizer.getnext())
-        return failure()
+        if tok.string == type:
+            return self._tokenizer.getnext()
+        if type in exact_token_types:
+            if tok.type == exact_token_types[type]:
+                return self._tokenizer.getnext()
+        if type in token.__dict__:
+            if tok.type == token.__dict__[type]:
+                return self._tokenizer.getnext()
+        if tok.type == token.OP and tok.string == type:
+            return self._tokenizer.getnext()
+        return None
 
     @memoize
     def match_string(self, type: str) -> Optional[tokenize.TokenInfo]: #pyright:ignore
@@ -720,27 +636,3 @@ def simple_parser_main(parser_class: Type[BaseParser]) -> None:
         #print(f"  token array : {len(tokenizer._tokens):10}")
         print(f"cache : {len(parser._cache):10}")
         ## print_memstats()
-
-
-"""Note 1: mypy: Revealed type is "
-tuple[
-    builtins.bool,
-    tuple[
-        builtins.int,
-        builtins.str,
-        tuple[builtins.int, builtins.int],
-        tuple[builtins.int, builtins.int],
-        builtins.str,
-        fallback=tokenize.TokenInfo
-    ], fallback=pegen.parser_v2.failure[
-        tuple[
-            builtins.int,
-            builtins.str,
-            tuple[builtins.int, builtins.int],
-            tuple[builtins.int, builtins.int],
-            builtins.str, fallback=tokenize.TokenInfo
-        ]
-    ]
-]"
-???
-"""

@@ -500,7 +500,7 @@ class Action:
 
 
 Plain = Union[Leaf, Group]
-Item = Union[Plain, Opt, Repeat, Forced, Lookahead, Rhs, Cut]
+Item = Union[Plain, Opt, Repeat, Forced, Lookahead, Cut]
 GrammarItem = Union[Rule, ExternDecl]
 RuleName = Tuple[str, Optional[str]]
 MetaTuple = Tuple[str, Optional[str]]

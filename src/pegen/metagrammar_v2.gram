@@ -164,7 +164,7 @@ top_level_others[LookaheadOrCut]:
     | '~' {Cut()}
 
 item[Item]:
-    | '[' ~ alts ']' {Opt(alts)}
+    | '[' ~ alts ']' {Opt(Group(alts))}
     | atom '?' {Opt(atom)}
     | atom '*' {Repeat0(atom)}
     | atom '+' {Repeat1(atom)}

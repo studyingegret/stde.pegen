@@ -1,8 +1,7 @@
-import contextlib
+from contextlib import contextmanager
 from abc import abstractmethod
-from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Set, TextIO, Tuple
-from io import TextIOBase
-
+from typing import (Any, AbstractSet, Dict, Iterator, List, Optional,
+                    Set, TextIO, Tuple, NamedTuple, Generic, TypeVar)
 from pegen import sccutils
 from pegen.grammar_v2 import (
     Alt,
@@ -77,9 +76,8 @@ class ParserGenerator:
     # since only at that time they know if they are v1/v2.
     def __init__(self, grammar: Grammar, tokens: Set[str]):
         self.grammar = grammar
-        self.tokens = tokens
         self.rules = grammar.rules
-        validate_items(self.grammar.items, self.tokens)
+        validate_items(self.grammar.items, tokens) #TODO: -> extern + preset in grammar
         if "trailer" not in grammar.metas and "start" not in self.rules:
             raise ValidationError("Grammar without a trailer must have a 'start' rule")
         self.file: TextIO
@@ -91,7 +89,7 @@ class ParserGenerator:
         self.all_rules: Dict[str, Rule] = {}  # Rules + temporal rules
         self._local_variable_stack: List[List[str]] = []
 
-    @contextlib.contextmanager
+    @contextmanager
     def local_variable_context(self) -> Iterator[None]:
         self._local_variable_stack.append([])
         yield
@@ -105,7 +103,7 @@ class ParserGenerator:
     def generate(self, file: TextIO, filename: str) -> None:
         self.file = file
 
-    @contextlib.contextmanager
+    @contextmanager
     def indent(self) -> Iterator[None]:
         self.level += 1
         try:

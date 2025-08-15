@@ -10,6 +10,8 @@
 
 What is this?
 -------------
+[This README is outdated]
+
 Pegen is the parser generator used in CPython to produce the parser used by the interpreter. It allows to
 produce PEG parsers from a description of a formal Grammar.
 

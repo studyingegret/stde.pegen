@@ -12,6 +12,8 @@ import token
 import traceback
 from typing import Any, Union
 
+from pegen.validator_v2 import validate_grammar_v2
+
 #TODO: Clean types
 from pegen.build import generate_code_from_file, CodeFromFileProducts
 from pegen.build_v2 import (generate_code_from_file as generate_code_from_file_v2,
@@ -83,12 +85,12 @@ def main() -> None:
         t0 = time.time()
         products = generate_python_code_v2(args)
         t1 = time.time()
+        validate_grammar(products.grammar)
     else:
         t0 = time.time()
         products = generate_python_code(args)
         t1 = time.time()
-
-    validate_grammar(products.grammar)
+        validate_grammar_v2(products.grammar)
 
     if not args.quiet:
         if args.verbose:

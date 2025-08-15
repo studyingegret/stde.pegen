@@ -49,6 +49,7 @@ def strongly_connected_components(
             yield from dfs(v)
 
 
+# XXX: Unused?
 def topsort(
     data: Dict[AbstractSet[str], Set[AbstractSet[str]]]
 ) -> Iterable[AbstractSet[AbstractSet[str]]]:
