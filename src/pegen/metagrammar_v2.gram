@@ -54,7 +54,7 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
 
 class Base(DefaultParser):
     @memoize
-    def action_contents(self) -> Optional[str]:
+    def action_contents(self) -> RuleResult[str]:
         """Note: The result should be parsable by ast.parse."""
         m = self.mark()
         level = 1
@@ -65,7 +65,7 @@ class Base(DefaultParser):
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
                 self.reset(m)
-                return None
+                return failure()
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
@@ -82,7 +82,7 @@ class Base(DefaultParser):
         s = tokenize.untokenize(tokens)
         if self._verbose:
             print("##", repr(s))
-        return s
+        return success(s)
 '''
 
 @base Base
@@ -114,7 +114,7 @@ extern_rules[List[ExternDecl]]:
     | extern_rule { [extern_rule] }
 
 extern_rule[ExternDecl]:
-    "extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann) }
+    "extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann or None) }
 
 rulename[RuleName]:
     | NAME annotation { (name.string, annotation) }

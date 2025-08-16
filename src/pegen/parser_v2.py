@@ -1,6 +1,6 @@
 import argparse
 import ast
-from enum import Enum
+from enum import Enum, IntEnum
 from functools import partial, wraps
 import sys
 import time
@@ -15,6 +15,7 @@ from pegen.tokenizer import Tokenizer
 from pegen.tokenizer import exact_token_types
 
 T = TypeVar("T")
+#T2 = TypeVar("T2", default=Any, covariant=True) #?
 T2 = TypeVar("T2", default=Any)
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -37,8 +38,12 @@ enum RuleResult<T> {
 """
 
 
-class RuleResultValue(Enum):
-    FAIL_OK = 0
+class RuleValue(IntEnum):
+    NONE = 0
+    FAILURE = 1
+
+    def __bool__(self) -> bool:
+        return False
 
 
 if TYPE_CHECKING:
@@ -47,18 +52,30 @@ if TYPE_CHECKING:
     class _Base(NamedTuple, Generic[T2]):
         # Need to fake defaults or Pyright complains (should be Pyright defect)
         ok: bool = True
-        """Whether the rule succeeded.
-        - For regular rules, True if they syntactically matched content.
-        - For node? and node*, True no matter if they syntactically matched content.
-        [TODO]
-        """
-        # Whether the rule matched some.
-        inner_ok: bool = True
+        """Whether the rule succeeded."""
         value: T2 = cast(T2, None)
-        
+        """The value of the rule.
+
+        It is `RuleValue.NONE` if the rule is `node?` and didn't match `node`.
+        It may also be `RuleValue.NONE` if e.g. the rule is $ (ENDMARKER), etc. (?)
+
+        It is `RuleValue.FAILURE` if `ok` == False.
+
+        Note: Though from the above text, it can be deduced that
+        its type is actually Union[T2, RuleValue], it is typed as T2 for convenience.
+        In usage, check `ok` and possibly check `value` against `RuleValue.NONE`.
+        """
+
         def __bool__(self):
             return self.ok
 
+        @classmethod
+        #def from_bool(cls, value: bool) -> "_Base[Literal[RuleValue.NONE]]":
+        def from_bool(cls, value: bool) -> "_Base[Any]": # Feels easier
+            """Return success(RuleValue.NONE) if value is True, else failure()
+            (failure[Any]()).
+            """
+            return cast("_Base", None)
 
     # success and failure would be much simpler if we could use
     # parameterized functions
@@ -69,14 +86,44 @@ if TYPE_CHECKING:
     class success(_Base[T2]):
         ok: Literal[True] #type:ignore
 
+        @overload
+        def __new__(cls, value: T2) -> "success[T2]": ...
+        # mypy bug?
+        # mypy: Incompatible return type for "__new__" (returns "success[Literal[RuleValue.NONE]]",
+        #       but must return a subtype of "success[Any]")
+        @overload
+        #def __new__(cls) -> "success[Literal[RuleValue.NONE]]": ... #type:ignore
+        def __new__(cls) -> "success[T2]": ...
+
         # Need to specify __new__ or Pyright deduces wrongly (should be Pyright defect)
-        def __new__(cls, value: T2) -> "success[T2]":
+        #
+        # mypy bug?
+        # mypy: Incompatible return type for "__new__" (returns "success[T2 | Literal[RuleValue.NONE]]",
+        #       but must return a subtype of "success[Any]")
+        def __new__(cls, value: T2 = cast(T2, RuleValue.NONE)) -> "success[T2]": #type:ignore
             #return cast("success", super().__new__(cls, True, value))
             return cast("success[T2]", None)
 
-        def __init__(self, value: T2):
+        # Overloads also needed for __init__
+        # since because __new__ returns instance of current class,
+        # type checkers assume __init__ is also called
+        @overload
+        def __init__(self, value: T2): ...
+        @overload
+        def __init__(self): ...
+        # Need to fake a default in __init__ or mypy and Pyright complain wrongly
+        def __init__(self, value: T2 = cast(T2, RuleValue.NONE)):
             # mypy: Too many arguments for "__init__" of "object" (mypy bug?)
             super().__init__(True, value)  #type:ignore
+
+    #reveal_type(success()) # Expect success[Literal[RuleValue.NONE]] but mypy says success[Any]
+    #reveal_type(success().value) # Expect Literal[RuleValue.NONE] but mypy says Any
+    reveal_type(success()) # Expect success[Any] (Feels easier)
+    reveal_type(success().value) # Expect Any (Feels easier)
+    # For now I won't take time to fix 2 mypy discrepancies above
+    reveal_type(success(1.2)) # Expect success[float]
+    reveal_type(success(1.2).value) # Expect float
+    reveal_type(success[int].value) # Expect int
 
 
     class failure(_Base[T2]):
@@ -88,29 +135,51 @@ if TYPE_CHECKING:
         # might be a mypy bug
         def __init__(self) -> None:
             # mypy: Too many arguments for "__init__" of "object" (mypy bug?)
-            super().__init__(True, cast(T2, None))  #type:ignore
+            super().__init__(True, cast(T2, RuleValue.FAILURE))  #type:ignore
 
-    # Unintended split & union.
-    RuleResult = Union[success[T2], failure[T2]]
+
+    RuleResult = _Base[T2]
 else:
     # The same, without type checker magic
 
     class RuleResult(NamedTuple):
         ok: bool
-        value: Any # Unknown at definition time
+        """Whether the rule succeeded."""
+        value: Any  # Type doesn't have to be known at definition time
+        """The value of the rule.
 
-        def __class_getitem__(x):
+        It is RuleValue.NONE if the rule is `node?` and didn't match `node`.
+
+        It is RuleValue.FAILURE if ok == False.
+        """
+
+        def __class_getitem__(_):
             return RuleResult
 
-    def success(value: Any) -> RuleResult:
-        return RuleResult(True, value)
+        def __bool__(self):
+            return self.ok
+
+        @classmethod
+        def from_bool(cls, value: bool) -> "RuleResult[Literal[RuleValue.NONE]]":
+            """Return success(RuleValue.NONE) if value is True, else failure()
+            (failure[Literal[RuleValue.NONE]]()).
+            """
+            return success() if value else failure()
+
+    class success:
+        # Better keep consistency with type checker version (though not needed)
+        def __class_getitem__(_):
+            return success
+
+        def __new__(cls, value=RuleValue.NONE) -> RuleResult:
+            return RuleResult(True, value)
 
     class failure:
-        def __class_getitem__(x):
+        def __class_getitem__(_):
             return failure
 
         def __new__(cls) -> RuleResult:
-            return RuleResult(False, None)
+            return RuleResult(False, RuleValue.FAILURE)
 
 
 class MarkRequirements(Protocol):
@@ -365,26 +434,27 @@ class BaseParser(ABC):
     def match_string(self, s: str) -> Optional[Any]: ...
 
     @abstractmethod
-    def endmarker(self) -> bool: ...
+    def endmarker(self) -> RuleResult[Any]: ...
 
     def force(self, res: Any, expectation: str) -> Optional[Any]:
         if res is None:
             raise self.make_syntax_error(f"expected {expectation}")
         return res
 
-    def positive_lookahead(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def positive_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any) -> RuleResult[T]:
         """Calls func once and does not advance."""
         mark = self.mark()
-        ok = func(*args)
+        res = func(*args, **kwargs)
         self.reset(mark)
-        return ok
+        return res
 
-    def negative_lookahead(self, func: Callable[..., object], *args: Any, **kwargs: Any) -> bool:
+    def negative_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any
+                           ) -> RuleResult[Literal[RuleValue.NONE]]:
         """Calls func once, its return value is False-ish <=> negative lookahead will match"""
         mark = self.mark()
-        ok = func(*args)
+        res = func(*args, **kwargs)
         self.reset(mark)
-        return not ok
+        return RuleResult.from_bool(not res.ok) # TODO: This abandons result value...
 
     #XXX: ?
     #XXX: filename?
@@ -429,8 +499,8 @@ class DefaultParser(BaseParser):
         tok = self._tokenizer.peek()
         return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]} {tok.string!r}"
 
-    def endmarker(self) -> bool:
-        return self._tokenizer.peek().type == token.ENDMARKER
+    def endmarker(self) -> RuleResult[Literal[RuleValue.NONE]]:
+        return RuleResult.from_bool(self._tokenizer.peek().type == token.ENDMARKER)
         #if (t := self._tokenizer.peek().type) == token.ENDMARKER:
         #    return True
         #elif t.type == token.NEWLINE:
@@ -623,8 +693,8 @@ class CharBasedParser(BaseParser):
         m = self._farthest
         return (m.line, m.col, _get_last_line(self._text))
 
-    def endmarker(self) -> bool:
-        return self._pos == len(self._text)
+    def endmarker(self) -> RuleResult[Literal[RuleValue.NONE]]:
+        return RuleResult.from_bool(self._pos == len(self._text))
 
     def any_char(self) -> Optional[str]:
         if self._pos == len(self._text):

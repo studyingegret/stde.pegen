@@ -3,7 +3,7 @@
 
 from typing import Any, Optional
 from pegen.parser_v2 import (memoize, memoize_left_rec, logger,
-                             DefaultParser, CharBasedParser, RuleResult, RuleResultValue,
+                             DefaultParser, CharBasedParser, RuleResult, RuleValue,
                              success, failure)
 #from pegen.parser_v2_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
@@ -60,7 +60,7 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
 
 class Base(DefaultParser):
     @memoize
-    def action_contents(self) -> Optional[str]:
+    def action_contents(self) -> RuleResult[str]:
         """Note: The result should be parsable by ast.parse."""
         m = self.mark()
         level = 1
@@ -71,7 +71,7 @@ class Base(DefaultParser):
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
                 self.reset(m)
-                return None
+                return failure()
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
@@ -88,7 +88,7 @@ class Base(DefaultParser):
         s = tokenize.untokenize(tokens)
         if self._verbose:
             print("##", repr(s))
-        return s
+        return success(s)
 
 # Keywords and soft keywords are listed at the end of the parser definition.
 class GeneratedParser(Base):
@@ -103,27 +103,27 @@ class GeneratedParser(Base):
             (self.endmarker()).ok
         ):
             grammar = r_grammar.value
-            return [grammar, r_grammar]
+            return success(grammar)
         self.reset(mark)
-        return failure[Grammar]()
+        return failure()
 
     @memoize
     def grammar(self) -> RuleResult[Grammar]:
         # grammar: metas? rules extern_rules?
         mark = self.mark()
         if (
-            (r_metas := (success(_temp.value) if (_temp := (self.metas())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_metas := (success(_temp.value if (_temp := (self.metas())).ok else RuleValue.NONE))).ok
             and
             (r_rules := (self.rules())).ok
             and
-            (r_extern_rules := (success(_temp_1.value) if (_temp_1 := (self.extern_rules())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_extern_rules := (success(_temp_1.value if (_temp_1 := (self.extern_rules())).ok else RuleValue.NONE))).ok
         ):
             metas = r_metas.value
             rules = r_rules.value
             extern_rules = r_extern_rules.value
-            return Grammar(rules, extern_rules or [], metas or [])
+            return success(Grammar(rules, extern_rules or [], metas or []))
         self.reset(mark)
-        return failure[Grammar]()
+        return failure()
 
     @memoize
     def metas(self) -> RuleResult[List [MetaTuple]]:
@@ -136,15 +136,15 @@ class GeneratedParser(Base):
         ):
             meta = r_meta.value
             metas = r_metas.value
-            return [meta] + metas
+            return success([meta] + metas)
         self.reset(mark)
         if (
             (r_meta := (self.meta())).ok
         ):
             meta = r_meta.value
-            return [meta]
+            return success([meta])
         self.reset(mark)
-        return failure[List [MetaTuple]]()
+        return failure()
 
     @memoize
     def meta(self) -> RuleResult[MetaTuple]:
@@ -158,7 +158,7 @@ class GeneratedParser(Base):
             (self.newline()).ok
         ):
             name = r_name.value
-            return (name.string, None)
+            return success((name.string, None))
         self.reset(mark)
         if (
             (self.match_string("@")).ok
@@ -171,7 +171,7 @@ class GeneratedParser(Base):
         ):
             a = r_a.value
             b = r_b.value
-            return (a.string, b.string)
+            return success((a.string, b.string))
         self.reset(mark)
         if (
             (self.match_string("@")).ok
@@ -184,9 +184,9 @@ class GeneratedParser(Base):
         ):
             name = r_name.value
             string = r_string.value
-            return (name.string, literal_eval(string.string))
+            return success((name.string, literal_eval(string.string)))
         self.reset(mark)
-        return failure[MetaTuple]()
+        return failure()
 
     @memoize
     def rules(self) -> RuleResult[List [Rule]]:
@@ -199,15 +199,15 @@ class GeneratedParser(Base):
         ):
             rule = r_rule.value
             rules = r_rules.value
-            return [rule] + rules
+            return success([rule] + rules)
         self.reset(mark)
         if (
             (r_rule := (self.rule())).ok
         ):
             rule = r_rule.value
-            return [rule]
+            return success([rule])
         self.reset(mark)
-        return failure[List [Rule]]()
+        return failure()
 
     @memoize
     def rule(self) -> RuleResult[Rule]:
@@ -216,7 +216,7 @@ class GeneratedParser(Base):
         if (
             (r_rulename := (self.rulename())).ok
             and
-            (r_opt := (success(_temp.value) if (_temp := (self.memoflag())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_opt := (success(_temp.value if (_temp := (self.memoflag())).ok else RuleValue.NONE))).ok
             and
             (self.match_string(":")).ok
             and
@@ -225,9 +225,9 @@ class GeneratedParser(Base):
             rulename = r_rulename.value
             opt = r_opt.value
             rule_rhs = r_rule_rhs.value
-            return Rule(rulename[0], rulename[1], rule_rhs, memo=opt)
+            return success(Rule(rulename[0], rulename[1], rule_rhs, memo=opt))
         self.reset(mark)
-        return failure[Rule]()
+        return failure()
 
     @memoize
     def extern_rules(self) -> RuleResult[List [ExternDecl]]:
@@ -240,15 +240,15 @@ class GeneratedParser(Base):
         ):
             extern_rule = r_extern_rule.value
             extern_rules = r_extern_rules.value
-            return [extern_rule] + extern_rules
+            return success([extern_rule] + extern_rules)
         self.reset(mark)
         if (
             (r_extern_rule := (self.extern_rule())).ok
         ):
             extern_rule = r_extern_rule.value
-            return [extern_rule]
+            return success([extern_rule])
         self.reset(mark)
-        return failure[List [ExternDecl]]()
+        return failure()
 
     @memoize
     def extern_rule(self) -> RuleResult[ExternDecl]:
@@ -259,15 +259,15 @@ class GeneratedParser(Base):
             and
             (r_name := (self.name())).ok
             and
-            (r_ann := (success(_temp.value) if (_temp := (self.annotation())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_ann := (success(_temp.value if (_temp := (self.annotation())).ok else RuleValue.NONE))).ok
             and
             (self.newline()).ok
         ):
             name = r_name.value
             ann = r_ann.value
-            return ExternDecl(name.string, ann)
+            return success(ExternDecl(name.string, ann or None))
         self.reset(mark)
-        return failure[ExternDecl]()
+        return failure()
 
     @memoize
     def rulename(self) -> RuleResult[RuleName]:
@@ -280,22 +280,22 @@ class GeneratedParser(Base):
         ):
             name = r_name.value
             annotation = r_annotation.value
-            return (name.string, annotation)
+            return success((name.string, annotation))
         self.reset(mark)
         if (
             (r_name := (self.name())).ok
         ):
             name = r_name.value
-            return (name.string, None)
+            return success((name.string, None))
         self.reset(mark)
-        return failure[RuleName]()
+        return failure()
 
     @memoize
     def rule_rhs(self) -> RuleResult[Rhs]:
         # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | NEWLINE INDENT alt NEWLINE DEDENT | alts NEWLINE
         mark = self.mark()
         if (
-            (r_alts := (success(_temp.value) if (_temp := (self.alts())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_alts := (success(_temp.value if (_temp := (self.alts())).ok else RuleValue.NONE))).ok
             and
             (self.newline()).ok
             and
@@ -307,7 +307,7 @@ class GeneratedParser(Base):
         ):
             alts = r_alts.value
             more_alts = r_more_alts.value
-            return Rhs(alts.alts + more_alts.alts) if alts else more_alts
+            return success(Rhs(alts.alts + more_alts.alts) if alts else more_alts)
         self.reset(mark)
         if (
             (self.newline()).ok
@@ -321,7 +321,7 @@ class GeneratedParser(Base):
             (self.dedent()).ok
         ):
             alt = r_alt.value
-            return Rhs([alt])
+            return success(Rhs([alt]))
         self.reset(mark)
         if (
             (r_alts := (self.alts())).ok
@@ -329,9 +329,9 @@ class GeneratedParser(Base):
             (self.newline()).ok
         ):
             alts = r_alts.value
-            return alts
+            return success(alts)
         self.reset(mark)
-        return failure[Rhs]()
+        return failure()
 
     @memoize
     def memoflag(self) -> RuleResult[str]:
@@ -344,9 +344,9 @@ class GeneratedParser(Base):
             and
             (self.match_string(')')).ok
         ):
-            return "memo"
+            return success("memo")
         self.reset(mark)
-        return failure[str]()
+        return failure()
 
     @memoize
     def alts(self) -> RuleResult[Rhs]:
@@ -361,15 +361,15 @@ class GeneratedParser(Base):
         ):
             alt = r_alt.value
             alts = r_alts.value
-            return Rhs([alt] + alts.alts)
+            return success(Rhs([alt] + alts.alts))
         self.reset(mark)
         if (
             (r_alt := (self.alt())).ok
         ):
             alt = r_alt.value
-            return Rhs([alt])
+            return success(Rhs([alt]))
         self.reset(mark)
-        return failure[Rhs]()
+        return failure()
 
     @memoize
     def more_alts(self) -> RuleResult[Rhs]:
@@ -386,7 +386,7 @@ class GeneratedParser(Base):
         ):
             alts = r_alts.value
             more_alts = r_more_alts.value
-            return Rhs(alts.alts + more_alts.alts)
+            return success(Rhs(alts.alts + more_alts.alts))
         self.reset(mark)
         if (
             (self.match_string("|")).ok
@@ -396,9 +396,9 @@ class GeneratedParser(Base):
             (self.newline()).ok
         ):
             alts = r_alts.value
-            return Rhs(alts.alts)
+            return success(Rhs(alts.alts))
         self.reset(mark)
-        return failure[Rhs]()
+        return failure()
 
     @memoize
     def alt(self) -> RuleResult[Alt]:
@@ -413,7 +413,7 @@ class GeneratedParser(Base):
         ):
             items = r_items.value
             action = r_action.value
-            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action)
+            return success(Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action))
         self.reset(mark)
         if (
             (r_items := (self.items())).ok
@@ -421,7 +421,7 @@ class GeneratedParser(Base):
             (self.match_string('$')).ok
         ):
             items = r_items.value
-            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None)
+            return success(Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None))
         self.reset(mark)
         if (
             (r_items := (self.items())).ok
@@ -430,20 +430,20 @@ class GeneratedParser(Base):
         ):
             items = r_items.value
             action = r_action.value
-            return Alt(items, action=action)
+            return success(Alt(items, action=action))
         self.reset(mark)
         if (
             (r_items := (self.items())).ok
         ):
             items = r_items.value
-            return Alt(items, action=None)
+            return success(Alt(items, action=None))
         self.reset(mark)
         if (
             (self.match_string('$')).ok
         ):
-            return Alt([], action=None)
+            return success(Alt([], action=None))
         self.reset(mark)
-        return failure[Alt]()
+        return failure()
 
     @memoize
     def items(self) -> RuleResult[List [TopLevelItem]]:
@@ -456,15 +456,15 @@ class GeneratedParser(Base):
         ):
             top_level_item = r_top_level_item.value
             items = r_items.value
-            return [top_level_item] + items
+            return success([top_level_item] + items)
         self.reset(mark)
         if (
             (r_top_level_item := (self.top_level_item())).ok
         ):
             top_level_item = r_top_level_item.value
-            return [top_level_item]
+            return success([top_level_item])
         self.reset(mark)
-        return failure[List [TopLevelItem]]()
+        return failure()
 
     @memoize
     def top_level_item(self) -> RuleResult[TopLevelItem]:
@@ -478,46 +478,46 @@ class GeneratedParser(Base):
             and
             (self.match_string('=')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_item := (self.item())).ok
         ):
             name = r_name.value
             annotation = r_annotation.value
             item = r_item.value
-            return TopLevelItem(name.string, item, annotation)
+            return success(TopLevelItem(name.string, item, annotation))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         cut = False
         if (
             (r_name := (self.name())).ok
             and
             (self.match_string('=')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_item := (self.item())).ok
         ):
             name = r_name.value
             item = r_item.value
-            return TopLevelItem(name.string, item)
+            return success(TopLevelItem(name.string, item))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         if (
             (r_item := (self.item())).ok
         ):
             item = r_item.value
-            return TopLevelItem(None, item)
+            return success(TopLevelItem(None, item))
         self.reset(mark)
         if (
             (r_it := (self.top_level_others())).ok
         ):
             it = r_it.value
-            return TopLevelItem(None, it)
+            return success(TopLevelItem(None, it))
         self.reset(mark)
-        return failure[TopLevelItem]()
+        return failure()
 
     @memoize
     def top_level_others(self) -> RuleResult[LookaheadOrCut]:
@@ -529,47 +529,47 @@ class GeneratedParser(Base):
             and
             (self.match_string('&')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_atom := (self.atom())).ok
         ):
             atom = r_atom.value
-            return Forced(atom)
+            return success(Forced(atom))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         cut = False
         if (
             (self.match_string('&')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_atom := (self.atom())).ok
         ):
             atom = r_atom.value
-            return PositiveLookahead(atom)
+            return success(PositiveLookahead(atom))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         cut = False
         if (
             (self.match_string('!')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_atom := (self.atom())).ok
         ):
             atom = r_atom.value
-            return NegativeLookahead(atom)
+            return success(NegativeLookahead(atom))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         if (
             (self.match_string('~')).ok
         ):
-            return Cut()
+            return success(Cut())
         self.reset(mark)
-        return failure[LookaheadOrCut]()
+        return failure()
 
     @memoize
     def item(self) -> RuleResult[Item]:
@@ -579,24 +579,24 @@ class GeneratedParser(Base):
         if (
             (self.match_string('[')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_alts := (self.alts())).ok
             and
             (self.match_string(']')).ok
         ):
             alts = r_alts.value
-            return Opt(Group(alts))
+            return success(Opt(Group(alts)))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         if (
             (r_atom := (self.atom())).ok
             and
             (self.match_string('?')).ok
         ):
             atom = r_atom.value
-            return Opt(atom)
+            return success(Opt(atom))
         self.reset(mark)
         if (
             (r_atom := (self.atom())).ok
@@ -604,7 +604,7 @@ class GeneratedParser(Base):
             (self.match_string('*')).ok
         ):
             atom = r_atom.value
-            return Repeat0(atom)
+            return success(Repeat0(atom))
         self.reset(mark)
         if (
             (r_atom := (self.atom())).ok
@@ -612,7 +612,7 @@ class GeneratedParser(Base):
             (self.match_string('+')).ok
         ):
             atom = r_atom.value
-            return Repeat1(atom)
+            return success(Repeat1(atom))
         self.reset(mark)
         if (
             (r_sep := (self.atom())).ok
@@ -625,15 +625,15 @@ class GeneratedParser(Base):
         ):
             sep = r_sep.value
             node = r_node.value
-            return Gather(sep, node)
+            return success(Gather(sep, node))
         self.reset(mark)
         if (
             (r_atom := (self.atom())).ok
         ):
             atom = r_atom.value
-            return atom
+            return success(atom)
         self.reset(mark)
-        return failure[Item]()
+        return failure()
 
     @memoize
     def atom(self) -> RuleResult[Plain]:
@@ -643,30 +643,30 @@ class GeneratedParser(Base):
         if (
             (self.match_string('(')).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_alts := (self.alts())).ok
             and
             (self.match_string(')')).ok
         ):
             alts = r_alts.value
-            return Group(alts)
+            return success(Group(alts))
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         if (
             (r_name := (self.name())).ok
         ):
             name = r_name.value
-            return NameLeaf(name.string)
+            return success(NameLeaf(name.string))
         self.reset(mark)
         if (
             (r_string := (self.string())).ok
         ):
             string = r_string.value
-            return StringLeaf(string.string)
+            return success(StringLeaf(string.string))
         self.reset(mark)
-        return failure[Plain]()
+        return failure()
 
     @memoize
     def action(self) -> RuleResult[str]:
@@ -676,18 +676,18 @@ class GeneratedParser(Base):
         if (
             (self.match_string("{")).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_action_contents := (self.action_contents())).ok
             and
             (self.match_string("}")).ok
         ):
             action_contents = r_action_contents.value
-            return action_contents
+            return success(action_contents)
         self.reset(mark)
         if cut:
-            return None
-        return failure[str]()
+            return failure()
+        return failure()
 
     @memoize
     def annotation(self) -> RuleResult[str]:
@@ -697,18 +697,18 @@ class GeneratedParser(Base):
         if (
             (self.match_string("[")).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
             (r_target_atoms := (self.target_atoms())).ok
             and
             (self.match_string("]")).ok
         ):
             target_atoms = r_target_atoms.value
-            return target_atoms
+            return success(target_atoms)
         self.reset(mark)
         if cut:
-            return None
-        return failure[str]()
+            return failure()
+        return failure()
 
     @memoize
     def target_atoms(self) -> RuleResult[str]:
@@ -721,15 +721,15 @@ class GeneratedParser(Base):
         ):
             target_atom = r_target_atom.value
             target_atoms = r_target_atoms.value
-            return target_atom + " " + target_atoms
+            return success(target_atom + " " + target_atoms)
         self.reset(mark)
         if (
             (r_target_atom := (self.target_atom())).ok
         ):
             target_atom = r_target_atom.value
-            return target_atom
+            return success(target_atom)
         self.reset(mark)
-        return failure[str]()
+        return failure()
 
     @memoize
     def target_atom(self) -> RuleResult[str]:
@@ -739,57 +739,57 @@ class GeneratedParser(Base):
         if (
             (self.match_string("{")).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
-            (r_atoms := (success(_temp.value) if (_temp := (self.target_atoms())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_atoms := (success(_temp.value if (_temp := (self.target_atoms())).ok else RuleValue.NONE))).ok
             and
             (self.match_string("}")).ok
         ):
             atoms = r_atoms.value
-            return "{" + (atoms or "") + "}"
+            return success("{" + (atoms or "") + "}")
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         cut = False
         if (
             (self.match_string("[")).ok
             and
-            (cut := (success[bool]()).ok)
+            (cut := (success()).ok)
             and
-            (r_atoms := (success(_temp.value) if (_temp := (self.target_atoms())).ok else success(RuleResultValue.FAIL_OK))).ok
+            (r_atoms := (success(_temp.value if (_temp := (self.target_atoms())).ok else RuleValue.NONE))).ok
             and
             (self.match_string("]")).ok
         ):
             atoms = r_atoms.value
-            return "[" + (atoms or "") + "]"
+            return success("[" + (atoms or "") + "]")
         self.reset(mark)
         if cut:
-            return None
+            return failure()
         if (
             (r_name := (self.name())).ok
             and
             (self.match_string("*")).ok
         ):
             name = r_name.value
-            return name.string + "*"
+            return success(name.string + "*")
         self.reset(mark)
         if (
             (r_name := (self.name())).ok
         ):
             name = r_name.value
-            return name.string
+            return success(name.string)
         self.reset(mark)
         if (
             (r_number := (self.number())).ok
         ):
             number = r_number.value
-            return number.string
+            return success(number.string)
         self.reset(mark)
         if (
             (r_string := (self.string())).ok
         ):
             string = r_string.value
-            return string.string
+            return success(string.string)
         self.reset(mark)
         if (
             (r_l := (self.fstring_start())).ok
@@ -801,17 +801,17 @@ class GeneratedParser(Base):
             l = r_l.value
             m = r_m.value
             r = r_r.value
-            return l.string + "".join(m) + r.string
+            return success(l.string + "".join(m) + r.string)
         self.reset(mark)
         if (
             (self.match_string("?")).ok
         ):
-            return "?"
+            return success("?")
         self.reset(mark)
         if (
             (self.match_string(":")).ok
         ):
-            return ":"
+            return success(":")
         self.reset(mark)
         if (
             (self.negative_lookahead(self.match_string, "}")).ok
@@ -821,9 +821,9 @@ class GeneratedParser(Base):
             (r_op := (self.op())).ok
         ):
             op = r_op.value
-            return op.string
+            return success(op.string)
         self.reset(mark)
-        return failure[str]()
+        return failure()
 
     @memoize
     def target_fstring_middle(self) -> RuleResult[str]:
@@ -833,25 +833,25 @@ class GeneratedParser(Base):
             (r_fstring_middle := (self.fstring_middle())).ok
         ):
             fstring_middle = r_fstring_middle.value
-            return fstring_middle.string
+            return success(fstring_middle.string)
         self.reset(mark)
         if (
             (self.match_string("{")).ok
         ):
-            return "{"
+            return success("{")
         self.reset(mark)
         if (
             (self.match_string("}")).ok
         ):
-            return "}"
+            return success("}")
         self.reset(mark)
         if (
             (r_target_atom := (self.target_atom())).ok
         ):
             target_atom = r_target_atom.value
-            return target_atom
+            return success(target_atom)
         self.reset(mark)
-        return failure[str]()
+        return failure()
 
     @memoize
     def _loop0_1(self) -> RuleResult[Any]:
@@ -862,10 +862,10 @@ class GeneratedParser(Base):
             (r_target_fstring_middle := (self.target_fstring_middle())).ok
         ):
             target_fstring_middle = r_target_fstring_middle.value
-            children.append([target_fstring_middle, r_target_fstring_middle])
+            children.append(target_fstring_middle)
             mark = self.mark()
         self.reset(mark)
-        return success[Any](children)
+        return success(children)
 
     KEYWORDS = ()
     SOFT_KEYWORDS = ('extern', 'memo')
