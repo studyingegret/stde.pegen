@@ -3,14 +3,15 @@
 
 from typing import Any, Optional
 from pegen.parser_v2 import (memoize, memoize_left_rec, logger,
-                             DefaultParser, CharBasedParser, RuleResult, RuleValue,
-                             success, failure)
+                             DefaultParser, CharBasedParser, RuleResult, ResultFlag)
 #from pegen.parser_v2_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
 from typing import List, Union
 import token
 import tokenize
 from tokenize import TokenInfo
+
+FAILURE = ResultFlag.FAILURE
 
 from pegen.grammar_v2 import (
     Alt,
@@ -71,7 +72,7 @@ class Base(DefaultParser):
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
                 self.reset(m)
-                return failure()
+                return FAILURE
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
@@ -88,7 +89,7 @@ class Base(DefaultParser):
         s = tokenize.untokenize(tokens)
         if self._verbose:
             print("##", repr(s))
-        return success(s)
+        return s
 
 # Keywords and soft keywords are listed at the end of the parser definition.
 class GeneratedParser(Base):
@@ -98,373 +99,373 @@ class GeneratedParser(Base):
         # start: grammar $
         mark = self.mark()
         if (
-            (r_grammar := (self.grammar())).ok
+            (r_grammar := (self.grammar())) != ResultFlag.FAILURE
             and
-            (self.endmarker()).ok
+            (self.endmarker()) != ResultFlag.FAILURE
         ):
-            grammar = r_grammar.value
-            return success(grammar)
+            grammar = r_grammar
+            return grammar
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def grammar(self) -> RuleResult[Grammar]:
         # grammar: metas? rules extern_rules?
         mark = self.mark()
         if (
-            (r_metas := (success(_temp.value if (_temp := (self.metas())).ok else RuleValue.NONE))).ok
+            (r_metas := (_temp if (_temp := (self.metas())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
             and
-            (r_rules := (self.rules())).ok
+            (r_rules := (self.rules())) != ResultFlag.FAILURE
             and
-            (r_extern_rules := (success(_temp_1.value if (_temp_1 := (self.extern_rules())).ok else RuleValue.NONE))).ok
+            (r_extern_rules := (_temp_1 if (_temp_1 := (self.extern_rules())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
         ):
-            metas = r_metas.value
-            rules = r_rules.value
-            extern_rules = r_extern_rules.value
-            return success(Grammar(rules, extern_rules or [], metas or []))
+            metas = r_metas
+            rules = r_rules
+            extern_rules = r_extern_rules
+            return Grammar(rules, extern_rules or [], metas or [])
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def metas(self) -> RuleResult[List [MetaTuple]]:
         # metas: meta metas | meta
         mark = self.mark()
         if (
-            (r_meta := (self.meta())).ok
+            (r_meta := (self.meta())) != ResultFlag.FAILURE
             and
-            (r_metas := (self.metas())).ok
+            (r_metas := (self.metas())) != ResultFlag.FAILURE
         ):
-            meta = r_meta.value
-            metas = r_metas.value
-            return success([meta] + metas)
+            meta = r_meta
+            metas = r_metas
+            return [meta] + metas
         self.reset(mark)
         if (
-            (r_meta := (self.meta())).ok
+            (r_meta := (self.meta())) != ResultFlag.FAILURE
         ):
-            meta = r_meta.value
-            return success([meta])
+            meta = r_meta
+            return [meta]
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def meta(self) -> RuleResult[MetaTuple]:
         # meta: "@" NAME NEWLINE | "@" NAME NAME NEWLINE | "@" NAME STRING NEWLINE
         mark = self.mark()
         if (
-            (self.match_string("@")).ok
+            (self.match_string("@")) != ResultFlag.FAILURE
             and
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            return success((name.string, None))
+            name = r_name
+            return (name.string, None)
         self.reset(mark)
         if (
-            (self.match_string("@")).ok
+            (self.match_string("@")) != ResultFlag.FAILURE
             and
-            (r_a := (self.name())).ok
+            (r_a := (self.name())) != ResultFlag.FAILURE
             and
-            (r_b := (self.name())).ok
+            (r_b := (self.name())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
         ):
-            a = r_a.value
-            b = r_b.value
-            return success((a.string, b.string))
+            a = r_a
+            b = r_b
+            return (a.string, b.string)
         self.reset(mark)
         if (
-            (self.match_string("@")).ok
+            (self.match_string("@")) != ResultFlag.FAILURE
             and
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (r_string := (self.string())).ok
+            (r_string := (self.string())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            string = r_string.value
-            return success((name.string, literal_eval(string.string)))
+            name = r_name
+            string = r_string
+            return (name.string, literal_eval(string.string))
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def rules(self) -> RuleResult[List [Rule]]:
         # rules: rule rules | rule
         mark = self.mark()
         if (
-            (r_rule := (self.rule())).ok
+            (r_rule := (self.rule())) != ResultFlag.FAILURE
             and
-            (r_rules := (self.rules())).ok
+            (r_rules := (self.rules())) != ResultFlag.FAILURE
         ):
-            rule = r_rule.value
-            rules = r_rules.value
-            return success([rule] + rules)
+            rule = r_rule
+            rules = r_rules
+            return [rule] + rules
         self.reset(mark)
         if (
-            (r_rule := (self.rule())).ok
+            (r_rule := (self.rule())) != ResultFlag.FAILURE
         ):
-            rule = r_rule.value
-            return success([rule])
+            rule = r_rule
+            return [rule]
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def rule(self) -> RuleResult[Rule]:
         # rule: rulename memoflag? ":" rule_rhs
         mark = self.mark()
         if (
-            (r_rulename := (self.rulename())).ok
+            (r_rulename := (self.rulename())) != ResultFlag.FAILURE
             and
-            (r_opt := (success(_temp.value if (_temp := (self.memoflag())).ok else RuleValue.NONE))).ok
+            (r_opt := (_temp if (_temp := (self.memoflag())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
             and
-            (self.match_string(":")).ok
+            (self.match_string(":")) != ResultFlag.FAILURE
             and
-            (r_rule_rhs := (self.rule_rhs())).ok
+            (r_rule_rhs := (self.rule_rhs())) != ResultFlag.FAILURE
         ):
-            rulename = r_rulename.value
-            opt = r_opt.value
-            rule_rhs = r_rule_rhs.value
-            return success(Rule(rulename[0], rulename[1], rule_rhs, memo=opt))
+            rulename = r_rulename
+            opt = r_opt
+            rule_rhs = r_rule_rhs
+            return Rule(rulename[0], rulename[1], rule_rhs, memo=opt)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def extern_rules(self) -> RuleResult[List [ExternDecl]]:
         # extern_rules: extern_rule extern_rules | extern_rule
         mark = self.mark()
         if (
-            (r_extern_rule := (self.extern_rule())).ok
+            (r_extern_rule := (self.extern_rule())) != ResultFlag.FAILURE
             and
-            (r_extern_rules := (self.extern_rules())).ok
+            (r_extern_rules := (self.extern_rules())) != ResultFlag.FAILURE
         ):
-            extern_rule = r_extern_rule.value
-            extern_rules = r_extern_rules.value
-            return success([extern_rule] + extern_rules)
+            extern_rule = r_extern_rule
+            extern_rules = r_extern_rules
+            return [extern_rule] + extern_rules
         self.reset(mark)
         if (
-            (r_extern_rule := (self.extern_rule())).ok
+            (r_extern_rule := (self.extern_rule())) != ResultFlag.FAILURE
         ):
-            extern_rule = r_extern_rule.value
-            return success([extern_rule])
+            extern_rule = r_extern_rule
+            return [extern_rule]
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def extern_rule(self) -> RuleResult[ExternDecl]:
         # extern_rule: "extern" NAME annotation? NEWLINE
         mark = self.mark()
         if (
-            (self.match_string("extern")).ok
+            (self.match_string("extern")) != ResultFlag.FAILURE
             and
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (r_ann := (success(_temp.value if (_temp := (self.annotation())).ok else RuleValue.NONE))).ok
+            (r_ann := (_temp if (_temp := (self.annotation())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            ann = r_ann.value
-            return success(ExternDecl(name.string, ann or None))
+            name = r_name
+            ann = r_ann
+            return ExternDecl(name.string, ann or None)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def rulename(self) -> RuleResult[RuleName]:
         # rulename: NAME annotation | NAME
         mark = self.mark()
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (r_annotation := (self.annotation())).ok
+            (r_annotation := (self.annotation())) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            annotation = r_annotation.value
-            return success((name.string, annotation))
+            name = r_name
+            annotation = r_annotation
+            return (name.string, annotation)
         self.reset(mark)
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            return success((name.string, None))
+            name = r_name
+            return (name.string, None)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def rule_rhs(self) -> RuleResult[Rhs]:
         # rule_rhs: alts? NEWLINE INDENT more_alts DEDENT | NEWLINE INDENT alt NEWLINE DEDENT | alts NEWLINE
         mark = self.mark()
         if (
-            (r_alts := (success(_temp.value if (_temp := (self.alts())).ok else RuleValue.NONE))).ok
+            (r_alts := (_temp if (_temp := (self.alts())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
             and
-            (self.indent()).ok
+            (self.indent()) != ResultFlag.FAILURE
             and
-            (r_more_alts := (self.more_alts())).ok
+            (r_more_alts := (self.more_alts())) != ResultFlag.FAILURE
             and
-            (self.dedent()).ok
+            (self.dedent()) != ResultFlag.FAILURE
         ):
-            alts = r_alts.value
-            more_alts = r_more_alts.value
-            return success(Rhs(alts.alts + more_alts.alts) if alts else more_alts)
+            alts = r_alts
+            more_alts = r_more_alts
+            return Rhs(alts.alts + more_alts.alts) if alts else more_alts
         self.reset(mark)
         if (
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
             and
-            (self.indent()).ok
+            (self.indent()) != ResultFlag.FAILURE
             and
-            (r_alt := (self.alt())).ok
+            (r_alt := (self.alt())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
             and
-            (self.dedent()).ok
+            (self.dedent()) != ResultFlag.FAILURE
         ):
-            alt = r_alt.value
-            return success(Rhs([alt]))
+            alt = r_alt
+            return Rhs([alt])
         self.reset(mark)
         if (
-            (r_alts := (self.alts())).ok
+            (r_alts := (self.alts())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
         ):
-            alts = r_alts.value
-            return success(alts)
+            alts = r_alts
+            return alts
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def memoflag(self) -> RuleResult[str]:
         # memoflag: '(' "memo" ')'
         mark = self.mark()
         if (
-            (self.match_string('(')).ok
+            (self.match_string('(')) != ResultFlag.FAILURE
             and
-            (self.match_string("memo")).ok
+            (self.match_string("memo")) != ResultFlag.FAILURE
             and
-            (self.match_string(')')).ok
+            (self.match_string(')')) != ResultFlag.FAILURE
         ):
-            return success("memo")
+            return "memo"
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def alts(self) -> RuleResult[Rhs]:
         # alts: alt "|" alts | alt
         mark = self.mark()
         if (
-            (r_alt := (self.alt())).ok
+            (r_alt := (self.alt())) != ResultFlag.FAILURE
             and
-            (self.match_string("|")).ok
+            (self.match_string("|")) != ResultFlag.FAILURE
             and
-            (r_alts := (self.alts())).ok
+            (r_alts := (self.alts())) != ResultFlag.FAILURE
         ):
-            alt = r_alt.value
-            alts = r_alts.value
-            return success(Rhs([alt] + alts.alts))
+            alt = r_alt
+            alts = r_alts
+            return Rhs([alt] + alts.alts)
         self.reset(mark)
         if (
-            (r_alt := (self.alt())).ok
+            (r_alt := (self.alt())) != ResultFlag.FAILURE
         ):
-            alt = r_alt.value
-            return success(Rhs([alt]))
+            alt = r_alt
+            return Rhs([alt])
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def more_alts(self) -> RuleResult[Rhs]:
         # more_alts: "|" alts NEWLINE more_alts | "|" alts NEWLINE
         mark = self.mark()
         if (
-            (self.match_string("|")).ok
+            (self.match_string("|")) != ResultFlag.FAILURE
             and
-            (r_alts := (self.alts())).ok
+            (r_alts := (self.alts())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
             and
-            (r_more_alts := (self.more_alts())).ok
+            (r_more_alts := (self.more_alts())) != ResultFlag.FAILURE
         ):
-            alts = r_alts.value
-            more_alts = r_more_alts.value
-            return success(Rhs(alts.alts + more_alts.alts))
+            alts = r_alts
+            more_alts = r_more_alts
+            return Rhs(alts.alts + more_alts.alts)
         self.reset(mark)
         if (
-            (self.match_string("|")).ok
+            (self.match_string("|")) != ResultFlag.FAILURE
             and
-            (r_alts := (self.alts())).ok
+            (r_alts := (self.alts())) != ResultFlag.FAILURE
             and
-            (self.newline()).ok
+            (self.newline()) != ResultFlag.FAILURE
         ):
-            alts = r_alts.value
-            return success(Rhs(alts.alts))
+            alts = r_alts
+            return Rhs(alts.alts)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def alt(self) -> RuleResult[Alt]:
         # alt: items '$' action | items '$' | items action | items | '$'
         mark = self.mark()
         if (
-            (r_items := (self.items())).ok
+            (r_items := (self.items())) != ResultFlag.FAILURE
             and
-            (self.match_string('$')).ok
+            (self.match_string('$')) != ResultFlag.FAILURE
             and
-            (r_action := (self.action())).ok
+            (r_action := (self.action())) != ResultFlag.FAILURE
         ):
-            items = r_items.value
-            action = r_action.value
-            return success(Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action))
+            items = r_items
+            action = r_action
+            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action)
         self.reset(mark)
         if (
-            (r_items := (self.items())).ok
+            (r_items := (self.items())) != ResultFlag.FAILURE
             and
-            (self.match_string('$')).ok
+            (self.match_string('$')) != ResultFlag.FAILURE
         ):
-            items = r_items.value
-            return success(Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None))
+            items = r_items
+            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None)
         self.reset(mark)
         if (
-            (r_items := (self.items())).ok
+            (r_items := (self.items())) != ResultFlag.FAILURE
             and
-            (r_action := (self.action())).ok
+            (r_action := (self.action())) != ResultFlag.FAILURE
         ):
-            items = r_items.value
-            action = r_action.value
-            return success(Alt(items, action=action))
+            items = r_items
+            action = r_action
+            return Alt(items, action=action)
         self.reset(mark)
         if (
-            (r_items := (self.items())).ok
+            (r_items := (self.items())) != ResultFlag.FAILURE
         ):
-            items = r_items.value
-            return success(Alt(items, action=None))
+            items = r_items
+            return Alt(items, action=None)
         self.reset(mark)
         if (
-            (self.match_string('$')).ok
+            (self.match_string('$')) != ResultFlag.FAILURE
         ):
-            return success(Alt([], action=None))
+            return Alt([], action=None)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def items(self) -> RuleResult[List [TopLevelItem]]:
         # items: top_level_item items | top_level_item
         mark = self.mark()
         if (
-            (r_top_level_item := (self.top_level_item())).ok
+            (r_top_level_item := (self.top_level_item())) != ResultFlag.FAILURE
             and
-            (r_items := (self.items())).ok
+            (r_items := (self.items())) != ResultFlag.FAILURE
         ):
-            top_level_item = r_top_level_item.value
-            items = r_items.value
-            return success([top_level_item] + items)
+            top_level_item = r_top_level_item
+            items = r_items
+            return [top_level_item] + items
         self.reset(mark)
         if (
-            (r_top_level_item := (self.top_level_item())).ok
+            (r_top_level_item := (self.top_level_item())) != ResultFlag.FAILURE
         ):
-            top_level_item = r_top_level_item.value
-            return success([top_level_item])
+            top_level_item = r_top_level_item
+            return [top_level_item]
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def top_level_item(self) -> RuleResult[TopLevelItem]:
@@ -472,52 +473,52 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (r_annotation := (self.annotation())).ok
+            (r_annotation := (self.annotation())) != ResultFlag.FAILURE
             and
-            (self.match_string('=')).ok
+            (self.match_string('=')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_item := (self.item())).ok
+            (r_item := (self.item())) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            annotation = r_annotation.value
-            item = r_item.value
-            return success(TopLevelItem(name.string, item, annotation))
+            name = r_name
+            annotation = r_annotation
+            item = r_item
+            return TopLevelItem(name.string, item, annotation)
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         cut = False
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (self.match_string('=')).ok
+            (self.match_string('=')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_item := (self.item())).ok
+            (r_item := (self.item())) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            item = r_item.value
-            return success(TopLevelItem(name.string, item))
+            name = r_name
+            item = r_item
+            return TopLevelItem(name.string, item)
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         if (
-            (r_item := (self.item())).ok
+            (r_item := (self.item())) != ResultFlag.FAILURE
         ):
-            item = r_item.value
-            return success(TopLevelItem(None, item))
+            item = r_item
+            return TopLevelItem(None, item)
         self.reset(mark)
         if (
-            (r_it := (self.top_level_others())).ok
+            (r_it := (self.top_level_others())) != ResultFlag.FAILURE
         ):
-            it = r_it.value
-            return success(TopLevelItem(None, it))
+            it = r_it
+            return TopLevelItem(None, it)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def top_level_others(self) -> RuleResult[LookaheadOrCut]:
@@ -525,51 +526,51 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (self.match_string('&')).ok
+            (self.match_string('&')) != ResultFlag.FAILURE
             and
-            (self.match_string('&')).ok
+            (self.match_string('&')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(Forced(atom))
+            atom = r_atom
+            return Forced(atom)
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         cut = False
         if (
-            (self.match_string('&')).ok
+            (self.match_string('&')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(PositiveLookahead(atom))
+            atom = r_atom
+            return PositiveLookahead(atom)
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         cut = False
         if (
-            (self.match_string('!')).ok
+            (self.match_string('!')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(NegativeLookahead(atom))
+            atom = r_atom
+            return NegativeLookahead(atom)
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         if (
-            (self.match_string('~')).ok
+            (self.match_string('~')) != ResultFlag.FAILURE
         ):
-            return success(Cut())
+            return Cut()
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def item(self) -> RuleResult[Item]:
@@ -577,63 +578,63 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (self.match_string('[')).ok
+            (self.match_string('[')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_alts := (self.alts())).ok
+            (r_alts := (self.alts())) != ResultFlag.FAILURE
             and
-            (self.match_string(']')).ok
+            (self.match_string(']')) != ResultFlag.FAILURE
         ):
-            alts = r_alts.value
-            return success(Opt(Group(alts)))
+            alts = r_alts
+            return Opt(Group(alts))
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         if (
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
             and
-            (self.match_string('?')).ok
+            (self.match_string('?')) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(Opt(atom))
+            atom = r_atom
+            return Opt(atom)
         self.reset(mark)
         if (
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
             and
-            (self.match_string('*')).ok
+            (self.match_string('*')) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(Repeat0(atom))
+            atom = r_atom
+            return Repeat0(atom)
         self.reset(mark)
         if (
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
             and
-            (self.match_string('+')).ok
+            (self.match_string('+')) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(Repeat1(atom))
+            atom = r_atom
+            return Repeat1(atom)
         self.reset(mark)
         if (
-            (r_sep := (self.atom())).ok
+            (r_sep := (self.atom())) != ResultFlag.FAILURE
             and
-            (self.match_string('.')).ok
+            (self.match_string('.')) != ResultFlag.FAILURE
             and
-            (r_node := (self.atom())).ok
+            (r_node := (self.atom())) != ResultFlag.FAILURE
             and
-            (self.match_string('+')).ok
+            (self.match_string('+')) != ResultFlag.FAILURE
         ):
-            sep = r_sep.value
-            node = r_node.value
-            return success(Gather(sep, node))
+            sep = r_sep
+            node = r_node
+            return Gather(sep, node)
         self.reset(mark)
         if (
-            (r_atom := (self.atom())).ok
+            (r_atom := (self.atom())) != ResultFlag.FAILURE
         ):
-            atom = r_atom.value
-            return success(atom)
+            atom = r_atom
+            return atom
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def atom(self) -> RuleResult[Plain]:
@@ -641,32 +642,32 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (self.match_string('(')).ok
+            (self.match_string('(')) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_alts := (self.alts())).ok
+            (r_alts := (self.alts())) != ResultFlag.FAILURE
             and
-            (self.match_string(')')).ok
+            (self.match_string(')')) != ResultFlag.FAILURE
         ):
-            alts = r_alts.value
-            return success(Group(alts))
+            alts = r_alts
+            return Group(alts)
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            return success(NameLeaf(name.string))
+            name = r_name
+            return NameLeaf(name.string)
         self.reset(mark)
         if (
-            (r_string := (self.string())).ok
+            (r_string := (self.string())) != ResultFlag.FAILURE
         ):
-            string = r_string.value
-            return success(StringLeaf(string.string))
+            string = r_string
+            return StringLeaf(string.string)
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def action(self) -> RuleResult[str]:
@@ -674,20 +675,20 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (self.match_string("{")).ok
+            (self.match_string("{")) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_action_contents := (self.action_contents())).ok
+            (r_action_contents := (self.action_contents())) != ResultFlag.FAILURE
             and
-            (self.match_string("}")).ok
+            (self.match_string("}")) != ResultFlag.FAILURE
         ):
-            action_contents = r_action_contents.value
-            return success(action_contents)
+            action_contents = r_action_contents
+            return action_contents
         self.reset(mark)
         if cut:
-            return failure()
-        return failure()
+            return ResultFlag.FAILURE
+        return ResultFlag.FAILURE
 
     @memoize
     def annotation(self) -> RuleResult[str]:
@@ -695,41 +696,41 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (self.match_string("[")).ok
+            (self.match_string("[")) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_target_atoms := (self.target_atoms())).ok
+            (r_target_atoms := (self.target_atoms())) != ResultFlag.FAILURE
             and
-            (self.match_string("]")).ok
+            (self.match_string("]")) != ResultFlag.FAILURE
         ):
-            target_atoms = r_target_atoms.value
-            return success(target_atoms)
+            target_atoms = r_target_atoms
+            return target_atoms
         self.reset(mark)
         if cut:
-            return failure()
-        return failure()
+            return ResultFlag.FAILURE
+        return ResultFlag.FAILURE
 
     @memoize
     def target_atoms(self) -> RuleResult[str]:
         # target_atoms: target_atom target_atoms | target_atom
         mark = self.mark()
         if (
-            (r_target_atom := (self.target_atom())).ok
+            (r_target_atom := (self.target_atom())) != ResultFlag.FAILURE
             and
-            (r_target_atoms := (self.target_atoms())).ok
+            (r_target_atoms := (self.target_atoms())) != ResultFlag.FAILURE
         ):
-            target_atom = r_target_atom.value
-            target_atoms = r_target_atoms.value
-            return success(target_atom + " " + target_atoms)
+            target_atom = r_target_atom
+            target_atoms = r_target_atoms
+            return target_atom + " " + target_atoms
         self.reset(mark)
         if (
-            (r_target_atom := (self.target_atom())).ok
+            (r_target_atom := (self.target_atom())) != ResultFlag.FAILURE
         ):
-            target_atom = r_target_atom.value
-            return success(target_atom)
+            target_atom = r_target_atom
+            return target_atom
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def target_atom(self) -> RuleResult[str]:
@@ -737,121 +738,121 @@ class GeneratedParser(Base):
         mark = self.mark()
         cut = False
         if (
-            (self.match_string("{")).ok
+            (self.match_string("{")) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_atoms := (success(_temp.value if (_temp := (self.target_atoms())).ok else RuleValue.NONE))).ok
+            (r_atoms := (_temp if (_temp := (self.target_atoms())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
             and
-            (self.match_string("}")).ok
+            (self.match_string("}")) != ResultFlag.FAILURE
         ):
-            atoms = r_atoms.value
-            return success("{" + (atoms or "") + "}")
+            atoms = r_atoms
+            return "{" + (atoms or "") + "}"
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         cut = False
         if (
-            (self.match_string("[")).ok
+            (self.match_string("[")) != ResultFlag.FAILURE
             and
-            (cut := (success()).ok)
+            (cut := (None) != ResultFlag.FAILURE)
             and
-            (r_atoms := (success(_temp.value if (_temp := (self.target_atoms())).ok else RuleValue.NONE))).ok
+            (r_atoms := (_temp if (_temp := (self.target_atoms())) != ResultFlag.FAILURE else ResultFlag.NO_MATCH)) != ResultFlag.FAILURE
             and
-            (self.match_string("]")).ok
+            (self.match_string("]")) != ResultFlag.FAILURE
         ):
-            atoms = r_atoms.value
-            return success("[" + (atoms or "") + "]")
+            atoms = r_atoms
+            return "[" + (atoms or "") + "]"
         self.reset(mark)
         if cut:
-            return failure()
+            return ResultFlag.FAILURE
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
             and
-            (self.match_string("*")).ok
+            (self.match_string("*")) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            return success(name.string + "*")
+            name = r_name
+            return name.string + "*"
         self.reset(mark)
         if (
-            (r_name := (self.name())).ok
+            (r_name := (self.name())) != ResultFlag.FAILURE
         ):
-            name = r_name.value
-            return success(name.string)
+            name = r_name
+            return name.string
         self.reset(mark)
         if (
-            (r_number := (self.number())).ok
+            (r_number := (self.number())) != ResultFlag.FAILURE
         ):
-            number = r_number.value
-            return success(number.string)
+            number = r_number
+            return number.string
         self.reset(mark)
         if (
-            (r_string := (self.string())).ok
+            (r_string := (self.string())) != ResultFlag.FAILURE
         ):
-            string = r_string.value
-            return success(string.string)
+            string = r_string
+            return string.string
         self.reset(mark)
         if (
-            (r_l := (self.fstring_start())).ok
+            (r_l := (self.fstring_start())) != ResultFlag.FAILURE
             and
-            (r_m := (self._loop0_1())).ok
+            (r_m := (self._loop0_1())) != ResultFlag.FAILURE
             and
-            (r_r := (self.fstring_end())).ok
+            (r_r := (self.fstring_end())) != ResultFlag.FAILURE
         ):
-            l = r_l.value
-            m = r_m.value
-            r = r_r.value
-            return success(l.string + "".join(m) + r.string)
+            l = r_l
+            m = r_m
+            r = r_r
+            return l.string + "".join(m) + r.string
         self.reset(mark)
         if (
-            (self.match_string("?")).ok
+            (self.match_string("?")) != ResultFlag.FAILURE
         ):
-            return success("?")
+            return "?"
         self.reset(mark)
         if (
-            (self.match_string(":")).ok
+            (self.match_string(":")) != ResultFlag.FAILURE
         ):
-            return success(":")
+            return ":"
         self.reset(mark)
         if (
-            (self.negative_lookahead(self.match_string, "}")).ok
+            (self.negative_lookahead(self.match_string, "}")) != ResultFlag.FAILURE
             and
-            (self.negative_lookahead(self.match_string, "]")).ok
+            (self.negative_lookahead(self.match_string, "]")) != ResultFlag.FAILURE
             and
-            (r_op := (self.op())).ok
+            (r_op := (self.op())) != ResultFlag.FAILURE
         ):
-            op = r_op.value
-            return success(op.string)
+            op = r_op
+            return op.string
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def target_fstring_middle(self) -> RuleResult[str]:
         # target_fstring_middle: FSTRING_MIDDLE | "{" | "}" | target_atom
         mark = self.mark()
         if (
-            (r_fstring_middle := (self.fstring_middle())).ok
+            (r_fstring_middle := (self.fstring_middle())) != ResultFlag.FAILURE
         ):
-            fstring_middle = r_fstring_middle.value
-            return success(fstring_middle.string)
+            fstring_middle = r_fstring_middle
+            return fstring_middle.string
         self.reset(mark)
         if (
-            (self.match_string("{")).ok
+            (self.match_string("{")) != ResultFlag.FAILURE
         ):
-            return success("{")
+            return "{"
         self.reset(mark)
         if (
-            (self.match_string("}")).ok
+            (self.match_string("}")) != ResultFlag.FAILURE
         ):
-            return success("}")
+            return "}"
         self.reset(mark)
         if (
-            (r_target_atom := (self.target_atom())).ok
+            (r_target_atom := (self.target_atom())) != ResultFlag.FAILURE
         ):
-            target_atom = r_target_atom.value
-            return success(target_atom)
+            target_atom = r_target_atom
+            return target_atom
         self.reset(mark)
-        return failure()
+        return ResultFlag.FAILURE
 
     @memoize
     def _loop0_1(self) -> RuleResult[Any]:
@@ -859,13 +860,13 @@ class GeneratedParser(Base):
         mark = self.mark()
         children = []
         while (
-            (r_target_fstring_middle := (self.target_fstring_middle())).ok
+            (r_target_fstring_middle := (self.target_fstring_middle())) != ResultFlag.FAILURE
         ):
-            target_fstring_middle = r_target_fstring_middle.value
+            target_fstring_middle = r_target_fstring_middle
             children.append(target_fstring_middle)
             mark = self.mark()
         self.reset(mark)
-        return success(children)
+        return children
 
     KEYWORDS = ()
     SOFT_KEYWORDS = ('extern', 'memo')

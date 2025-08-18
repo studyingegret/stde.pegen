@@ -6,6 +6,8 @@ import token
 import tokenize
 from tokenize import TokenInfo
 
+FAILURE = ResultFlag.FAILURE
+
 from pegen.grammar_v2 import (
     Alt,
     #Action,
@@ -65,7 +67,7 @@ class Base(DefaultParser):
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
                 self.reset(m)
-                return failure()
+                return FAILURE
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
@@ -82,7 +84,7 @@ class Base(DefaultParser):
         s = tokenize.untokenize(tokens)
         if self._verbose:
             print("##", repr(s))
-        return success(s)
+        return s
 '''
 
 @base Base

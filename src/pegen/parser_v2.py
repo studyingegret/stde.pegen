@@ -1,6 +1,6 @@
 import argparse
 import ast
-from enum import Enum, IntEnum
+from enum import Enum
 from functools import partial, wraps
 import sys
 import time
@@ -14,6 +14,20 @@ from typing import (TYPE_CHECKING, Any, Callable, ClassVar, Dict, Final, Generic
 from pegen.tokenizer import Tokenizer
 from pegen.tokenizer import exact_token_types
 
+"""
+[TODO] Move this doc
+
+None: A rule has nothing meaningful to return (can be used by normal rules)
+NONE: A rule does not match another rule; "is empty" (e.g. x?, x* not match x)
+      (cannot be used by normal rules, reserved for x?, x* etc.)
+FAILURE: A rule fails to match (can be used by normal rules' actions to signify
+         a match failure determined by code but otherwise reserved (?))
+         (TODO: Free types? Additional data?)
+
+Where there is no possible clash of None and NONE, and both seem to make sense,
+use None
+"""
+
 T = TypeVar("T")
 #T2 = TypeVar("T2", default=Any, covariant=True) #?
 T2 = TypeVar("T2", default=Any)
@@ -24,165 +38,21 @@ F = TypeVar("F", bound=Callable[..., Any])
 #FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
 #FSTRING_END = getattr(token, "FSTRING_END", None)
 
-"""
-/*enum RuleResult<T, E> {
-    Success(T)
-    Failure(E)
-}*/
-"""
-"""
-enum RuleResult<T> {
-    Success(T)
-    Failure
-}
-"""
-
-
-class RuleValue(IntEnum):
-    NONE = 0
+class ResultFlag(Enum):
+    NO_MATCH = 0
     FAILURE = 1
 
-    def __bool__(self) -> bool:
+    def __bool__(self) -> bool: # Support "res or other_value"
         return False
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}.{self._name_}"
 
 
-if TYPE_CHECKING:
-    # Type checker defects are annoying sdfiajioioshdf!!!
+RuleResult = Union[T2, Literal[ResultFlag.FAILURE]]
 
-    class _Base(NamedTuple, Generic[T2]):
-        # Need to fake defaults or Pyright complains (should be Pyright defect)
-        ok: bool = True
-        """Whether the rule succeeded."""
-        value: T2 = cast(T2, None)
-        """The value of the rule.
-
-        It is `RuleValue.NONE` if the rule is `node?` and didn't match `node`.
-        It may also be `RuleValue.NONE` if e.g. the rule is $ (ENDMARKER), etc. (?)
-
-        It is `RuleValue.FAILURE` if `ok` == False.
-
-        Note: Though from the above text, it can be deduced that
-        its type is actually Union[T2, RuleValue], it is typed as T2 for convenience.
-        In usage, check `ok` and possibly check `value` against `RuleValue.NONE`.
-        """
-
-        def __bool__(self):
-            return self.ok
-
-        @classmethod
-        #def from_bool(cls, value: bool) -> "_Base[Literal[RuleValue.NONE]]":
-        def from_bool(cls, value: bool) -> "_Base[Any]": # Feels easier
-            """Return success(RuleValue.NONE) if value is True, else failure()
-            (failure[Any]()).
-            """
-            return cast("_Base", None)
-
-    # success and failure would be much simpler if we could use
-    # parameterized functions
-    # -- No. Parameterized functions in Python 3.12 still don't work with
-    #    the subscript notation. This is a trouble because failure doesn't
-    #    have a source of T2 from arguments, it has to be supplied
-    #    via e.g. generics, and that means creating a new class.
-    class success(_Base[T2]):
-        ok: Literal[True] #type:ignore
-
-        @overload
-        def __new__(cls, value: T2) -> "success[T2]": ...
-        # mypy bug?
-        # mypy: Incompatible return type for "__new__" (returns "success[Literal[RuleValue.NONE]]",
-        #       but must return a subtype of "success[Any]")
-        @overload
-        #def __new__(cls) -> "success[Literal[RuleValue.NONE]]": ... #type:ignore
-        def __new__(cls) -> "success[T2]": ...
-
-        # Need to specify __new__ or Pyright deduces wrongly (should be Pyright defect)
-        #
-        # mypy bug?
-        # mypy: Incompatible return type for "__new__" (returns "success[T2 | Literal[RuleValue.NONE]]",
-        #       but must return a subtype of "success[Any]")
-        def __new__(cls, value: T2 = cast(T2, RuleValue.NONE)) -> "success[T2]": #type:ignore
-            #return cast("success", super().__new__(cls, True, value))
-            return cast("success[T2]", None)
-
-        # Overloads also needed for __init__
-        # since because __new__ returns instance of current class,
-        # type checkers assume __init__ is also called
-        @overload
-        def __init__(self, value: T2): ...
-        @overload
-        def __init__(self): ...
-        # Need to fake a default in __init__ or mypy and Pyright complain wrongly
-        def __init__(self, value: T2 = cast(T2, RuleValue.NONE)):
-            # mypy: Too many arguments for "__init__" of "object" (mypy bug?)
-            super().__init__(True, value)  #type:ignore
-
-    #reveal_type(success()) # Expect success[Literal[RuleValue.NONE]] but mypy says success[Any]
-    #reveal_type(success().value) # Expect Literal[RuleValue.NONE] but mypy says Any
-    reveal_type(success()) # Expect success[Any] (Feels easier)
-    reveal_type(success().value) # Expect Any (Feels easier)
-    # For now I won't take time to fix 2 mypy discrepancies above
-    reveal_type(success(1.2)) # Expect success[float]
-    reveal_type(success(1.2).value) # Expect float
-    #reveal_type(success[int].value) # Expect int
-
-
-    class failure(_Base[T2]):
-        ok: Literal[False]  #type:ignore
-
-        # Interestingly, no need to specify __new__ here, Pyright gives no false negatives
-
-        # `-> None` is necessary or mypy says "Call to untyped function "failure" in typed context"
-        # might be a mypy bug
-        def __init__(self) -> None:
-            # mypy: Too many arguments for "__init__" of "object" (mypy bug?)
-            super().__init__(True, cast(T2, RuleValue.FAILURE))  #type:ignore
-
-
-    RuleResult = _Base[T2]
-else:
-    # The same, without type checker magic
-
-    class RuleResult(NamedTuple):
-        ok: bool
-        """Whether the rule succeeded."""
-        value: Any  # Type doesn't have to be known at definition time
-        """The value of the rule.
-
-        It is RuleValue.NONE if the rule is `node?` and didn't match `node`.
-
-        It is RuleValue.FAILURE if ok == False.
-        """
-
-        def __class_getitem__(_):
-            return RuleResult
-
-        def __bool__(self):
-            return self.ok
-
-        @classmethod
-        def from_bool(cls, value: bool) -> "RuleResult[Literal[RuleValue.NONE]]":
-            """Return success(RuleValue.NONE) if value is True, else failure()
-            (failure[Literal[RuleValue.NONE]]()).
-            """
-            return success() if value else failure()
-
-    class success:
-        # Better keep consistency with type checker version (though not needed)
-        def __class_getitem__(_):
-            return success
-
-        def __new__(cls, value=RuleValue.NONE) -> RuleResult:
-            return RuleResult(True, value)
-
-    class failure:
-        def __class_getitem__(_):
-            return failure
-
-        def __new__(cls) -> RuleResult:
-            return RuleResult(False, RuleValue.FAILURE)
+NO_MATCH = ResultFlag.NO_MATCH
+FAILURE = ResultFlag.FAILURE
 
 
 class MarkRequirements(Protocol):
@@ -286,8 +156,8 @@ def memoize_left_rec(method: Callable[["BaseParser"], RuleResult[T]]) -> Callabl
             # (http://web.cs.ucla.edu/~todd/research/pub.php?id=pepm08).
 
             # Prime the cache with a failure.
-            self._cache[key] = failure(), mark
-            lastresult, lastmark = failure(), mark
+            self._cache[key] = FAILURE, mark
+            lastresult, lastmark = FAILURE, mark
             depth = 0
             if verbose:
                 self._vprint(f"{fill}Recursive {method_name} at {mark} depth {depth}")
@@ -453,12 +323,12 @@ class BaseParser(ABC):
         return res
 
     def negative_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any
-                           ) -> RuleResult[Literal[RuleValue.NONE]]:
+                           ) -> RuleResult[None]:
         """Calls func once, its return value is False-ish <=> negative lookahead will match"""
         mark = self.mark()
         res = func(*args, **kwargs)
         self.reset(mark)
-        return RuleResult.from_bool(not res.ok) # TODO: This abandons result value...
+        return None if res == FAILURE else FAILURE # TODO: This abandons result value...
 
     #XXX: ?
     #XXX: filename?
@@ -503,8 +373,8 @@ class DefaultParser(BaseParser):
         tok = self._tokenizer.peek()
         return f"{tok.start[0]}.{tok.start[1]}: {token.tok_name[tok.type]} {tok.string!r}"
 
-    def endmarker(self) -> RuleResult[Literal[RuleValue.NONE]]:
-        return RuleResult.from_bool(self._tokenizer.peek().type == token.ENDMARKER)
+    def endmarker(self) -> RuleResult[None]:
+        return None if self._tokenizer.peek().type == token.ENDMARKER else FAILURE
         #if (t := self._tokenizer.peek().type) == token.ENDMARKER:
         #    return True
         #elif t.type == token.NEWLINE:
@@ -522,65 +392,64 @@ class DefaultParser(BaseParser):
     def name(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NAME and tok.string not in self.KEYWORDS:
-            return success(self._tokenizer.getnext())
-        #reveal_type(failure[tokenize.TokenInfo]()) # See Note 1 at end of file
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def number(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NUMBER:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def string(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.STRING:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def fstring_start(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_START:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def fstring_middle(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_MIDDLE:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def fstring_end(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == FSTRING_END:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def op(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.OP:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def type_comment(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.TYPE_COMMENT:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def soft_keyword(self) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
         if tok.type == token.NAME and tok.string in self.SOFT_KEYWORDS:
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def newline(self) -> RuleResult[tokenize.TokenInfo]:
@@ -600,8 +469,8 @@ class DefaultParser(BaseParser):
          or (type in exact_token_types and tok.type == exact_token_types[type])
          or (type in token.__dict__ and tok.type == token.__dict__[type])
          or (tok.type == token.OP and tok.string == type)):
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     @memoize
     def match_string(self, type: str) -> RuleResult[tokenize.TokenInfo]: #pyright:ignore
@@ -610,8 +479,8 @@ class DefaultParser(BaseParser):
          or (type in exact_token_types and tok.type == exact_token_types[type])
          or (type in token.__dict__ and tok.type == token.__dict__[type])
          or (tok.type == token.OP and tok.string == type)):
-            return success(self._tokenizer.getnext())
-        return failure()
+            return self._tokenizer.getnext()
+        return FAILURE
 
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
         tok = self._tokenizer.diagnose()
@@ -697,8 +566,8 @@ class CharBasedParser(BaseParser):
         m = self._farthest
         return (m.line, m.col, _get_last_line(self._text))
 
-    def endmarker(self) -> RuleResult[Literal[RuleValue.NONE]]:
-        return RuleResult.from_bool(self._pos == len(self._text))
+    def endmarker(self) -> RuleResult[None]:
+        return FAILURE if self._pos != len(self._text) else None
 
     def any_char(self) -> Optional[str]:
         if self._pos == len(self._text):
@@ -804,27 +673,3 @@ def simple_parser_main(parser_class: Type[BaseParser]) -> None:
         #print(f"  token array : {len(tokenizer._tokens):10}")
         print(f"cache : {len(parser._cache):10}")
         ## print_memstats()
-
-
-"""Note 1: mypy: Revealed type is "
-tuple[
-    builtins.bool,
-    tuple[
-        builtins.int,
-        builtins.str,
-        tuple[builtins.int, builtins.int],
-        tuple[builtins.int, builtins.int],
-        builtins.str,
-        fallback=tokenize.TokenInfo
-    ], fallback=pegen.parser_v2.failure[
-        tuple[
-            builtins.int,
-            builtins.str,
-            tuple[builtins.int, builtins.int],
-            tuple[builtins.int, builtins.int],
-            builtins.str, fallback=tokenize.TokenInfo
-        ]
-    ]
-]"
-???
-"""

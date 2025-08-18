@@ -2,6 +2,8 @@ from contextlib import contextmanager
 from abc import abstractmethod
 from typing import (Any, AbstractSet, Dict, Iterator, List, Optional,
                     Set, TextIO, Tuple, NamedTuple, Generic, TypeVar)
+
+from pegen.sccutils import find_cycles_in_scc, strongly_connected_components
 from pegen import sccutils
 from pegen.grammar_v2 import (
     Alt,
@@ -271,7 +273,7 @@ def compute_left_recursives(
     rules: Dict[str, Rule]
 ) -> Tuple[Dict[str, AbstractSet[str]], List[AbstractSet[str]]]:
     graph = make_first_graph(rules)
-    sccs = list(sccutils.strongly_connected_components(graph.keys(), graph))
+    sccs = list(strongly_connected_components(graph.keys(), graph))
     for scc in sccs:
         if len(scc) > 1:
             for name in scc:
@@ -279,7 +281,7 @@ def compute_left_recursives(
             # Try to find a leader such that all cycles go through it.
             leaders = set(scc)
             for start in scc:
-                for cycle in sccutils.find_cycles_in_scc(graph, scc, start):
+                for cycle in find_cycles_in_scc(graph, scc, start):
                     # print("Cycle:", " -> ".join(cycle))
                     leaders -= scc - set(cycle)
                     if not leaders:

@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO, Tu
 from pegen.common import DEFAULT_PARSER_CLASS_NAME
 from pegen.grammar_v2 import Grammar
 #from pegen.parser import Parser
-from pegen.parser_v2 import BaseParser
+from pegen.parser_v2 import FAILURE, BaseParser
 from pegen.tokenizer import Tokenizer
 #from pegen.grammar_parser import GeneratedParser as GrammarParser
 from pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
@@ -125,8 +125,8 @@ def load_grammar_from_file(
         #grammar = parser.start()
         #if not grammar:
         #    raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
-        ok, grammar = parser.start()
-        if not ok:
+        grammar = parser.start()
+        if grammar == FAILURE:
             raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return GrammarFromFileProducts(grammar, parser, tokenizer)
 
@@ -152,8 +152,8 @@ def load_grammar_from_string(
         grammar_file_name = "<load_grammar_from_string>"
     tokenizer = Tokenizer.from_text(grammar_string, verbose_stream=tokenizer_verbose_stream)
     parser = GrammarParser(tokenizer, verbose_stream=parser_verbose_stream)
-    ok, grammar = parser.start()
-    if not ok:
+    grammar = parser.start()
+    if grammar == FAILURE:
         raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return GrammarFromStringProducts(grammar, parser, tokenizer)
 

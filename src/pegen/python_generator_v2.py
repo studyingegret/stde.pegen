@@ -30,6 +30,7 @@ from pegen.grammar_v2 import (
 )
 from pegen.parser_generator_v2 import ParserGenerator
 
+
 #XXX: Should we change the shebang?
 MODULE_PREFIX = """\
 #!/usr/bin/env python
@@ -37,8 +38,7 @@ MODULE_PREFIX = """\
 
 from typing import Any, Optional
 from pegen.parser_v2 import (memoize, memoize_left_rec, logger,
-                             DefaultParser, CharBasedParser, RuleResult, RuleValue,
-                             success, failure)
+                             DefaultParser, CharBasedParser, RuleResult, ResultFlag)
 """
 
 # TODO
@@ -181,8 +181,8 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
         # markers, e.g: [rule*])
         # XXX: Still allow accessing "failed but accepted" state
         tempname = self.gen.dedupe_and_add_var("_temp")
-        return ("opt", f"success({tempname}.value if ({tempname} := ({call})).ok "
-                        "else RuleValue.NONE)") #XXX: Type of success?
+        return ("opt", f"{tempname} if ({tempname} := ({call})) != ResultFlag.FAILURE "
+                        "else ResultFlag.NO_MATCH")
 
     def visit_Repeat0(self, node: Repeat0) -> Tuple[str, str]:
         if node in self.cache:
@@ -209,7 +209,7 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
         return self.visit(node.rhs)
 
     def visit_Cut(self, node: Cut) -> Tuple[str, str]:
-        return "cut", "success()"
+        return "cut", "None"
 
     def visit_Forced(self, node: Forced) -> Tuple[str, str]:
         if isinstance(node.node, Group):
@@ -348,11 +348,13 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 self.print("children = []")
             self.visit(rhs, is_loop=is_loop, is_gather=is_gather)
             if rule.name.startswith("_loop0_"):
-                self.add_return(f"success(children)")
+                # This feels okay, x* returning an empty list is not treated as failure,
+                # which is perfectly valid as signaling matching no repetitions
+                self.add_return("children")
             elif rule.name.startswith("_loop1_"):
-                self.add_return(f"(success if children else failure)(children)")
+                self.add_return("children or ResultFlag.FAILURE")
             else:
-                self.add_return(f"failure()")
+                self.add_return("ResultFlag.FAILURE")
 
         if rule.name.endswith("without_invalid"):
             self.return_cleanup_stmts.pop()
@@ -375,15 +377,15 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
         if not name:
             # Parentheses are needed because the trailing comma may appear :> (XXX)
-            self.print(f"({call}).ok")
+            self.print(f"({call}) != ResultFlag.FAILURE")
         else:
             if name == "cut":
-                self.print(f"(cut := ({call}).ok)")
+                self.print(f"(cut := ({call}) != ResultFlag.FAILURE)")
             else:
                 name = self.dedupe_and_add_var(name)
                 name_r = self.dedupe_and_add_var("r_" + name)
-                self.print(f"({name_r} := ({call})).ok")
-                self.pre_action_stmts.append(f"{name} = {name_r}.value")
+                self.print(f"({name_r} := ({call})) != ResultFlag.FAILURE")
+                self.pre_action_stmts.append(f"{name} = {name_r}")
                 self.ignore_r_variables.add(name_r)
 
     def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
@@ -429,8 +431,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print(f"children.append({action})")
             self.print("mark = self.mark()")
         else:
-            # TODO: Add flag to allow action code to not be wrapped in success
-            self.add_return(f"success({action})")
+            self.add_return(f"{action}")
 
     def visit_Alt(self, alt: Alt, is_loop: bool, is_gather: bool) -> None:
         has_cut = any(isinstance(item.item, Cut) for item in alt.items)
@@ -490,7 +491,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if has_cut:
                 self.print("if cut:")
                 with self.indent():
-                    self.add_return("failure()")
+                    self.add_return("ResultFlag.FAILURE")
 
     def has_invalid(self, node: Any) -> bool:
         return self._invalidvisitor.visit(node)
