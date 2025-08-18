@@ -12,7 +12,7 @@ def test_beginning() -> None:
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
     parser = parser_class.from_text("1 + 2")
-    assert parser.start() == [
+    assert parser.start().value == [
         TokenInfo(token.NUMBER, "1", (1, 0), (1, 1), "1 + 2"),
         TokenInfo(token.OP, "+", (1, 2), (1, 3), "1 + 2"),
         TokenInfo(token.NUMBER, "2", (1, 4), (1, 5), "1 + 2"),
@@ -21,7 +21,7 @@ def test_beginning() -> None:
 
     parser = parser_class.from_text("1 + a")
     result = parser.start()
-    assert result is None
+    assert not result.ok
     exc = parser.make_syntax_error("Cannot parse expression", "some name")
     assert "Cannot parse expression" in str(exc)
     assert exc.filename == "some name"
@@ -34,9 +34,9 @@ def test_with_actions() -> None:
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
     parser = parser_class.from_text("1 + 2")
-    assert parser.start() == 3
+    assert parser.start().value == 3
     parser = parser_class.from_text("1 + a")
-    assert parser.start() is None
+    assert not parser.start().ok
 
 def test_with_subtraction() -> None:
     grammar = dedent('''
@@ -47,10 +47,10 @@ def test_with_subtraction() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
 
     parser = parser_class.from_text("3 + 4")
-    assert parser.start() == 7
+    assert parser.start().value == 7
 
     parser = parser_class.from_text("5 - 10")
-    assert parser.start() == -5
+    assert parser.start().value == -5
 
 # Note: The section "Compound expressions"'s example code isn't tested yet.
 
@@ -73,16 +73,16 @@ def test_compound_and_with_multiplicative() -> None:
     # Note: no input is originally in the guide
 
     parser = parser_class.from_text("42")
-    assert parser.start() == 42
+    assert parser.start().value == 42
 
     parser = parser_class.from_text("1 + 2")
-    assert parser.start() == 3
+    assert parser.start().value == 3
 
     parser = parser_class.from_text("1 + 2 * 3")
-    assert parser.start() == 7  # 1 + (2 * 3) = 7
+    assert parser.start().value == 7  # 1 + (2 * 3) = 7
 
     parser = parser_class.from_text("8 / 2 * 3")
-    assert parser.start() == 12  # (8/2)*3 = 12
+    assert parser.start().value == 12  # (8/2)*3 = 12
 
 def test_parser_with_header() -> None:
     grammar = dedent('''
@@ -108,10 +108,10 @@ def test_parser_with_header() -> None:
     # Note: no input is originally in the guide
 
     parser = parser_class.from_text("3 * 4 + 5")
-    assert parser.start() == 17
+    assert parser.start().value == 17
 
     parser = parser_class.from_text("20 / 4 - 2")
-    assert parser.start() == 3
+    assert parser.start().value == 3
 
 def test_graphviz_color_parsing_char_based() -> None:
     grammar = dedent('''
@@ -126,10 +126,10 @@ def test_graphviz_color_parsing_char_based() -> None:
         | "A" | "B" | "C" | "D" | "E" | "F"
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    assert parser_class.from_text("#1f1e33").start() == (31, 30, 51, 255)
-    assert parser_class.from_text("#002134aa").start() == (0, 33, 52, 170)
-    assert parser_class.from_text("#0021 34aa").start() is None
-    assert parser_class.from_text("#e0e1ccull").start() is None
+    assert parser_class.from_text("#1f1e33").start().value == (31, 30, 51, 255)
+    assert parser_class.from_text("#002134aa").start().value == (0, 33, 52, 170)
+    assert not parser_class.from_text("#0021 34aa").start().ok
+    assert not parser_class.from_text("#e0e1ccull").start().ok
 
 @pytest.mark.xfail
 def test_graphviz_color_parsing_with_default_parser() -> None:
@@ -144,11 +144,11 @@ def test_graphviz_color_parsing_with_default_parser() -> None:
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
     parser = parser_class.from_text("#ff33cc")
-    assert parser.start() == (255, 51, 204, 255)
+    assert parser.start().value == (255, 51, 204, 255)
     parser = parser_class.from_text("#002134aa")
-    assert parser.start() == (0, 33, 52, 170)
+    assert parser.start().value == (0, 33, 52, 170)
     parser = parser_class.from_text("# 002134aa")
-    assert parser.start() is None
+    assert not parser.start().ok
 
 # Now failing
 def test_compound_and_with_multiplicative_char_based() -> None:
@@ -176,13 +176,13 @@ def test_compound_and_with_multiplicative_char_based() -> None:
     # Note: no input is originally in the guide
 
     parser = parser_class.from_text("42", verbose_stream=sys.stdout)
-    assert parser.start() == 42
+    assert parser.start().value == 42
 
     parser = parser_class.from_text("1 + 2")
-    assert parser.start() == 3
+    assert parser.start().value == 3
 
     parser = parser_class.from_text("1 + 2 * 3")
-    assert parser.start() == 7
+    assert parser.start().value == 7
 
     parser = parser_class.from_text("8 / 2 * 3")
-    assert parser.start() == 12
+    assert parser.start().value == 12

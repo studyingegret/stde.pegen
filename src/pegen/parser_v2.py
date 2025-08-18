@@ -45,6 +45,9 @@ class RuleValue(IntEnum):
     def __bool__(self) -> bool:
         return False
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self._name_}"
+
 
 if TYPE_CHECKING:
     # Type checker defects are annoying sdfiajioioshdf!!!
@@ -123,7 +126,7 @@ if TYPE_CHECKING:
     # For now I won't take time to fix 2 mypy discrepancies above
     reveal_type(success(1.2)) # Expect success[float]
     reveal_type(success(1.2).value) # Expect float
-    reveal_type(success[int].value) # Expect int
+    #reveal_type(success[int].value) # Expect int
 
 
     class failure(_Base[T2]):
@@ -253,12 +256,12 @@ def memoize(method: F) -> F:
     return cast(F, memoize_wrapper)
 
 
-def memoize_left_rec(method: Callable[["BaseParser"], Optional[T]]) -> Callable[["BaseParser"], Optional[T]]:
+def memoize_left_rec(method: Callable[["BaseParser"], RuleResult[T]]) -> Callable[["BaseParser"], RuleResult[T]]:
     """Memoize a left-recursive symbol method."""
     method_name = method.__name__
 
     @wraps(method)
-    def memoize_left_rec_wrapper(self: "BaseParser") -> Optional[T]:
+    def memoize_left_rec_wrapper(self: "BaseParser") -> RuleResult[T]:
         mark = self.mark()
         key = (mark, method_name, ())
         # Fast path: cache hit, and not verbose.
@@ -283,8 +286,8 @@ def memoize_left_rec(method: Callable[["BaseParser"], Optional[T]]) -> Callable[
             # (http://web.cs.ucla.edu/~todd/research/pub.php?id=pepm08).
 
             # Prime the cache with a failure.
-            self._cache[key] = None, mark
-            lastresult, lastmark = None, mark
+            self._cache[key] = failure(), mark
+            lastresult, lastmark = failure(), mark
             depth = 0
             if verbose:
                 self._vprint(f"{fill}Recursive {method_name} at {mark} depth {depth}")
@@ -393,13 +396,14 @@ class BaseParser(ABC):
     @abstractmethod
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> "BaseParser": ...
 
-    def start(self) -> Any:
+    def start(self) -> RuleResult[Any]:
         """Expected grammar entry point.
 
         This is not strictly necessary but is assumed to exist in most utility
         functions consuming parser instances.
 
         """
+        ...
 
     @abstractmethod #XXX: ??
     def nextpos(self) -> Tuple[int, int]:

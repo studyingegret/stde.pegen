@@ -14,8 +14,8 @@ def test_1() -> None:
     print(p.parser_code)
     parser_class = p.parser_class
 
-    assert parser_class.from_text("abcba").start() is True
-    assert parser_class.from_text("c", verbose_stream=sys.stdout).start() is True
+    assert parser_class.from_text("abcba").start().value is True
+    assert parser_class.from_text("c", verbose_stream=sys.stdout).start().value is True
 
 def test_2() -> None:
     grammar = dedent(r'''
@@ -28,5 +28,5 @@ def test_2() -> None:
     print(p.parser_code)
     parser_class = p.parser_class
 
-    assert parser_class.from_text("abcba").start() is True
-    assert parser_class.from_text("c", verbose_stream=sys.stdout).start() is True
+    assert parser_class.from_text("abcba").start().value is True
+    assert parser_class.from_text("c", verbose_stream=sys.stdout).start().value is True
