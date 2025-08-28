@@ -3,9 +3,9 @@ import token
 from textwrap import dedent
 from tokenize import TokenInfo
 
-from pegen.parser_v2 import FAILURE
+from stde.pegen.parser_v2 import FAILURE
 import pytest
-from pegen.build_v2 import generate_parser_from_grammar
+from stde.pegen.build_v2 import generate_parser_from_grammar
 
 def test_beginning() -> None:
     grammar = dedent('''

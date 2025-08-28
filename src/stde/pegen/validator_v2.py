@@ -1,7 +1,7 @@
 from typing import Optional
 
-from pegen.common import ValidationError
-from pegen.grammar_v2 import Alt, GrammarVisitor, Rhs, Rule, Grammar
+from stde.pegen.common import ValidationError
+from stde.pegen.grammar_v2 import Alt, GrammarVisitor, Rhs, Rule, Grammar
 
 
 class GrammarValidator(GrammarVisitor):

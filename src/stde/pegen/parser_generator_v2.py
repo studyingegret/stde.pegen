@@ -3,9 +3,9 @@ from abc import abstractmethod
 from typing import (Any, AbstractSet, Dict, Iterator, List, Optional,
                     Set, TextIO, Tuple, NamedTuple, Generic, TypeVar)
 
-from pegen.sccutils import find_cycles_in_scc, strongly_connected_components
-from pegen import sccutils
-from pegen.grammar_v2 import (
+from stde.pegen.sccutils import find_cycles_in_scc, strongly_connected_components
+from stde.pegen import sccutils
+from stde.pegen.grammar_v2 import (
     Alt,
     Cut,
     ExternDecl,

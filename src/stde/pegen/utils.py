@@ -9,11 +9,11 @@ import tokenize
 from typing import IO, Any, Dict, Final, Optional, Type, Union, cast
 from contextlib import contextmanager
 
-from pegen.grammar import Grammar
-from pegen.grammar_parser import GeneratedParser as GrammarParser
-from pegen.parser import Parser
-from pegen.python_generator import PythonParserGenerator
-from pegen.tokenizer import Tokenizer
+from stde.pegen.grammar import Grammar
+from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.parser import Parser
+from stde.pegen.python_generator import PythonParserGenerator
+from stde.pegen.tokenizer import Tokenizer
 
 
 def import_file(full_name: str, path: str) -> Any:

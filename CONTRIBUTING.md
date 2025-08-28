@@ -97,7 +97,7 @@ are required to make sure the metagrammar & grammar generator are working
 Pegen's grammar parser (`grammar_parser.py`) is self-generated from `metagrammar.gram`.
 
 ```
-python -m pegen src/pegen/metagrammar.gram -o src/pegen/grammar_parser.py
+python -m stde.pegen src/stde.pegen/metagrammar.gram -o src/stde.pegen/grammar_parser.py
 ```
 
 Add `-v` flag for verbose output and full traceback on errors.
@@ -107,7 +107,7 @@ The make `regen-metaparser` task does a similar thing.
 ## Generating the v2 grammar parser
 
 ```
-python -m pegen src/pegen/metagrammar_v2.gram -v2 -o src/pegen/grammar_parser_v2.py
+python -m stde.pegen src/stde.pegen/metagrammar_v2.gram -v2 -o src/stde.pegen/grammar_parser_v2.py
 ```
 
 No make task for it yet.
@@ -140,7 +140,7 @@ make pycoverage2
 Or use the command:
 
 ```
-python -m pytest --color=yes --cov=$(python -c "import pegen, os; print(os.path.dirname(pegen.__file__))") --cov-branch --cov-report=term --cov-report=html tests
+python -m pytest --color=yes --cov=$(python -c "import stde.pegen, os; print(os.path.dirname(stde.pegen.__file__))") --cov-branch --cov-report=term --cov-report=html tests
 ```
 
 There is also a `pycoverage` make task, but I don't know why it uses `--cov-append`.
@@ -216,7 +216,7 @@ make lint
 <details>
   <summary>Not used (click to expand)</summary>
 
-`pegen` uses [`black`](https://github.com/psf/black) for code formatting.
+`stde.pegen` uses [`black`](https://github.com/psf/black) for code formatting.
 I recommend setting up black in your editor to format on save.
 
 [XXX: But flake8 is also present in Makefile?]

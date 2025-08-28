@@ -6,9 +6,9 @@ import pprint
 import sys
 from typing import Dict, NamedTuple, Set, Union
 
-from pegen.build import load_grammar_from_file
-from pegen.parser_generator import compute_nullables
-from pegen.grammar import (
+from stde.pegen.build import load_grammar_from_file
+from stde.pegen.parser_generator import compute_nullables
+from stde.pegen.grammar import (
     Alt,
     Cut,
     ExternDecl,

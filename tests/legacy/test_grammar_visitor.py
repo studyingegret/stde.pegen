@@ -1,8 +1,8 @@
 from typing import Any
 
-from pegen.grammar import GrammarVisitor
-from pegen.grammar_parser import GeneratedParser as GrammarParser
-from pegen.utils import parse_string
+from stde.pegen.grammar import GrammarVisitor
+from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.utils import parse_string
 
 
 class Visitor(GrammarVisitor):

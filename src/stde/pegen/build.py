@@ -1,4 +1,4 @@
-"""Build pegen products from sources.
+"""Build stde.pegen products from sources.
 
     load_grammar_from_string: Grammar string → Grammar
     load_grammar_from_file: Grammar file → Grammar
@@ -6,12 +6,12 @@
     generate_code_from_grammar: Grammar → Generated parser code (str)
     generate_code_from_file: Grammar file → Generated parser code (str)
 
-    generate_parser_from_code: Generated parser code (str) → Ready-to-use pegen.parser.Parser subclass
-    generate_parser_from_grammar: Grammar or grammar string → Ready-to-use pegen.parser.Parser subclass
-    generate_parser_from_file: Grammar file → Ready-to-use pegen.parser.Parser subclass
+    generate_parser_from_code: Generated parser code (str) → Ready-to-use stde.pegen.parser.Parser subclass
+    generate_parser_from_grammar: Grammar or grammar string → Ready-to-use stde.pegen.parser.Parser subclass
+    generate_parser_from_file: Grammar file → Ready-to-use stde.pegen.parser.Parser subclass
 
 In the above description:
-- "Grammar" means a pegen.grammar.Grammar instance
+- "Grammar" means a stde.pegen.grammar.Grammar instance
 - "Grammar file" means a utils2.File compatible object
   (str, bytes, path-like (has method `__fspath__(self) -> Union[str, bytes]`), or text I/O object)
 
@@ -38,15 +38,15 @@ import sys
 import tokenize, io
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO, Tuple, Type, Union, Protocol, cast
 
-from pegen.common import DEFAULT_PARSER_CLASS_NAME
-from pegen.grammar import Grammar
-from pegen.parser import Parser
-from pegen.tokenizer import Tokenizer
-from pegen.grammar_parser import GeneratedParser as GrammarParser
-from pegen.parser_generator import ParserGenerator
-from pegen.python_generator import PythonParserGenerator
-from pegen.tokenizer import Tokenizer
-from pegen.utils2 import open_file, File
+from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
+from stde.pegen.grammar import Grammar
+from stde.pegen.parser import Parser
+from stde.pegen.tokenizer import Tokenizer
+from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.parser_generator import ParserGenerator
+from stde.pegen.python_generator import PythonParserGenerator
+from stde.pegen.tokenizer import Tokenizer
+from stde.pegen.utils2 import open_file, File
 
 __all__ = ["Grammar", "Parser", "Tokenizer", "GrammarParser", "ParserGenerator",
            "PythonParserGenerator", "Flags",

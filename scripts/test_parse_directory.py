@@ -11,8 +11,8 @@ from pathlib import PurePath
 from typing import Any, List, Optional
 
 sys.path.insert(0, os.getcwd())
-from pegen.build import load_grammar_from_file
-from pegen.utils import generate_parser, print_memstats
+from stde.pegen.build import load_grammar_from_file
+from stde.pegen.utils import generate_parser, print_memstats
 
 from scripts import show_parse
 
@@ -22,7 +22,7 @@ ENDC = "\033[0m"
 
 argparser = argparse.ArgumentParser(
     prog="test_parse_directory",
-    description="Helper program to test directories or files for pegen",
+    description="Helper program to test directories or files for stde.pegen",
 )
 argparser.add_argument("-d", "--directory", help="Directory path containing files to test")
 argparser.add_argument("-g", "--grammar-file", help="Grammar file path")
@@ -172,7 +172,7 @@ def parse_directory(
     try:
         import tokenize
 
-        from pegen.tokenizer import Tokenizer
+        from stde.pegen.tokenizer import Tokenizer
 
         def parse(filepath):
             with open(filepath) as f:
@@ -217,7 +217,7 @@ def parse_directory(
                         ast.parse(f.read())
                 except Exception:
                     if not short:
-                        print(f"File {file} cannot be parsed by either pegen or the ast module.")
+                        print(f"File {file} cannot be parsed by either stde.pegen or the ast module.")
                 else:
                     report_status(
                         succeeded=False, file=file, verbose=verbose, error=error, short=short

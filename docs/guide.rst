@@ -548,7 +548,7 @@ if you want to use the generated code as a command line program [TODO: link].
 The default value is::
 
     if __name__ == '__main__':
-        from pegen.parser_v2 import simple_parser_main
+        from stde.pegen.parser_v2 import simple_parser_main
         simple_parser_main(GeneratedParser)
 
 .. note::

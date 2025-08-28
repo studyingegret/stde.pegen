@@ -1,9 +1,9 @@
 import textwrap
 from typing import List
 
-from pegen.grammar_parser import GeneratedParser as GrammarParser
-from pegen.grammar_visualizer import ASTGrammarPrinter
-from pegen.utils import parse_string
+from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.grammar_visualizer import ASTGrammarPrinter
+from stde.pegen.utils import parse_string
 
 
 def test_simple_rule() -> None:

@@ -1,6 +1,6 @@
 import sys
 from textwrap import dedent
-from pegen.build_v2 import generate_parser_from_grammar
+from stde.pegen.build_v2 import generate_parser_from_grammar
 
 
 def test_1() -> None:

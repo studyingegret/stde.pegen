@@ -70,15 +70,15 @@ from contextlib import contextmanager
 import operator
 from ast import literal_eval
 
-from pegen.parser_v2 import FAILURE
+from stde.pegen.parser_v2 import FAILURE
 
-from pegen import build, build_v2, grammar as grammar_mod, grammar_v2
+from stde.pegen import build, build_v2, grammar as grammar_mod, grammar_v2
 
 sys.path.insert(0, ".")
 
-#from pegen.build import load_grammar_from_file
-#from pegen.build_v2 import load_grammar_from_file
-from pegen.grammar import (
+#from stde.pegen.build import load_grammar_from_file
+#from stde.pegen.build_v2 import load_grammar_from_file
+from stde.pegen.grammar import (
     Alt,
     Cut,
     Forced,
@@ -270,10 +270,10 @@ def process_query(query: Query, graph: Dict[Item, List[str]]) -> List[str]:
 
 def main(args: argparse.Namespace) -> None:
     if args.v2:
-        from pegen.build_v2 import load_grammar_from_file
+        from stde.pegen.build_v2 import load_grammar_from_file
         terminals = TERMINALS_V1
     else:
-        from pegen.build import load_grammar_from_file #type:ignore
+        from stde.pegen.build import load_grammar_from_file #type:ignore
         terminals = TERMINALS_V1 #TODO: Depend on base class
     try:
         grammar = load_grammar_from_file(args.grammar_file).grammar

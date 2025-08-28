@@ -3,8 +3,8 @@ from abc import abstractmethod
 from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Set, TextIO, Tuple
 from io import TextIOBase
 
-from pegen import sccutils
-from pegen.grammar import (
+from stde.pegen import sccutils
+from stde.pegen.grammar import (
     Alt,
     Cut,
     ExternDecl,

@@ -11,7 +11,7 @@ import sys
 from typing import Generator, Any, TYPE_CHECKING
 
 sys.path.insert(0, ".")
-from pegen import build
+from stde.pegen import build
 from scripts import test_parse_directory
 
 argparser = argparse.ArgumentParser(

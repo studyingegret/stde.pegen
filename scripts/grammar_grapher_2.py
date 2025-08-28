@@ -51,9 +51,9 @@ from contextlib import contextmanager
 
 sys.path.insert(0, ".")
 
-#from pegen.build import load_grammar_from_file
-#from pegen.build_v2 import load_grammar_from_file
-from pegen.grammar import (
+#from stde.pegen.build import load_grammar_from_file
+#from stde.pegen.build_v2 import load_grammar_from_file
+from stde.pegen.grammar import (
     Alt,
     Cut,
     Forced,
@@ -174,10 +174,10 @@ def _parse_terminals(s: str) -> Tuple[bool, Set[str]]:
 
 def main(args: argparse.Namespace) -> None:
     if args.v2:
-        from pegen.build_v2 import load_grammar_from_file
+        from stde.pegen.build_v2 import load_grammar_from_file
         terminals = TERMINALS_V1
     else:
-        from pegen.build import load_grammar_from_file #type:ignore
+        from stde.pegen.build import load_grammar_from_file #type:ignore
         terminals = TERMINALS_V1 #TODO: Depend on base class
     try:
         grammar = load_grammar_from_file(args.grammar_file).grammar

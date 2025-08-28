@@ -88,12 +88,12 @@ def main() -> None:
     program = sep.join(args.program)
     if args.grammar_file:
         sys.path.insert(0, os.curdir)
-        from pegen.build import build_c_parser_and_generator #type:ignore[attr-defined]
+        from stde.pegen.build import build_c_parser_and_generator #type:ignore[attr-defined]
 
         build_c_parser_and_generator(
-            args.grammar_file, "data/Tokens", "pegen/parse.c", compile_extension=True
+            args.grammar_file, "data/Tokens", "stde.pegen/parse.c", compile_extension=True
         )
-        from pegen.parse import parse_string  # type: ignore[import]
+        from stde.pegen.parse import parse_string  # type: ignore[import]
 
         tree = parse_string(program, mode=1)
 

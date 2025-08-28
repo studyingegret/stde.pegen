@@ -1,9 +1,9 @@
 import pytest
 
-from pegen.grammar_v2 import Grammar
-from pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
-from pegen.utils_v2 import parse_string
-from pegen.validator_v2 import SubRuleValidator, ValidationError
+from stde.pegen.grammar_v2 import Grammar
+from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
+from stde.pegen.utils_v2 import parse_string
+from stde.pegen.validator_v2 import SubRuleValidator, ValidationError
 
 
 def test_rule_with_no_collision() -> None:

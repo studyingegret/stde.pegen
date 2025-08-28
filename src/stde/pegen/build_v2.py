@@ -1,5 +1,5 @@
 """[TODO]
-Build pegen products from sources.
+Build stde.pegen products from sources.
 
     load_grammar_from_string: Grammar string → Grammar
     load_grammar_from_file: Grammar file → Grammar
@@ -7,12 +7,12 @@ Build pegen products from sources.
     generate_code_from_grammar: Grammar → Generated parser code (str)
     generate_code_from_file: Grammar file → Generated parser code (str)
 
-    generate_parser_from_code: Generated parser code (str) → Ready-to-use pegen.parser_v2.BaseParser subclass
-    generate_parser_from_grammar: Grammar or grammar string → Ready-to-use pegen.parser_v2.BaseParser subclass
-    generate_parser_from_file: Grammar file → Ready-to-use pegen.parser_v2.BaseParser subclass
+    generate_parser_from_code: Generated parser code (str) → Ready-to-use stde.pegen.parser_v2.BaseParser subclass
+    generate_parser_from_grammar: Grammar or grammar string → Ready-to-use stde.pegen.parser_v2.BaseParser subclass
+    generate_parser_from_file: Grammar file → Ready-to-use stde.pegen.parser_v2.BaseParser subclass
 
 In the above description:
-- "Grammar" means a pegen.grammar.Grammar instance
+- "Grammar" means a stde.pegen.grammar.Grammar instance
 - "Grammar file" means a utils2.File compatible object
   (str, bytes, path-like (has method `__fspath__(self) -> Union[str, bytes]`), or text I/O object)
 
@@ -39,16 +39,16 @@ import sys
 import tokenize, io
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO, Tuple, Type, Union, Protocol, cast
 
-from pegen.common import DEFAULT_PARSER_CLASS_NAME
-from pegen.grammar_v2 import Grammar
-#from pegen.parser import Parser
-from pegen.parser_v2 import FAILURE, BaseParser
-from pegen.tokenizer import Tokenizer
-#from pegen.grammar_parser import GeneratedParser as GrammarParser
-from pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
-from pegen.parser_generator_v2 import ParserGenerator
-from pegen.python_generator_v2 import PythonParserGenerator
-from pegen.utils2 import open_file, File
+from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
+from stde.pegen.grammar_v2 import Grammar
+#from stde.pegen.parser import Parser
+from stde.pegen.parser_v2 import FAILURE, BaseParser
+from stde.pegen.tokenizer import Tokenizer
+#from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
+from stde.pegen.parser_generator_v2 import ParserGenerator
+from stde.pegen.python_generator_v2 import PythonParserGenerator
+from stde.pegen.utils2 import open_file, File
 
 __all__ = ["Grammar", "BaseParser", "Tokenizer", "GrammarParser", "ParserGenerator",
            "PythonParserGenerator", "Flags",
@@ -57,6 +57,7 @@ __all__ = ["Grammar", "BaseParser", "Tokenizer", "GrammarParser", "ParserGenerat
            "generate_parser_from_grammar", "generate_parser_from_file",
            ]
 
+#reveal_type(FAILURE)
 
 # To make it usable in Literal, I make it an enum
 # Hopefully it's not so disturbing

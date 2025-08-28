@@ -145,7 +145,7 @@ it will be recorded as a soft keyword in the syntax.
 `NAME` tokens in the parsed text are allowed to collide with soft keywords.
 <!--TODO: Wording is OK?-->
 
-<!--At src/pegen/python_generator.py PythonCallMakerVisitor.visit_StringLeaf-->
+<!--At src/stde/pegen/python_generator.py PythonCallMakerVisitor.visit_StringLeaf-->
 
 ### `e1 e2`
 
@@ -563,7 +563,7 @@ correctly annotating float division is complex as shown below
 
 ### Special names in actions
 [TODO]
-<!--src\pegen\python_generator.py:411-->
+<!--src/stde/pegen/python_generator.py:411-->
 LOCATIONS
 UNREACHABLE
 EXTRA?

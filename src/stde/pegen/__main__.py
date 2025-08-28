@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.8
 
-"""pegen -- PEG Generator.
+"""stde.pegen -- PEG Generator.
 
 Search the web for PEG Parsers for reference.
 """
@@ -12,13 +12,13 @@ import token
 import traceback
 from typing import Any, Union
 
-from pegen.validator_v2 import validate_grammar_v2
+from stde.pegen.validator_v2 import validate_grammar_v2
 
 #TODO: Clean types
-from pegen.build import generate_code_from_file, CodeFromFileProducts
-from pegen.build_v2 import (generate_code_from_file as generate_code_from_file_v2,
+from stde.pegen.build import generate_code_from_file, CodeFromFileProducts
+from stde.pegen.build_v2 import (generate_code_from_file as generate_code_from_file_v2,
                             CodeFromFileProducts as CodeFromFileProductsV2)
-from pegen.validator import validate_grammar
+from stde.pegen.validator import validate_grammar
 
 
 def generate_python_code(
@@ -64,7 +64,7 @@ def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProductsV2:
 
 
 argparser = argparse.ArgumentParser(
-    prog="pegen",
+    prog="stde.pegen",
     description="Experimental PEG-like parser generator")
 argparser.add_argument("-q", "--quiet", action="store_true", help="Don't print the parsed grammar")
 argparser.add_argument("-v2", "--v2", action="store_true", help="Use v2 mode")

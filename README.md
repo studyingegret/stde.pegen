@@ -35,18 +35,18 @@ Installing
 Install with `pip` or your favorite PyPI package manager.
 
 ```
-pip install pegen
+pip install stde.pegen
 ```
 
 How to generate a parser
 ------------------------
-Given a grammar file compatible with `pegen` (you can write your own or start with one in the [`data`](data) directory):
+Given a grammar file compatible with `stde.pegen` (you can write your own or start with one in the [`data`](data) directory):
 
 ### Command line
 Generate a parser by running:
 
 ```
-python -m pegen <path-to-grammar-file> -o parser.py
+python -m stde.pegen <path-to-grammar-file> -o parser.py
 ```
 
 This will generate a file called `parser.py` in the current directory. This can be used to parse code using the grammar that
@@ -58,7 +58,7 @@ python parser.py <file-with-code-to-parse>
 
 ### As a library
 ```python
-from pegen.build_v2 import generate_parser_from_file
+from stde.pegen.build_v2 import generate_parser_from_file
 parser_class = generate_parser_from_file("data/expr.gram")
 parser = parser_class.from_text("1 + 2")
 print(parser.start())
@@ -83,7 +83,7 @@ in CPython includes a lot of implementation details and private headers that are
 
 The official PEG generator for Python 3.9 and later is now included in the CPython repo under
 [Tools/peg_generator/](https://github.com/python/cpython/tree/master/Tools/peg_generator). We aim to keep this repo in sync with the
-Python generator from that version of `pegen`.
+Python generator from that version of `stde.pegen`.
 
 See also [PEP 617](https://www.python.org/dev/peps/pep-0617/).
 
@@ -93,9 +93,9 @@ Differences with original pegen
 
 Repository structure
 --------------------
-* The `src` directory contains the `pegen` source (the package itself).
-* The `tests` directory contains the test suite for the `pegen` package.
-* The `data` directory contains some example grammars compatible with `pegen`. This
+* The `src` directory contains the `stde.pegen` source (the package itself).
+* The `tests` directory contains the test suite for the `stde.pegen` package.
+* The `data` directory contains some example grammars compatible with `stde.pegen`. This
   includes a [pure-Python version of the Python grammar](data/python.gram).
 * The `docs` directory contains the documentation for the package.
 * The `scripts` directory contains some useful scripts that can be used for visualizing

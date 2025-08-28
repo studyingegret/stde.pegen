@@ -10,9 +10,9 @@ import traceback
 from abc import abstractmethod
 from typing import Any, Callable, ClassVar, Dict, Optional, TextIO, Tuple, Type, TypeVar, cast
 
-from pegen.parser_v2 import BaseParser
+from stde.pegen.parser_v2 import BaseParser
 
-from pegen.tokenizer import Mark, Tokenizer, exact_token_types
+from stde.pegen.tokenizer import Mark, Tokenizer, exact_token_types
 
 T = TypeVar("T")
 P = TypeVar("P", bound="Parser")

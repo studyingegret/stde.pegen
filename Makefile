@@ -31,7 +31,7 @@ pycoverage:  ## Run the test suite, with Python code coverage
 		--log-cli-level=info \
 		-s \
 		--color=yes \
-		--cov=$(shell python -c "import pegen, os; print(os.path.dirname(pegen.__file__))") \
+		--cov=$(shell python -c "import stde.pegen, os; print(os.path.dirname(stde.pegen.__file__))") \
 		--cov-config=tox.ini \
 		--cov-report=term \
 		--cov-append $(PYTEST_ARGS) \
@@ -43,7 +43,7 @@ pycoverage:  ## Run the test suite, with Python code coverage
 pycoverage2:  ## Run the test suite, with Python code coverage
 	$(PYTHON) -m pytest \
 		--color=yes \
-		--cov=$(shell python -c "import pegen, os; print(os.path.dirname(pegen.__file__))") \
+		--cov=$(shell python -c "import stde.pegen, os; print(os.path.dirname(stde.pegen.__file__))") \
 		--cov-branch \
 		--cov-report=term \
 		--cov-report=html \
@@ -70,9 +70,9 @@ clean:  ## Clean any built/generated artifacts
 	find . | grep -E '(__pycache__|\.pyc|\.pyo)' | xargs rm -rf
 
 .PHONY: regen-metaparser
-regen-metaparser: src/pegen/metagrammar.gram src/pegen/*.py # Regenerate the metaparser
-	$(PYTHON) -m pegen -q src/pegen/metagrammar.gram -o src/pegen/grammar_parser.py
-	$(PYTHON) -m black src/pegen/grammar_parser.py
+regen-metaparser: src/stde/pegen/metagrammar.gram src/stde/pegen/*.py # Regenerate the metaparser
+	$(PYTHON) -m stde.pegen -q src/stde/pegen/metagrammar.gram -o src/stde/pegen/grammar_parser.py
+	$(PYTHON) -m black src/stde/pegen/grammar_parser.py
 
 .PHONY: docs
 docs:  ## Generate documentation
@@ -96,6 +96,6 @@ help:  ## Print this message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 demo:
-	PYTHONPATH=$(shell pwd)/src:$(PYTHONPATH) $(PYTHON) -m pegen data/python.gram -o data/python_parser.py
+	PYTHONPATH=$(shell pwd)/src:$(PYTHONPATH) $(PYTHON) -m stde.pegen data/python.gram -o data/python_parser.py
 	PYTHONPATH=$(shell pwd)/src:$(PYTHONPATH) $(PYTHON) data/python_parser.py -r tests/legacy/demo.py
 

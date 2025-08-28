@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'pegen'
+project = 'stde.pegen'
 copyright = '2021, Pablo Galindo Salgado, Guido van Rossum, Lysandros Nikolaou'
 author = 'Pablo Galindo Salgado, Guido van Rossum, Lysandros Nikolaou'
 

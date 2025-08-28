@@ -1,19 +1,10 @@
-@header '''\
-#from pegen.parser_v2_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
+@subheader """\
 from ast import literal_eval
-from typing import List, Union
-import token
-import tokenize
-from tokenize import TokenInfo
+from typing import List
 
-FAILURE = ResultFlag.FAILURE
-
-from pegen.grammar_v2 import (
+from stde.pegen.grammar import (
     Alt,
-    #Action,
-    GrammarItem,
     Cut,
-    ExternDecl,
     Forced,
     Gather,
     Group,
@@ -35,64 +26,13 @@ from pegen.grammar_v2 import (
     Grammar,
     StringLeaf,
 )
+"""
 
-#TODO: Blocks (having its own return) vs. expressions
-def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
-    if not tokens:
-        return []
-    # first token has line 1
-    first_line = tokens[0].start[0]
-    line_subtract = tokens[0].start[0] - 1  # Start with line 1
-    column_subtract = tokens[0].start[1]  # Start with column 0
-    def replace(t: TokenInfo) -> TokenInfo:
-        if t.start[0] == first_line:
-            return t._replace(start=(t.start[0] - line_subtract, t.start[1] - column_subtract),
-                              end=(t.end[0] - line_subtract, t.end[1] - column_subtract))
-        else:
-            return t._replace(start=(t.start[0] - line_subtract, t.start[1]),
-                              end=(t.end[0] - line_subtract, t.end[1]))
-    return list(map(replace, tokens))
-
-
-class Base(DefaultParser):
-    @memoize
-    def action_contents(self) -> RuleResult[str]:
-        """Note: The result should be parsable by ast.parse."""
-        m = self.mark()
-        level = 1
-        has_return_stmt = False
-        tokens = []
-        prevmark = m
-        while True:
-            t = self._tokenizer.peek()
-            if t.type == token.ENDMARKER:
-                self.reset(m)
-                return FAILURE
-            self._tokenizer.getnext()
-            if t.string == "}":
-                level -= 1
-                if level == 0:
-                    break
-            tokens.append(t)
-            if t.string == "{":
-                level += 1
-            elif t.string == "return":
-                has_return_stmt = True
-            prevmark = self.mark()
-        self.reset(prevmark) # Don't consume the last right brace
-        tokens = _normalize_linecol(tokens)
-        s = tokenize.untokenize(tokens)
-        if self._verbose:
-            print("##", repr(s))
-        return s
-'''
-
-@base Base
-
-start[Grammar]: grammar $
+start[Grammar]: grammar ENDMARKER { grammar }
 
 grammar[Grammar]:
-    metas=metas? rules extern_rules=extern_rules? { Grammar(rules, extern_rules or [], metas or []) }
+    | metas rules { Grammar(rules, [], metas) }
+    | rules { Grammar(rules, [], []) }
 
 metas[List[MetaTuple]]:
     | meta metas { [meta] + metas }
@@ -108,15 +48,7 @@ rules[List[Rule]]:
     | rule { [rule] }
 
 rule[Rule]:
-    rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
-
-# TODO: "nullable" / "not nullable" mark? (which?) (for first_sets.py)
-extern_rules[List[ExternDecl]]:
-    | extern_rule extern_rules { [extern_rule] + extern_rules }
-    | extern_rule { [extern_rule] }
-
-extern_rule[ExternDecl]:
-    "extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann or None) }
+    | rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
 
 rulename[RuleName]:
     | NAME annotation { (name.string, annotation) }
@@ -125,12 +57,11 @@ rulename[RuleName]:
 
 rule_rhs[Rhs]:
     | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
-    | NEWLINE INDENT alt NEWLINE DEDENT { Rhs([alt]) }
     | alts NEWLINE { alts }
 
 # In the future this may return something more complicated
 memoflag[str]:
-    '(' "memo" ')' { "memo" }
+    | '(' "memo" ')' { "memo" }
 
 alts[Rhs]:
     | alt "|" alts { Rhs([alt] + alts.alts) }
@@ -145,7 +76,6 @@ alt[Alt]:
     | items '$' { Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None) }
     | items action { Alt(items, action=action) }
     | items { Alt(items, action=None) }
-    | '$' { Alt([], action=None) }
     #| items e='$'? action=action? {
     #    Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
 
@@ -167,7 +97,7 @@ top_level_others[LookaheadOrCut]:
     | '~' {Cut()}
 
 item[Item]:
-    | '[' ~ alts ']' {Opt(Group(alts))}
+    | '[' ~ alts ']' {Opt(alts)}
     | atom '?' {Opt(atom)}
     | atom '*' {Repeat0(atom)}
     | atom '+' {Repeat1(atom)}
@@ -181,11 +111,8 @@ atom[Plain]:
 
 # Mini-grammar for the actions and annotations
 
-#action[str]: "{" ~ target_atoms "}" { target_atoms }
-action[str]: "{" ~ action_contents "}" { action_contents }
+action[str]: "{" ~ target_atoms "}" { target_atoms }
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
-#annotation[str]: "[" ~ text("]") "]" { target_atoms }
-#annotation[str]: "->" ~ target_atoms !":" { target_atoms }
 
 target_atoms[str]:
     | target_atom target_atoms { target_atom + " " + target_atoms }
@@ -208,6 +135,3 @@ target_fstring_middle[str]:
     | "{" { "{" }
     | "}" { "}" }
     | target_atom { target_atom }
-
-#annotation[str]: "[" ~ target_atoms "]" { target_atoms }
-extern action_contents[str]
