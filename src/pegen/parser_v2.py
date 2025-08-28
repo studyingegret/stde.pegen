@@ -17,15 +17,13 @@ from pegen.tokenizer import exact_token_types
 """
 [TODO] Move this doc
 
-None: A rule has nothing meaningful to return (can be used by normal rules)
-NONE: A rule does not match another rule; "is empty" (e.g. x?, x* not match x)
-      (cannot be used by normal rules, reserved for x?, x* etc.)
+None: A value
+NO_MATCH: A value that DOES NOT MEAN `None` and is the preferred way to
+          signal a rule didn't match as a valid possibility
+          (e.g. x?, x* matching nothing)
 FAILURE: A rule fails to match (can be used by normal rules' actions to signify
          a match failure determined by code but otherwise reserved (?))
          (TODO: Free types? Additional data?)
-
-Where there is no possible clash of None and NONE, and both seem to make sense,
-use None
 """
 
 T = TypeVar("T")
@@ -51,9 +49,9 @@ class ResultFlag(Enum):
 
 RuleResult = Union[T2, Literal[ResultFlag.FAILURE]]
 
-NO_MATCH = ResultFlag.NO_MATCH
-FAILURE = ResultFlag.FAILURE
-
+NO_MATCH: Literal[ResultFlag.NO_MATCH] = ResultFlag.NO_MATCH
+FAILURE: Literal[ResultFlag.FAILURE] = ResultFlag.FAILURE
+#reveal_type(NO_MATCH)
 
 class MarkRequirements(Protocol):
     def __hash__(self) -> int: ...
@@ -157,6 +155,7 @@ def memoize_left_rec(method: Callable[["BaseParser"], RuleResult[T]]) -> Callabl
 
             # Prime the cache with a failure.
             self._cache[key] = FAILURE, mark
+            lastresult: RuleResult[T] # For type checker
             lastresult, lastmark = FAILURE, mark
             depth = 0
             if verbose:
@@ -311,8 +310,8 @@ class BaseParser(ABC):
     def endmarker(self) -> RuleResult[Any]: ...
 
     def force(self, res: Any, expectation: str) -> Optional[Any]:
-        if res is None:
-            raise self.make_syntax_error(f"expected {expectation}")
+        if res is FAILURE:
+            raise self.make_syntax_error(f"expected {expectation}") #...
         return res
 
     def positive_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any) -> RuleResult[T]:
@@ -323,12 +322,12 @@ class BaseParser(ABC):
         return res
 
     def negative_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any
-                           ) -> RuleResult[None]:
+                           ) -> RuleResult[NO_MATCH]:
         """Calls func once, its return value is False-ish <=> negative lookahead will match"""
         mark = self.mark()
         res = func(*args, **kwargs)
         self.reset(mark)
-        return None if res == FAILURE else FAILURE # TODO: This abandons result value...
+        return NO_MATCH if res is FAILURE else FAILURE # TODO: This abandons result value...
 
     #XXX: ?
     #XXX: filename?
@@ -583,9 +582,9 @@ class CharBasedParser(BaseParser):
         return char
 
     @memoize
-    def match_string(self, s: str) -> Optional[str]:
+    def match_string(self, s: str) -> RuleResult[str]:
         if not self._text.startswith(s, self._pos):
-            return None
+            return FAILURE
         nlines, last_col = _count_nlines_and_last_col(s)
         self._pos += len(s)
         self._line += nlines
@@ -642,7 +641,7 @@ def simple_parser_main(parser_class: Type[BaseParser]) -> None:
 
     t1 = time.time()
 
-    if tree is None:
+    if tree is FAILURE:
         err = parser.make_syntax_error(filename)
         traceback.print_exception(err.__class__, err, None)
         sys.exit(1)

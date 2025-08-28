@@ -164,15 +164,21 @@ def test_compound_and_with_multiplicative_char_based() -> None:
         | expr2
 
     expr2:
-        | a=expr2 s "*" s b=NUMBER { a * int(b.string) }
-        | a=expr2 s "/" s b=NUMBER { a / int(b.string) }
-        | NUMBER { int(number.string) }
+        | a=expr2 s "*" s b=number { a * b }
+        | a=expr2 s "/" s b=number { a / b }
+        | number
+
+    number:
+        digits=("0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")* { int("".join(digits)) }
 
     s: (" " | "\t" | "\n")* #TODO bug
     #s: s_*
     #s_: " " | "\t" | "\n"
     ''')
-    parser_class = generate_parser_from_grammar(grammar).parser_class
+    p = generate_parser_from_grammar(grammar)
+    print(p.parser_code)
+    parser_class = p.parser_class
+    #assert False
 
     # Note: no input is originally in the guide
 

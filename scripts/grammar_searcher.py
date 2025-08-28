@@ -70,6 +70,8 @@ from contextlib import contextmanager
 import operator
 from ast import literal_eval
 
+from pegen.parser_v2 import FAILURE
+
 from pegen import build, build_v2, grammar as grammar_mod, grammar_v2
 
 sys.path.insert(0, ".")
@@ -170,10 +172,10 @@ class Query(NamedTuple):
 def _parse_query(s: str) -> Query:
     parser = parser_class.from_text(s)
     res = parser.start()
-    if res is None:
+    if res is FAILURE:
         raise parser.make_syntax_error(f"Cannot parse query {s}.")
     #print(res)
-    item = Item(ItemType.STRING if res[0][0] else ItemType.NAME, res[0][1])
+    item = Item(ItemType.STRING if res[0][0] else ItemType.NAME, res[0][1]) #type:ignore[index]
     return Query(item, bool(res[2]), compare_table[res[3]], res[4]) #type:ignore
 
 

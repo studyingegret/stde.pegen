@@ -24,7 +24,7 @@ def test_simple() -> None:
         TokenInfo(token.NUMBER, "2", (1, 4), (1, 5), "1 + 2"),
         TokenInfo(token.NEWLINE, "", (1, 5), (1, 6), "1 + 2"),
     ]
-    assert int(res[0].string) + int(res[2].string) == 3
+    assert int(res[0].string) + int(res[2].string) == 3 #type:ignore[index]
 
 def test_simple_error() -> None:
     from pegen.build_v2 import generate_parser_from_grammar
@@ -65,4 +65,4 @@ def test_one_line_indent() -> None:
     """)
     p = generate_parser_from_grammar(grammar)
     #print(p.parser_code)
-    assert p.parser_class.from_text("hello", verbose_stream=sys.stdout).start().string == "hello"
+    assert p.parser_class.from_text("hello", verbose_stream=sys.stdout).start().string == "hello" #type:ignore[union-attr]

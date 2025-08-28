@@ -126,7 +126,7 @@ def load_grammar_from_file(
         #if not grammar:
         #    raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
         grammar = parser.start()
-        if grammar == FAILURE:
+        if grammar is FAILURE:
             raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return GrammarFromFileProducts(grammar, parser, tokenizer)
 
@@ -153,7 +153,7 @@ def load_grammar_from_string(
     tokenizer = Tokenizer.from_text(grammar_string, verbose_stream=tokenizer_verbose_stream)
     parser = GrammarParser(tokenizer, verbose_stream=parser_verbose_stream)
     grammar = parser.start()
-    if grammar == FAILURE:
+    if grammar is FAILURE:
         raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return GrammarFromStringProducts(grammar, parser, tokenizer)
 

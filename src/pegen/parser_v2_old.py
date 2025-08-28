@@ -1,3 +1,4 @@
+# Note: Doesn't need to care about this file except when compiling grammar parser [TODO]
 import argparse
 import ast
 from enum import Enum, IntEnum

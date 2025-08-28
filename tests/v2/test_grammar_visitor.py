@@ -80,7 +80,8 @@ def test_parse_optional_grammar() -> None:
 
     visitor.visit(rules)
 
-    # Grammar/Rule/Rhs/Alt/TopLevelItem/StringLeaf                          -> 6
-    #                      TopLevelItem/Opt/Rhs/Alt/TopLevelItem/Stringleaf -> 6
+    # Grammar/Rule/Rhs/Alt/TopLevelItem/StringLeaf                                -> 6
+    #                      TopLevelItem/Opt/Group/Rhs/Alt/TopLevelItem/Stringleaf -> 7
 
-    assert visitor.n_nodes == 12
+    print(repr(rules))
+    assert visitor.n_nodes == 13

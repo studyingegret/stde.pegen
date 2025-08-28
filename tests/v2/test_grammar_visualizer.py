@@ -92,22 +92,25 @@ def test_deep_nested_rule() -> None:
              │  └──StringLeaf("'a'")
              └──TopLevelItem
                 └──Opt
-                   └──Rhs
-                      └──Alt
-                         ├──TopLevelItem
-                         │  └──StringLeaf("'b'")
-                         └──TopLevelItem
-                            └──Opt
-                               └──Rhs
-                                  └──Alt
-                                     ├──TopLevelItem
-                                     │  └──StringLeaf("'c'")
-                                     └──TopLevelItem
-                                        └──Opt
-                                           └──Rhs
-                                              └──Alt
-                                                 └──TopLevelItem
-                                                    └──StringLeaf("'d'")
+                   └──Group
+                      └──Rhs
+                         └──Alt
+                            ├──TopLevelItem
+                            │  └──StringLeaf("'b'")
+                            └──TopLevelItem
+                               └──Opt
+                                  └──Group
+                                     └──Rhs
+                                        └──Alt
+                                           ├──TopLevelItem
+                                           │  └──StringLeaf("'c'")
+                                           └──TopLevelItem
+                                              └──Opt
+                                                 └──Group
+                                                    └──Rhs
+                                                       └──Alt
+                                                          └──TopLevelItem
+                                                             └──StringLeaf("'d'")
                             """
     )
 

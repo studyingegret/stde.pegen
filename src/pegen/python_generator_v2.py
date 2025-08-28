@@ -38,7 +38,8 @@ MODULE_PREFIX = """\
 
 from typing import Any, Optional
 from pegen.parser_v2 import (memoize, memoize_left_rec, logger,
-                             DefaultParser, CharBasedParser, RuleResult, ResultFlag)
+                             DefaultParser, CharBasedParser, RuleResult, ResultFlag,
+                             NO_MATCH, FAILURE)
 """
 
 # TODO
@@ -120,7 +121,7 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
 
     The capture variable names "cut" is special.
     """
-    def __init__(self, parser_generator: ParserGenerator):
+    def __init__(self, parser_generator: "PythonParserGenerator"):
         self.gen = parser_generator
         self.cache: Dict[Any, Any] = {}
         self.keywords: Set[str] = set()
@@ -181,8 +182,9 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
         # markers, e.g: [rule*])
         # XXX: Still allow accessing "failed but accepted" state
         tempname = self.gen.dedupe_and_add_var("_temp")
-        return ("opt", f"{tempname} if ({tempname} := ({call})) != ResultFlag.FAILURE "
-                        "else ResultFlag.NO_MATCH")
+        self.gen.action_ignore_variables.add(tempname)
+        return ("opt", f"{tempname} if ({tempname} := ({call})) is not FAILURE "
+                        "else NO_MATCH")
 
     def visit_Repeat0(self, node: Repeat0) -> Tuple[str, str]:
         if node in self.cache:
@@ -270,7 +272,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             "end_lineno=end_lineno, end_col_offset=end_colno")
         self.return_cleanup_stmts: List[str] = []
         self.pre_action_stmts: List[str] = []
-        self.ignore_r_variables: Set[str] = set()
+        self.action_ignore_variables: Set[str] = set()
         self.skip_actions = skip_actions
 
     def generate(self, file: TextIO, filename: str) -> None:
@@ -354,7 +356,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             elif rule.name.startswith("_loop1_"):
                 self.add_return("children or ResultFlag.FAILURE")
             else:
-                self.add_return("ResultFlag.FAILURE")
+                self.add_return("FAILURE")
 
         if rule.name.endswith("without_invalid"):
             self.return_cleanup_stmts.pop()
@@ -377,16 +379,16 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
         if not name:
             # Parentheses are needed because the trailing comma may appear :> (XXX)
-            self.print(f"({call}) != ResultFlag.FAILURE")
+            self.print(f"({call}) is not FAILURE")
         else:
             if name == "cut":
-                self.print(f"(cut := ({call}) != ResultFlag.FAILURE)")
+                self.print(f"(cut := ({call}) is not FAILURE)")
             else:
                 name = self.dedupe_and_add_var(name)
                 name_r = self.dedupe_and_add_var("r_" + name)
-                self.print(f"({name_r} := ({call})) != ResultFlag.FAILURE")
+                self.print(f"({name_r} := ({call})) is not FAILURE")
                 self.pre_action_stmts.append(f"{name} = {name_r}")
-                self.ignore_r_variables.add(name_r)
+                self.action_ignore_variables.add(name_r)
 
     def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
         if is_loop:
@@ -404,7 +406,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         has_invalid: bool,
     ) -> None:
         if not action:
-            names = [name for name in self.local_variable_names if name not in self.ignore_r_variables]
+            names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
             if is_gather:
                 assert len(names) == 2
                 action = f"[{names[0]}] + {names[1]}"
@@ -459,7 +461,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
         with self.local_variable_context():
             self.pre_action_stmts.clear()
-            self.ignore_r_variables.clear()
+            self.action_ignore_variables.clear()
             if has_cut:
                 self.print("cut = False")
             if is_loop:
@@ -491,7 +493,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if has_cut:
                 self.print("if cut:")
                 with self.indent():
-                    self.add_return("ResultFlag.FAILURE")
+                    self.add_return("FAILURE")
 
     def has_invalid(self, node: Any) -> bool:
         return self._invalidvisitor.visit(node)

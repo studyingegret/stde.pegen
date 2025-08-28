@@ -140,3 +140,6 @@ tests/python_parser/parser_cache/py_parser.py
 
 # Vscode stuff
 .vscode
+
+# run_mypy.py temp file
+_run_mypy_temp.toml

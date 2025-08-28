@@ -73,14 +73,14 @@ norecursedirs = [
 packages = ["pegen", "scripts", "tests"]
 explicit_package_bases = true
 mypy_path = ["src"]
-exclude = '(tests/python_parser/(data|parser_cache)/.*)|(tests/legacy/demo.py)'
+exclude = 'tests/python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/pegen/parser_v2_old\.py|src/pegen/grammar_parser_v2\.py'
 
 #follow_imports = "error" #?
 follow_imports = "normal"
 no_implicit_optional = true
 strict_optional = true
 
-enable_error_codes = ["deprecated"] #? Unrecognized?
+#enable_error_codes = ["deprecated"] #? Unrecognized?
 
 disallow_untyped_calls = true
 disallow_untyped_defs = false
@@ -106,8 +106,15 @@ module = ["pegen", "scripts"]
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["pegen.grammar_parser", "pegen.grammar_parser_v2"]
+#module = ["pegen.grammar_parser", "pegen.grammar_parser_v2"]
+module = ["pegen.grammar_parser"]
 strict_optional = false
+
+[[tool.mypy.overrides]]
+module = ["pegen.grammar_parser_v2"]
+# Ignores any errors within pegen.grammar_parser_v2.
+# There is special handling in run_mypy.py.
+follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

@@ -11,10 +11,10 @@ to open an issue prior to starting work to discuss it first.
 
 To ensure your workflow:
 
-- You need mypy and pytest.
+- You need mypy, pytest and rtoml.
 
   ```
-  python -m pip mypy pytest
+  python -m pip install mypy pytest rtoml
   ```
 
   Some old workflow files also use black and flake8, but I don't use them currently.
@@ -24,11 +24,10 @@ To ensure your workflow:
   ```
 
   Note: pep517.build is present in Makefile but the task that uses it is not used.
-- If you want to change the documentation, install the requirements
-  in the `docs` extras in pyproject.toml:
+- Requirements for building documentation are the `docs` extras in pyproject.toml:
 
   ```
-  pip install sphinx sphinx-copybutton furo
+  python -m pip install sphinx sphinx-copybutton furo
   ```
 - make is required. [A version of make for Windows](https://github.com/mbuilov/gnumake-windows).
 - In case you are not used to it, this fork stores tool options in `pyproject.toml`.
@@ -70,6 +69,7 @@ So I recommend starting a PR against branch `main`, then if I don't approve of
 merging into `main`, I can create a new branch for you to re-submit the PR. (?)
 
 ## Building documentation
+Install the documentation build requirements as mentioned above.
 
 Generate HTML under directory `docbuild`:
 
@@ -122,7 +122,6 @@ This will check that all the tests pass but also will make several checks on the
 and type annotations of the package. It also does some things I don't really understand.
 
 ## Test
-
 To run the test suite:
 
 ```
@@ -134,7 +133,6 @@ make check  # More verbose
 New code should ideally have tests and not break existing tests.
 
 ## Test with coverage report
-
 ```
 make pycoverage2
 ```
@@ -147,37 +145,60 @@ python -m pytest --color=yes --cov=$(python -c "import pegen, os; print(os.path.
 
 There is also a `pycoverage` make task, but I don't know why it uses `--cov-append`.
 
-## Type Checking
-
-`pegen` uses type annotations throughout, and uses `mypy` to do the checking.
-Run the following to type check all code:
-
-```
-python -m mypy
-```
-
-You can use [mypy's daemon server](https://mypy.readthedocs.io/en/stable/mypy_daemon.html) to
-save time and computation over multiple runs:
+## Type checking
+`ResultFlag.NO_VALUE` and `ResultFlag.FAILURE` are always False
+which cannot be explained to type checkers as far as I know.
+Because of `grammar_parser_v2.py` using this fact, if you just run mypy ordinarily
+it will give a lot of false positives like
 
 ```
-# Windows
-dmypy start & dmypy run
-# Linux
-dmypy start & dmypy run
+error: Argument 2 to "ExternDecl" has incompatible type "str | Literal[ResultFlag.NO_MATCH] | None"; expected "str | None"
 ```
 
-> dmypy is used in this fork's tox.ini and Makefile.
+for
 
-mypy options are stored in `pyproject.toml`.
-
-To only check some files, add the paths/filenames on the command line:
+```python
+if (
+    # Code matching `ann=annotation?`
+    (r_ann := (_temp if (_temp := (self.annotation())) is not FAILURE else NO_MATCH)) is not FAILURE
+    and
+    ...
+):
+    ann = r_ann
+    return ExternDecl(name.string, ann or None)
 ```
-python -m mypy src
-# Or
-dmypy run -- src
-```
 
-## Lints [Note: Not used]
+because `Literal[ResultFlag.NO_MATCH]` is considered possibly True,
+and `ann` is of type `str | Literal[ResultFlag.NO_MATCH]`
+so `ann or None` is considered to possibly be `Literal[ResultFlag.NO_MATCH]`.
+
+The typhical solution is adding `#type:ignore` but it is not convenient to do so
+in `grammar_parser_v2.py` due to the way it is generated.
+
+Therefore, a tool for type checking is designed. It can filter out errors containing
+`FAILURE` and `NO_MATCH` that happen in `grammar_parser_v2.py` because they are likely
+to be false positives. Recommended usage:
+
+- First run with filtering `grammar_parser_v2.py` enabled:
+  ```
+  python run_mypy.py
+  ```
+- Fix the unfiltered errors first, then run without filtering `grammar_parser_v2.py`,
+  to check for erroneously filtered errors, but this requires manual checking to tell
+  which are false positives, so be prepared to put on mental labor:
+  ```
+  python run_mypy.py --third-only
+  ```
+
+  > For PR: If you have trouble figuring out which are false positives in this step,
+  > note so in your PR message and include the output of this step.
+  
+Please add type annotations for all new code.
+
+## Lints
+
+<details>
+  <summary>Not used (click to expand)</summary>
 
 Checks code style with `black` and `flake8` (in folders `src`, `tests` only)
 and type checks with `mypy`.
@@ -188,9 +209,12 @@ python -m tox -e lint
 make lint
 ```
 
-Please add type annotations for all new code.
+</details>
 
-## Code Formatting [Note: Not used]
+## Code Formatting
+
+<details>
+  <summary>Not used (click to expand)</summary>
 
 `pegen` uses [`black`](https://github.com/psf/black) for code formatting.
 I recommend setting up black in your editor to format on save.
@@ -198,6 +222,8 @@ I recommend setting up black in your editor to format on save.
 [XXX: But flake8 is also present in Makefile?]
 
 To run black from the command line, use `make format` to format and write to the files.
+
+</details>
 
 ## If one day you find this project dusted
 
