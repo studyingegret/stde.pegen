@@ -42,10 +42,11 @@ python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --no-termina
 python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --reverse-alts --no-terminals | dot -Tsvg > python-reverse.svg
 """
 
+# TODO: Tooltip descriptions of nodes, edges?
+
 import argparse
 import sys
-from typing import Any, Iterable, Iterator, List, Set, Dict, Tuple
-from dataclasses import dataclass
+from typing import Iterable, Iterator, List, Set, Dict, Tuple
 from collections import deque
 from contextlib import contextmanager
 
@@ -55,16 +56,8 @@ sys.path.insert(0, ".")
 #from stde.pegen.build_v2 import load_grammar_from_file
 from stde.pegen.grammar import (
     Alt,
-    Cut,
-    Forced,
     Grammar,
-    Group,
-    Leaf,
-    Lookahead,
-    TopLevelItem,
     NameLeaf,
-    Opt,
-    Repeat,
     Rhs,
     Rule,
     ExternDecl,
@@ -79,7 +72,7 @@ TERMINALS_V1 = {"SOFT_KEYWORD", "NAME", "NUMBER", "STRING",
 DEFAULT_STYLE = """\
     overlap="scale"  // Force twopi to scale the graph to avoid overlaps
     bgcolor="none"
-    node [fontname="Consolas", shape=box, style="rounded,filled", color=none, fillcolor="#f0f0f0"]
+    node [fontname="Consolas", shape=box, style="rounded,filled", color=none, fillcolor="#f0f0f0", fontsize=15]
     edge [color="#666", arrowhead=vee]
 """
 

@@ -12,7 +12,7 @@ class Action(IntFlag):
     THIRD = 4
 
 TEMP_FILE = "_run_mypy_temp.toml"
-NEW_EXCLUDE = r'tests/python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/parser_v2_old\.py'
+NEW_EXCLUDE = r'tests/(v2/)?python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/parser_v2_old\.py'
 
 description = f"""\
 See section "Type checking" in CONTRIBUTING.md for details.
@@ -63,9 +63,10 @@ def main(args):
     if args.action != 0:
         colorama.just_fix_windows_console()
         #RED = colorama.Fore.RED
-        run(["dmypy", "start"], stdout=sys.stdout, stderr=sys.stderr)
         if args.action & Action.FIRST:
+            # Note: Use mypy daemon for Action.FIRST only
             print_header(f"== First run: excluding grammar_parser_v2.py")
+            run(["dmypy", "start"], stdout=sys.stdout, stderr=sys.stderr)
             # Crash is likely for first run. Not very likely for other runs. (??)
             if run_a(args):
                 print_header(f"== Retry: First run: excluding grammar_parser_v2.py")
@@ -132,8 +133,8 @@ def run_a(args):
     crashed = False
     with os.fdopen(r, "r") as rf:
         with os.fdopen(w, "w") as wf:
-            proc = Popen(["mypy"] + args.args,
-                                 stdout=sys.stdout, stderr=wf, env={"MYPY_FORCE_COLOR": "1"})
+            proc = Popen(["dmypy", "run", "--"] + args.args,
+                         stdout=sys.stdout, stderr=wf, env={"MYPY_FORCE_COLOR": "1"})
         for line in rf:
             if "Daemon crashed" in line:
                 crashed = True

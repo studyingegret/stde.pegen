@@ -40,9 +40,9 @@ def test_locations() -> None:
     #TODO
     assert parser.from_text("").start() == FAILURE
     assert parser.from_text("a,b,a").start() == ([
-        ("a", ((0, 0), (0, 1))),
-        ("b", ((0, 2), (0, 3))),
-        ("a", ((0, 4), (0, 5))),
-    ], ((0, 0), (0, 5)))
+        ("a", ((1, 1), (1, 1))),
+        ("b", ((1, 3), (1, 3))),
+        ("a", ((1, 5), (1, 5))),
+    ], ((1, 1), (1, 5)))
     assert parser.from_text(" ").start() == FAILURE
     assert parser.from_text("a, b").start() == FAILURE

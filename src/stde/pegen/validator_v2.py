@@ -31,21 +31,6 @@ class SubRuleValidator(GrammarValidator):
             )
 
 
-class MetasValidator(GrammarValidator):
-    def visit_Rhs(self, node: Rhs) -> None:
-        for index, alt in enumerate(node.alts):
-            alts_to_consider = node.alts[index + 1 :]
-            for other_alt in alts_to_consider:
-                self.check_intersection(alt, other_alt)
-
-    def check_intersection(self, first_alt: Alt, second_alt: Alt) -> None:
-        if str(second_alt).startswith(str(first_alt)):
-            raise ValidationError(
-                f"In {self.rulename} there is an alternative that will "
-                f"never be visited:\n{second_alt}"
-            )
-
-
 # Should not be called by ParserGenerator.
 # Instead, v1/v2 subclasses of ParserGenerator will call them
 # since only at that time they know if they are v1/v2.

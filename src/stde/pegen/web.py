@@ -2,15 +2,15 @@ import io
 import traceback
 
 try:
-    import flask, flask_wtf #type:ignore[import-untyped]
+    import flask, flask_wtf, wtforms #type:ignore[import]
 except ImportError as e:
     if hasattr(e, "add_note"): # Python 3.11+
-        e.add_note("Did you forget to install the [web] optional dependencies? `pip install stde.pegen[web]`") #TODO
+        e.add_note("Did you forget to install the [web] optional dependencies? (pip install stde.pegen[web])") #TODO
     raise
 from flask import Flask, cli, render_template
 from flask_wtf import FlaskForm
-from wtforms import SubmitField, TextAreaField #type:ignore[import-untyped]
-from wtforms.validators import DataRequired #type:ignore[import-untyped]
+from wtforms import SubmitField, TextAreaField #type:ignore[import]
+from wtforms.validators import DataRequired #type:ignore[import]
 
 from stde.pegen.utils import generate_parser_from_string, parse_string
 

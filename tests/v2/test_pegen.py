@@ -7,14 +7,13 @@ import token
 from tokenize import NAME, NEWLINE, NUMBER, OP, TokenInfo
 from typing import Any, Dict, Type, cast
 
-from stde.pegen.parser_generator_v2 import compute_left_recursives
+from stde.pegen.parser_generator_v2 import mark_left_recursives, mark_nullables
 import pytest
 from stde.pegen.build_v2 import generate_parser_from_grammar, generate_parser_from_grammar, load_grammar_from_string
 from stde.pegen.grammar_v2 import Grammar, ValidationError
 from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
-from stde.pegen.parser_v2 import FAILURE, NO_MATCH, BaseParser
+from stde.pegen.parser_v2 import FAILURE, NO_MATCH, BaseParser, DefaultParser
 from stde.pegen.python_generator_v2 import PythonParserGenerator
-from stde.pegen.utils_v2 import parse_string, parse_string2
 
 
 def test_parse_grammar() -> None:
@@ -45,7 +44,6 @@ def test_parse_grammar_with_types() -> None:
     term[T[int]]: NUMBER
     c_rule[expr_ty*]: a=NUMBER? { _new_expr_ty(a) }
     """)
-
     grammar = GrammarParser.from_text(grammar_).start()
     assert grammar is not FAILURE
     rules = grammar.rules
@@ -107,12 +105,12 @@ def test_gather() -> None:
     )
     assert str(rules["thing"]) == "thing: NUMBER"
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("42\n", parser_class)
+    node = parser_class.from_text("42\n").start()
     assert node == [
         [TokenInfo(NUMBER, string="42", start=(1, 0), end=(1, 2), line="42\n")],
         TokenInfo(NEWLINE, string="\n", start=(1, 2), end=(1, 3), line="42\n"),
     ]
-    node = parse_string("1, 2\n", parser_class)
+    node = parser_class.from_text("1, 2\n").start()
     assert node == [
         [
             TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1, 2\n"),
@@ -129,7 +127,7 @@ def test_expr_grammar() -> None:
     term: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("42\n", parser_class)
+    node = parser_class.from_text("42\n").start()
     assert node == [
         TokenInfo(NUMBER, string="42", start=(1, 0), end=(1, 2), line="42\n"),
         TokenInfo(NEWLINE, string="\n", start=(1, 2), end=(1, 3), line="42\n"),
@@ -144,7 +142,7 @@ def test_optional_operator() -> None:
     """)
     parser_class = (p := generate_parser_from_grammar(grammar)).parser_class
     print(p.parser_code)
-    node = parse_string("1+2\n", parser_class)
+    node = parser_class.from_text("1+2\n").start()
     assert node == [
         [
             TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1+2\n"),
@@ -155,7 +153,7 @@ def test_optional_operator() -> None:
         ],
         TokenInfo(NEWLINE, string="\n", start=(1, 3), end=(1, 4), line="1+2\n"),
     ]
-    node = parse_string("1\n", parser_class)
+    node = parser_class.from_text("1\n").start()
     assert node == [
         [TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1\n"), NO_MATCH],
         TokenInfo(NEWLINE, string="\n", start=(1, 1), end=(1, 2), line="1\n"),
@@ -169,7 +167,7 @@ def test_optional_literal() -> None:
     term: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("1+\n", parser_class)
+    node = parser_class.from_text("1+\n").start()
     assert node == [
         [
             TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1+\n"),
@@ -177,7 +175,7 @@ def test_optional_literal() -> None:
         ],
         TokenInfo(NEWLINE, string="\n", start=(1, 2), end=(1, 3), line="1+\n"),
     ]
-    node = parse_string("1\n", parser_class)
+    node = parser_class.from_text("1\n").start()
     assert node == [
         [TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1\n"), NO_MATCH],
         TokenInfo(NEWLINE, string="\n", start=(1, 1), end=(1, 2), line="1\n"),
@@ -191,7 +189,7 @@ def test_alt_optional_operator() -> None:
     term: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("1 + 2\n", parser_class)
+    node = parser_class.from_text("1 + 2\n").start()
     assert node == [
         [
             TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 + 2\n"),
@@ -202,7 +200,7 @@ def test_alt_optional_operator() -> None:
         ],
         TokenInfo(NEWLINE, string="\n", start=(1, 5), end=(1, 6), line="1 + 2\n"),
     ]
-    node = parse_string("1\n", parser_class)
+    node = parser_class.from_text("1\n").start()
     assert node == [
         [TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1\n"), NO_MATCH],
         TokenInfo(NEWLINE, string="\n", start=(1, 1), end=(1, 2), line="1\n"),
@@ -215,7 +213,7 @@ def test_repeat_0_simple() -> None:
     thing: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("1 2 3\n", parser_class)
+    node = parser_class.from_text("1 2 3\n").start()
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 2 3\n"),
         [
@@ -224,7 +222,7 @@ def test_repeat_0_simple() -> None:
         ],
         TokenInfo(NEWLINE, string="\n", start=(1, 5), end=(1, 6), line="1 2 3\n"),
     ]
-    node = parse_string("1\n", parser_class)
+    node = parser_class.from_text("1\n").start()
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1\n"),
         [],
@@ -238,7 +236,7 @@ def test_repeat_0_complex() -> None:
     term: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("1 + 2 + 3\n", parser_class)
+    node = parser_class.from_text("1 + 2 + 3\n").start()
     assert node == [
         TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1 + 2 + 3\n"),
         [
@@ -303,7 +301,7 @@ def test_repeat_with_sep_simple() -> None:
     thing: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("1, 2, 3\n", parser_class)
+    node = parser_class.from_text("1, 2, 3\n").start()
     assert node == [
         [
             TokenInfo(NUMBER, string="1", start=(1, 0), end=(1, 1), line="1, 2, 3\n"),
@@ -326,7 +324,7 @@ def test_left_recursive() -> None:
     grammar = GrammarParser.from_text(grammar_source).start()
     assert grammar is not FAILURE
     rules = grammar.rules
-    compute_left_recursives(rules)
+    mark_left_recursives(rules)
     assert not rules["start"].left_recursive
     assert rules["expr"].left_recursive
     assert not rules["term"].left_recursive
@@ -372,7 +370,8 @@ def test_python_expr() -> None:
           )
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("(1 + 2*3 + 5)/(6 - 2)\n", parser_class)
+    node = parser_class.from_text("(1 + 2*3 + 5)/(6 - 2)\n").start()
+    assert node is not FAILURE
     code = compile(node, "", "eval")
     val = eval(code)
     assert val == 3.0
@@ -385,12 +384,8 @@ def test_nullable() -> None:
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
     assert grammar is not FAILURE
-    #out = io.StringIO()
-    #XXX:?
-    # Called to visit the grammar which updates the rules
-    #PythonParserGenerator(grammar, out)
-    PythonParserGenerator(grammar)
     rules = grammar.rules
+    mark_nullables(rules)
     assert rules["start"].nullable is False  # Not None!
     assert rules["sign"].nullable
 
@@ -402,11 +397,11 @@ def test_advanced_left_recursive() -> None:
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
     assert grammar is not FAILURE
-    # Called to visit the grammar which updates the rules
-    PythonParserGenerator(grammar)
     rules = grammar.rules
+    mark_nullables(rules)
     assert rules["start"].nullable is False  # Not None!
     assert rules["sign"].nullable
+    mark_left_recursives(rules)
     assert rules["start"].left_recursive
     assert not rules["sign"].left_recursive
 
@@ -429,7 +424,7 @@ def test_mutually_left_recursive() -> None:
     ns: Dict[str, Any] = {}
     exec(out.getvalue(), ns)
     parser_class: Type[BaseParser] = ns["GeneratedParser"]
-    node = parse_string("D A C A E", parser_class)
+    node = parser_class.from_text("D A C A E").start()
     assert node == [
         [
             [
@@ -443,7 +438,7 @@ def test_mutually_left_recursive() -> None:
         ],
         TokenInfo(type=NAME, string="E", start=(1, 8), end=(1, 9), line="D A C A E"),
     ]
-    node = parse_string("B C A E", parser_class)
+    node = parser_class.from_text("B C A E").start()
     assert node is not None
     assert node == [
         [
@@ -493,7 +488,7 @@ def test_lookahead() -> None:
     term: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("foo = 12 + 12 .", parser_class)
+    node = parser_class.from_text("foo = 12 + 12 .").start()
     assert node == [
         TokenInfo(NAME, string="foo", start=(1, 0), end=(1, 3), line="foo = 12 + 12 ."),
         TokenInfo(OP, string="=", start=(1, 4), end=(1, 5), line="foo = 12 + 12 ."),
@@ -546,7 +541,7 @@ def test_cut() -> None:
     expr: NUMBER
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    node = parse_string("(1)", parser_class, verbose=True)
+    node = parser_class.from_text("(1)", verbose_stream=sys.stdout).start()
     assert node == [
         TokenInfo(OP, string="(", start=(1, 0), end=(1, 1), line="(1)"),
         TokenInfo(NUMBER, string="1", start=(1, 1), end=(1, 2), line="(1)"),
@@ -708,7 +703,9 @@ def test_locations_in_alt_action_and_group() -> None:
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
     source = "2*3\n"
-    o = ast.dump(parse_string(source, parser_class).body, include_attributes=True)
+    parsed = parser_class.from_text(source).start()
+    assert parsed is not FAILURE
+    o = ast.dump(parsed.body, include_attributes=True)
     p = ast.dump(ast.parse(source).body[0].value, include_attributes=True).replace( #type:ignore
         " kind=None,", ""
     )
@@ -742,8 +739,10 @@ def test_hard_keywords() -> None:
 def test_skip_actions() -> None:
     grammar = 'start: NAME { "pizza!!!" }'
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    assert parse_string2(parser_class, "hello") == "pizza!!!"
+    assert issubclass(parser_class, DefaultParser)
+    assert parser_class.from_text("hello").start() == "pizza!!!"
     parser_class = generate_parser_from_grammar(grammar, skip_actions=True).parser_class
+    assert issubclass(parser_class, DefaultParser)
     # Note: NAME returns TokenInfo
-    assert (parse_string2(parser_class, "hello")
+    assert (parser_class.from_text("hello").start()
             == TokenInfo(type=token.NAME, string="hello", start=(1, 0), end=(1, 5), line="hello"))

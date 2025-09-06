@@ -278,18 +278,74 @@ class BaseParser(ABC):
         """
         ...
 
-    @abstractmethod #XXX: ??
-    def nextpos(self) -> Tuple[int, int]:
-        """Return (line, col) of next token (if tokenizing) or current position"""
-    #@abstractmethod #XXX: ??
-    #def nextpos_as_start_of_rule(self) -> Tuple[int, int]:
-    #    return self._tokenizer.peek().start
-    #@abstractmethod #XXX: ??
-    #def nextpos_as_end_of_rule(self) -> Tuple[int, int]:
-    #    return self._tokenizer.peek().start
+    #@abstractmethod
+    #def pos(self) -> Tuple[int, int]:
+    #    """Return current position (line, col) (both 1-based).
+
+    #    The exact behavior of this may depend on the subclass and is not yet standardized
+    #    (e.g. whether this should report position after skipping whitespace ahead
+    #    from last consumed token if the parser subclass
+    #    is a tokenizing parser that skips whitespace).
+    #    """
+
+    @abstractmethod
+    def last_pos(self) -> Tuple[int, int]:
+        """Return position (line, col) (both 1-based) of last consumed character.
+
+        If no character was consumed, return (1, 0).
+
+        The exact behavior of this may depend on the subclass.
+        For example, a parser class that skips unneccessary whitespace
+        may want to exclude the unneccessary whitespace after some characters
+        so that the position points to non-unneccessary whitespace character.
+
+        Used as default source of start_of_rule_pos().
+        """
+
+    # TODO: Doc is unclear.
+    #       (First paragraph kind of conflicts with second (?))
+    @abstractmethod
+    def next_pos(self) -> Tuple[int, int]:
+        """Return position (line, col) (both 1-based) of the next (not yet consumed) character
+        that will be used to decide matching.
+
+        For example, for a parser class that skips unneccessary whitespace,
+        this method should also report the current position
+        forwarded by skipping skippable whitespace
+        to the next character considered not skippable whitespace.
+
+        The exact behavior of this may depend on the subclass.
+
+        If no next character will be consumed, return (1, 0).
+
+        Used as default source of end_of_rule_pos().
+        """
+
+    def start_of_rule_pos(self) -> Tuple[int, int]:
+        """Called before parsing of a rule starts
+        to determine the start position (line, col) of the rule.
+
+        Parser subclasses that skip whitespace may want to skip whitespace
+        ahead of current position.
+
+        The value is used for `LOCATIONS` in actions.
+
+        Default: self.next_pos()
+        """
+        return self.next_pos()
+
+    def end_of_rule_pos(self) -> Tuple[int, int]:
+        """Called after parsing of a rule finishes
+        to determine the end position (line, col) of the rule.
+
+        The value is used for `LOCATIONS` in actions.
+
+        Default: self.last_pos()
+        """
+        return self.last_pos()
 
     def showpeek(self) -> str:
-        line, col = self.nextpos()
+        line, col = self.next_pos() # Note: just a default, doesn't mean pos() is always the best
         return f"{line}.{col}"
 
     @abstractmethod
@@ -325,7 +381,6 @@ class BaseParser(ABC):
         self.reset(mark)
         return res
 
-    #reveal_type(NO_MATCH)
     def negative_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any
                            ) -> RuleResult[Literal[ResultFlag.NO_MATCH]]:
         """Calls func once, its return value is False-ish <=> negative lookahead will match"""
@@ -370,7 +425,10 @@ class DefaultParser(BaseParser):
     def reset(self, index: Mark) -> None: #type:ignore
         return self._tokenizer.reset(index)
 
-    def nextpos(self) -> Tuple[int, int]:
+    def last_pos(self) -> Tuple[int, int]:
+        return self._tokenizer.get_last_non_whitespace_token().end
+
+    def next_pos(self) -> Tuple[int, int]:
         return self._tokenizer.peek().start
 
     def showpeek(self) -> str:
@@ -391,6 +449,8 @@ class DefaultParser(BaseParser):
         if t.type == token.ENDMARKER:
             end_line -= 1
         return (end_line, t.end[1], t.line)
+
+    # Begin tokens
 
     @memoize
     def name(self) -> RuleResult[tokenize.TokenInfo]:
@@ -466,6 +526,8 @@ class DefaultParser(BaseParser):
     @memoize
     def dedent(self) -> RuleResult[tokenize.TokenInfo]:
         return self._expect("DEDENT")
+
+    # End tokens
 
     def _expect(self, type: str) -> RuleResult[tokenize.TokenInfo]:
         tok = self._tokenizer.peek()
@@ -552,9 +614,10 @@ class CharBasedParser(BaseParser):
         super().__init__(verbose_stream=verbose_stream)
         self._text = text
         self._pos = 0
-        self._line = 0
-        self._col = 0
+        self._line = 1
+        self._col = 1 # Next char is at start of new line
         self._farthest = self.mark()
+        self._line_length_cache: Dict[int, int] = {}
 
     def mark(self) -> Mark:
         #return Mark(self._pos, self._line, self._col) #pyright:ignore
@@ -563,7 +626,27 @@ class CharBasedParser(BaseParser):
     def reset(self, mark: Mark) -> None: #type:ignore
         self._pos, self._line, self._col = mark
 
-    def nextpos(self) -> Tuple[int, int]:
+    def last_pos(self) -> Tuple[int, int]:
+        """if self._pos < len(self._text) and self._text[self._pos-1] == "\n":
+            # XXX: Newline counted as previous line or new line?
+            # Behavior in next_pos says newline is counted part of previous line.
+            prev_newline_pos = self._text.rfind("\n", 0, self._pos)
+            line_length = self._pos-prev_newline_pos"""
+        if self._col == 1:
+            if self._line in self._line_length_cache:
+                line_length = self._line_length_cache[self._line]
+            else:
+                if self._pos < len(self._text):
+                    assert self._text[self._pos-1] == "\n"
+                prev_newline_pos = self._text.rfind("\n", 0, self._pos - 1)
+                # To align with next_pos behavior, line length contains the newline
+                # It's 0 when parser hasn't parsed any character
+                line_length = self._pos - 1 - prev_newline_pos
+                self._line_length_cache[self._line] = line_length
+            return self._line - 1, line_length
+        return self._line, self._col - 1
+
+    def next_pos(self) -> Tuple[int, int]:
         return self._line, self._col
 
     def diagnose(self) -> Tuple[int, int, str]:
@@ -578,7 +661,7 @@ class CharBasedParser(BaseParser):
             return None
         if self._text[self._pos] == "\n":
             self._line += 1
-            self._col = 0
+            self._col = 1
         else:
             self._col += 1
         char = self._text[self._pos]

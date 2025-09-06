@@ -1,16 +1,18 @@
 # PEG grammar for Python
 
+@base Base
 @class PythonParser
-
-@subheader '''
+@header '''
 import enum
 import io
 import itertools
 import os
 import sys
 import token
+import ast
+import tokenize
 from typing import (
-    Any, Callable, Iterator, List, Literal, NoReturn, Sequence, Tuple, TypeVar, Union, TextIO
+    Any, Callable, Iterator, List, Literal, NoReturn, Sequence, Tuple, TypeVar, Union, TextIO, Optional
 )
 
 from stde.pegen.tokenizer import Tokenizer
@@ -103,7 +105,7 @@ class Target(enum.Enum):
     DEL_TARGETS = enum.auto()
 
 
-class Parser(Parser):
+class Base(DefaultParser):
 
     #: Name of the source file, used in error reports
     filename : str
@@ -123,7 +125,7 @@ class Parser(Parser):
         self.call_invalid_rules = call_invalid_rules
         res = getattr(self, rule)()
 
-        if res is None:
+        if res is FAILURE:
 
             # Grab the last token that was parsed in the first run to avoid
             # polluting a generic error reports with progress made by invalid rules.
@@ -636,27 +638,29 @@ assignment:
                     end_col_offset=a.end[1],
                 ),
                 annotation=b,
-                value=c,
+                value=c or None,
                 simple=1,
                 LOCATIONS,
             )
         ) }
+    #| a=('(' b=single_target ')' { b } | single_subscript_attribute_target)
+    #  ':' b=expression c=['=' d=annotated_rhs { d }] {
     | a=('(' b=single_target ')' { b }
-         | single_subscript_attribute_target) ':' b=expression c=['=' d=annotated_rhs { d }] {
+        | single_subscript_attribute_target) ':' b=expression c=['=' d=annotated_rhs { d }] {
         self.check_version(
             (3, 6),
             "Variable annotation syntax is",
             ast.AnnAssign(
                 target=a,
                 annotation=b,
-                value=c,
+                value=c or None,
                 simple=0,
                 LOCATIONS,
             )
         )
      }
     | a=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'=' tc=[TYPE_COMMENT] {
-         ast.Assign(targets=a, value=b, type_comment=tc, LOCATIONS)
+         ast.Assign(targets=a, value=b, type_comment=tc or None, LOCATIONS)
      }
     | a=single_target b=augassign ~ c=(yield_expr | star_expressions) {
         ast.AugAssign(target = a, op=b, value=c, LOCATIONS)
@@ -681,10 +685,10 @@ augassign:
     | '//=' { ast.FloorDiv() }
 
 return_stmt[ast.Return]:
-    | 'return' a=[star_expressions] { ast.Return(value=a, LOCATIONS) }
+    | 'return' a=[star_expressions] { ast.Return(value=a or None, LOCATIONS) }
 
 raise_stmt[ast.Raise]:
-    | 'raise' a=expression b=['from' z=expression { z }] { ast.Raise(exc=a, cause=b, LOCATIONS) }
+    | 'raise' a=expression b=['from' z=expression { z }] { ast.Raise(exc=a, cause=b or None, LOCATIONS) }
     | 'raise' { ast.Raise(exc=None, cause=None, LOCATIONS) }
 
 global_stmt[ast.Global]: 'global' a=','.NAME+ {
@@ -702,7 +706,7 @@ del_stmt[ast.Delete]:
 yield_stmt[ast.Expr]: y=yield_expr { ast.Expr(value=y, LOCATIONS) }
 
 assert_stmt[ast.Assert]: 'assert' a=expression b=[',' z=expression { z }] {
-    ast.Assert(test=a, msg=b, LOCATIONS)
+    ast.Assert(test=a, msg=b or None, LOCATIONS)
 }
 
 import_stmt[ast.Import]:
@@ -733,11 +737,11 @@ import_from_targets[List[ast.alias]]:
 import_from_as_names[List[ast.alias]]:
     | a=','.import_from_as_name+ { a }
 import_from_as_name[ast.alias]:
-    | a=NAME b=['as' z=NAME { z.string }] { ast.alias(name=a.string, asname=b, LOCATIONS) }
+    | a=NAME b=['as' z=NAME { z.string }] { ast.alias(name=a.string, asname=b or None, LOCATIONS) }
 dotted_as_names[List[ast.alias]]:
     | a=','.dotted_as_name+ { a }
 dotted_as_name[ast.alias]:
-    | a=dotted_name b=['as' z=NAME { z.string }] { ast.alias(name=a, asname=b, LOCATIONS) }
+    | a=dotted_name b=['as' z=NAME { z.string }] { ast.alias(name=a, asname=b or None, LOCATIONS) }
 dotted_name[str]:
     | a=dotted_name '.' b=NAME { a + "." + b.string }
     | a=NAME { a.string }
@@ -814,18 +818,18 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
             ast.FunctionDef(
                 name=n.string,
                 args=params or self.make_arguments(None, [], None, [], None),
-                returns=a,
+                returns=a or None,
                 body=b,
-                type_comment=tc,
+                type_comment=tc or None,
                 type_params=t or [],
                 LOCATIONS,
             ) if sys.version_info >= (3, 12) else
             ast.FunctionDef(
                 name=n.string,
                 args=params or self.make_arguments(None, [], None, [], None),
-                returns=a,
+                returns=a or None,
                 body=b,
-                type_comment=tc,
+                type_comment=tc or None,
                 LOCATIONS,
             )
         )
@@ -838,9 +842,9 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
                 ast.AsyncFunctionDef(
                     name=n.string,
                     args=params or self.make_arguments(None, [], None, [], None),
-                    returns=a,
+                    returns=a or None,
                     body=b,
-                    type_comment=tc,
+                    type_comment=tc or None,
                     type_params=t or [],
                     LOCATIONS,
                 )
@@ -851,9 +855,9 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
                 ast.AsyncFunctionDef(
                     name=n.string,
                     args=params or self.make_arguments(None, [], None, [], None),
-                    returns=a,
+                    returns=a or None,
                     body=b,
-                    type_comment=tc,
+                    type_comment=tc or None,
                     LOCATIONS,
                 )
             )
@@ -870,21 +874,21 @@ params:
 parameters[ast.arguments]:
     | a=slash_no_default b=param_no_default* c=param_with_default* d=[star_etc] {
         self.check_version(
-            (3, 8), "Positional only arguments are", self.make_arguments(a, [], b, c, d)
+            (3, 8), "Positional only arguments are", self.make_arguments(a, [], b, c, d or None)
         )
      }
     | a=slash_with_default b=param_with_default* c=[star_etc] {
         self.check_version(
             (3, 8),
             "Positional only arguments are",
-            self.make_arguments(None, a, None, b, c),
+            self.make_arguments(None, a, None, b, c or None),
         )
      }
     | a=param_no_default+ b=param_with_default* c=[star_etc] {
-        self.make_arguments(None, [], a, b, c)
+        self.make_arguments(None, [], a, b, c or None)
      }
     | a=param_with_default+ b=[star_etc] {
-        self.make_arguments(None, [], None, a, b)
+        self.make_arguments(None, [], None, a, b or None)
      }
     | a=star_etc { self.make_arguments(None, [], None, None, a) }
 
@@ -901,9 +905,9 @@ slash_with_default[List[Tuple[ast.arg, Any]]]:
 
 star_etc[Tuple[Optional[ast.arg], List[Tuple[ast.arg, Any]], Optional[ast.arg]]]:
     | invalid_star_etc
-    | '*' a=param_no_default b=param_maybe_default* c=[kwds] { (a, b, c) }
-    | '*' a=param_no_default_star_annotation b=param_maybe_default* c=[kwds] { (a, b, c) }
-    | '*' ',' b=param_maybe_default+ c=[kwds] { (None, b, c) }
+    | '*' a=param_no_default b=param_maybe_default* c=[kwds] { (a, b, c or None) }
+    | '*' a=param_no_default_star_annotation b=param_maybe_default* c=[kwds] { (a, b, c or None) }
+    | '*' ',' b=param_maybe_default+ c=[kwds] { (None, b, c or None) }
     | a=kwds { (None, [], a) }
 
 kwds[ast.arg]:
@@ -933,9 +937,9 @@ param_with_default[Tuple[ast.arg, Any]]:
     | a=param c=default ',' tc=TYPE_COMMENT? { (self.set_arg_type_comment(a, tc), c) }
     | a=param c=default tc=TYPE_COMMENT? &')' { (self.set_arg_type_comment(a, tc), c) }
 param_maybe_default[Tuple[ast.arg, Any]]:
-    | a=param c=default? ',' tc=TYPE_COMMENT? { (self.set_arg_type_comment(a, tc), c) }
-    | a=param c=default? tc=TYPE_COMMENT? &')' { (self.set_arg_type_comment(a, tc), c) }
-param: a=NAME b=annotation? { ast.arg(arg=a.string, annotation=b, LOCATIONS) }
+    | a=param c=default? ',' tc=TYPE_COMMENT? { (self.set_arg_type_comment(a, tc), c or None) }
+    | a=param c=default? tc=TYPE_COMMENT? &')' { (self.set_arg_type_comment(a, tc), c or None) }
+param: a=NAME b=annotation? { ast.arg(arg=a.string, annotation=b or None, LOCATIONS) }
 param_star_annotation: a=NAME b=star_annotation {
     ast.arg(arg=a.string, annotations=b, LOCATIONS)
  }
@@ -973,12 +977,12 @@ while_stmt[ast.While]:
 for_stmt[Union[ast.For, ast.AsyncFor]]:
     | invalid_for_stmt
     | 'for' t=star_targets 'in' ~ ex=star_expressions &&':' tc=[TYPE_COMMENT] b=block el=[else_block] {
-        ast.For(target=t, iter=ex, body=b, orelse=el or [], type_comment=tc, LOCATIONS) }
+        ast.For(target=t, iter=ex, body=b, orelse=el or [], type_comment=tc or None, LOCATIONS) }
     | 'async' 'for' t=star_targets 'in' ~ ex=star_expressions ':' tc=[TYPE_COMMENT] b=block el=[else_block] {
         self.check_version(
             (3, 5),
             "Async for loops are",
-            ast.AsyncFor(target=t, iter=ex, body=b, orelse=el or [], type_comment=tc, LOCATIONS)) }
+            ast.AsyncFor(target=t, iter=ex, body=b, orelse=el or [], type_comment=tc or None, LOCATIONS)) }
     | invalid_for_target
 
 # With statement
@@ -994,7 +998,7 @@ with_stmt[Union[ast.With, ast.AsyncWith]]:
         )
      }
     | 'with' a=','.with_item+ ':' tc=[TYPE_COMMENT] b=block {
-        ast.With(items=a, body=b, type_comment=tc, LOCATIONS)
+        ast.With(items=a, body=b, type_comment=tc or None, LOCATIONS)
      }
     | 'async' 'with' '(' a=','.with_item+ ','? ')' ':' b=block {
        self.check_version(
@@ -1007,7 +1011,7 @@ with_stmt[Union[ast.With, ast.AsyncWith]]:
        self.check_version(
            (3, 5),
            "Async with statements are",
-           ast.AsyncWith(items=a, body=b, type_comment=tc, LOCATIONS)
+           ast.AsyncWith(items=a, body=b, type_comment=tc or None, LOCATIONS)
         )
      }
     | invalid_with_stmt
@@ -1048,13 +1052,13 @@ try_stmt[ast.Try]:
 except_block[ast.ExceptHandler]:
     | invalid_except_stmt_indent
     | 'except' e=expression t=['as' z=NAME { z.string }] ':' b=block {
-        ast.ExceptHandler(type=e, name=t, body=b, LOCATIONS) }
+        ast.ExceptHandler(type=e, name=t or None, body=b, LOCATIONS) }
     | 'except' ':' b=block { ast.ExceptHandler(type=None, name=None, body=b, LOCATIONS) }
     | invalid_except_stmt
 except_star_block[ast.ExceptHandler]:
     | invalid_except_star_stmt_indent
     | 'except' '*' e=expression t=['as' z=NAME { z.string }] ':' b=block {
-        ast.ExceptHandler(type=e, name=t, body=b, LOCATIONS)
+        ast.ExceptHandler(type=e, name=t or None, body=b, LOCATIONS)
      }
     | invalid_except_stmt
 finally_block[list]:
@@ -1086,7 +1090,7 @@ subject_expr:
 case_block["ast.match_case"]:
     | invalid_case_block
     | "case" pattern=patterns guard=guard? ':' body=block {
-        ast.match_case(pattern=pattern, guard=guard, body=body)
+        ast.match_case(pattern=pattern, guard=guard or None, body=body)
      }
 
 guard: 'if' guard=named_expression { guard }
@@ -1329,7 +1333,7 @@ type_param_seq: a=','.type_param+ [','] { a }
 
 type_param (memo):
     | a=NAME b=[type_param_bound] {
-        ast.TypeVar(name=a.string, bound=b, LOCATIONS)
+        ast.TypeVar(name=a.string, bound=b or None, LOCATIONS)
         if sys.version_info >= (3, 12)
         else object()
      }
@@ -1382,7 +1386,7 @@ expression (memo):
 
 yield_expr:
     | 'yield' 'from' a=expression { ast.YieldFrom(value=a, LOCATIONS) }
-    | 'yield' a=[star_expressions] { ast.Yield(value=a, LOCATIONS) }
+    | 'yield' a=[star_expressions] { ast.Yield(value=a or None, LOCATIONS) }
 
 star_expressions:
     | a=star_expression b=(',' c=star_expression { c })+ [','] {
@@ -1557,7 +1561,7 @@ slices:
 
 slice:
     | a=[expression] ':' b=[expression] c=[':' d=[expression] { d }] {
-        ast.Slice(lower=a, upper=b, step=c, LOCATIONS)
+        ast.Slice(lower=a or None, upper=b or None, step=c or None, LOCATIONS)
      }
     | a=named_expression {
         a
@@ -1626,16 +1630,16 @@ lambda_params:
 #
 lambda_parameters[ast.arguments]:
     | a=lambda_slash_no_default b=lambda_param_no_default* c=lambda_param_with_default* d=[lambda_star_etc] {
-        self.make_arguments(a, [], b, c, d)
+        self.make_arguments(a, [], b, c, d or None)
      }
     | a=lambda_slash_with_default b=lambda_param_with_default* c=[lambda_star_etc] {
-        self.make_arguments(None, a, None, b, c)
+        self.make_arguments(None, a, None, b, c or None)
      }
     | a=lambda_param_no_default+ b=lambda_param_with_default* c=[lambda_star_etc] {
-        self.make_arguments(None, [], a, b, c)
+        self.make_arguments(None, [], a, b, c or None)
      }
     | a=lambda_param_with_default+ b=[lambda_star_etc] {
-        self.make_arguments(None, [], None, a, b)
+        self.make_arguments(None, [], None, a, b or None)
      }
     | a=lambda_star_etc { self.make_arguments(None, [], None, [], a) }
 
@@ -1650,9 +1654,9 @@ lambda_slash_with_default[List[Tuple[ast.arg, Any]]]:
 lambda_star_etc[Tuple[Optional[ast.arg], List[Tuple[ast.arg, Any]], Optional[ast.arg]]]:
     | invalid_lambda_star_etc
     | '*' a=lambda_param_no_default b=lambda_param_maybe_default* c=[lambda_kwds] {
-       (a, b, c) }
+       (a, b, c or None) }
     | '*' ',' b=lambda_param_maybe_default+ c=[lambda_kwds] {
-        (None, b, c) }
+        (None, b, c or None) }
     | a=lambda_kwds { (None, [], a) }
 
 lambda_kwds[ast.arg]:
@@ -1667,8 +1671,8 @@ lambda_param_with_default[Tuple[ast.arg, Any]]:
     | a=lambda_param c=default ',' { (a, c) }
     | a=lambda_param c=default &':' { (a, c) }
 lambda_param_maybe_default[Tuple[ast.arg, Any]]:
-    | a=lambda_param c=default? ',' { (a, c) }
-    | a=lambda_param c=default? &':' { (a, c) }
+    | a=lambda_param c=default? ',' { (a, c or None) }
+    | a=lambda_param c=default? &':' { (a, c or None) }
 lambda_param[ast.arg]: a=NAME {
     ast.arg(arg=a.string, annotation=None, LOCATIONS)
     if sys.version_info >= (3, 9) else
@@ -1690,7 +1694,7 @@ fstring_replacement_field:
                 if conversion else
                 (b'r'[0] if debug_expr else -1)
             ),
-            format_spec=format,
+            format_spec=format or None,
             LOCATIONS
         )
      }
@@ -1948,7 +1952,7 @@ invalid_arguments[NoReturn]:
             "Generator expression must be parenthesized",
             a[0][-1],
             (b[-1].ifs[-1] if b[-1].ifs else b[-1].iter),
-        ) if len(a[0]) > 1 else None
+        ) if len(a[0]) > 1 else FAILURE
      }
     | args ',' a=expression b=for_if_clauses {
         self.raise_syntax_error_known_range(
@@ -1997,7 +2001,7 @@ invalid_legacy_expression:
         self.raise_syntax_error_known_range(
             f"Missing parentheses in call to '{a.string}' . Did you mean {a.string}(...)?", a, b,
         ) if a.string in ("exec", "print") else
-        None
+        FAILURE
      }
 invalid_expression[NoReturn]:
     # !(NAME STRING) is not matched so we don't show this error with some invalid string prefixes like: kf"dsfsdf"
@@ -2006,7 +2010,7 @@ invalid_expression[NoReturn]:
         (
             self.raise_syntax_error_known_range("invalid syntax. Perhaps you forgot a comma?", a, b)
             if not isinstance(a, ast.Name) or a.id not in ("print", "exec")
-            else None
+            else FAILURE
         )
      }
     | a=disjunction 'if' b=disjunction !('else'|':') {
@@ -2026,7 +2030,7 @@ invalid_named_expression[NoReturn]:
     # Use in_raw_rule
     | a=NAME '=' b=bitwise_or !('='|':=') {
         (
-            None
+            FAILURE
             if self.in_recursive_rule else
             self.raise_syntax_error_known_range(
                 "invalid syntax. Maybe you meant '==' or ':=' instead of '='?", a, b
@@ -2035,7 +2039,7 @@ invalid_named_expression[NoReturn]:
      }
     | !(list|tuple|genexp|'True'|'None'|'False') a=bitwise_or b='=' bitwise_or !('='|':=') {
         (
-            None
+            FAILURE
             if self.in_recursive_rule else
             self.raise_syntax_error_known_location(
                 f"cannot assign to {self.get_expr_name(a)} here. Maybe you meant '==' instead of '='?", a
@@ -2221,6 +2225,7 @@ invalid_import_from_targets[NoReturn]:
         self.raise_syntax_error("trailing comma not allowed without surrounding parentheses")
      }
 
+# XXX: None -> NoReturn?
 invalid_with_stmt[None]:
     | ['async'] 'with' ','.(expression ['as' star_target])+ &&':' { UNREACHABLE }
     | ['async'] 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':' { UNREACHABLE }
@@ -2255,6 +2260,8 @@ invalid_try_stmt[NoReturn]:
             "cannot have both 'except' and 'except*' on the same 'try'", a
         )
      }
+
+# XXX: None -> NoReturn?
 invalid_except_stmt[None]:
     | 'except' '*'? a=expression ',' expressions ['as' NAME ] ':' {
         self.raise_syntax_error_starting_from("multiple exception types must be parenthesized", a)
@@ -2374,6 +2381,7 @@ invalid_class_def_raw[NoReturn]:
         )
      }
 
+# XXX: None -> NoReturn?
 invalid_double_starred_kvpairs[None]:
     | ','.double_starred_kvpair+ ',' invalid_kvpair
     | expression ':' a='*' bitwise_or {

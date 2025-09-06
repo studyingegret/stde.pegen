@@ -68,7 +68,6 @@ class AbstractTokenizer:
         return self.diagnose()
 
 
-# Edition 1
 class Tokenizer(AbstractTokenizer):
     """Caching wrapper for the tokenize module.
 

@@ -83,7 +83,7 @@ class Grammar:
         ))
         self.rules = {rule.name: rule for rule in rules}
         self.extern_decls = {extern_decl.name: extern_decl for extern_decl in extern_decls}
-        self.metas = dict(metas)
+        self.metas = dict(metas) #TODO: Dedupe? List?
         self.items = self.rules | self.extern_decls
 
     def __getitem__(self, name: str) -> GrammarItem:

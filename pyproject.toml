@@ -4,21 +4,21 @@ name = "stde.pegen"
 description = "CPython's PEG parser generator"
 readme = "README.md"
 requires-python = ">=3.8, <4"
-license = {file = "LICENSE"}
+license = "MIT"
 authors = [
     {name = "Guido van Rossum"},
     {name = "Pablo Galindo", email = "pablogsal@gmail.com"},
     {name = "Lysandros Nikolaou", email = "lisandrosnik@gmail.com"},
     {name = "studyingegret", email = "a3times7@outlook.com"}
 ]
-maintainers = [
-    {name = "Matthieu C. Dartiailh", email = "m.dartiailh@gmail.com"}
-]
+maintainers = []
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Compilers",
-    "License :: OSI Approved :: MIT License",
+    "Topic :: Text Processing",
+    "Topic :: Software Development :: Code Generators", #?
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -33,17 +33,12 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 docs = ["sphinx", "sphinx-copybutton", "furo"]
-lint = ["black", "flake8", "mypy"]
+lint = ["black", "flake8", "mypy", "rtoml"]
 test = ["pytest", "pytest-cov"]
 memory = ["psutil"]
 web = ["flask", "flask-wtf"]
 
-[project.urls] # Note: not published yet
-Homepage = "https://github.com/we-like-parsers/pegen"
-Documentation = "https://we-like-parsers.github.io/pegen/"
-Source = "https://github.com/we-like-parsers/pegen"
-Changelog = "https://github.com/we-like-parsers/pegen/releasenotes.rst"
-"Bug reports" = "https://github.com/we-like-parsers/pegen/issues"
+[project.urls]
 
 [build-system]
 requires = ["setuptools>=61.2", "wheel", "setuptools_scm[toml]>=3.4.3"]
@@ -51,18 +46,17 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 # Do not determine package version from non-version tags
-git_describe_command = 'git describe --long --match "v[0123456789].*"'
+#git_describe_command = 'git describe --long --match "v[0123456789].*"'
+git_describe_command = 'git describe --abbrev=0 --match "v[0123456789].*"'
 
 [tool.black]
 line-length = 99
 target_version = ['py38']
-exclude = '''
-(
-      /stde/pegen/grammar_parser.py            # generated file
+exclude = '''(
+      /stde/pegen/grammar_parser.py       # generated file
     | /tests/python_parser/data/          # test files
     | /tests/python_parser/parser_cache/  # generated parser
-)
-'''
+)'''
 
 [tool.pytest.ini_options]
 norecursedirs = [
@@ -75,7 +69,8 @@ packages = ["stde", "scripts", "tests"]
 explicit_package_bases = true
 namespace_packages = true
 mypy_path = ["src"]
-exclude = 'tests/python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/parser_v2_old\.py|src/stde/pegen/grammar_parser_v2\.py'
+# Note: Also remember to update NEW_EXCLUDE in run_mypy.py
+exclude = 'tests/(v2/)?python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/parser_v2_old\.py|src/stde/pegen/grammar_parser_v2\.py'
 
 #follow_imports = "error" #?
 follow_imports = "normal"
@@ -122,10 +117,10 @@ module = ["tests.*"]
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["tests.python_parser.*"]
-#disallow_untyped_defs = false
+module = ["tests.python_parser.*", "tests.v2.python_parser.*"]
+disallow_untyped_defs = false
 #disallow_untyped_calls = true
-disable_error_code = "no-untyped-def"
+disable_error_code = ["no-untyped-def"]
 
 [[tool.mypy.overrides]]
 module = "psutil"
@@ -137,22 +132,30 @@ reportInvalidTypeForm = "none"
 [tool.coverage.run]
 branch = true
 parallel = true
-omit = ["tests/*", "**/__init__.py", "**/stde/pegen/__main__.py", "**/stde/pegen/web.py"]
+omit = [
+    #"tests/*",
+    # For unknown reasons it is counting these files unlike before
+    "scripts/**",
+    "conftest.py",
+    "setup.py",
+    "run_mypy.py",
+    "**/__init__.py",
+    "**/stde/pegen/__main__.py",
+    "**/stde/pegen/web.py"
+]
 
 [tool.coverage.paths]
 # Support editable installs (with -C editable_mode=strict)
-source = ["src/stde/pegen", "build/__editable__.pegen*/pegen"] #TODO
+source = ["src/stde", "build/__editable__.*/stde"]
 
 [tool.coverage.report]
-# Regexes for lines to exclude from consideration
 exclude_lines = [
-    # Have to re-enable the standard pragma (XXX:?)
-    "pragma: no cover",
+    '#\s*pragma: no cover',
     # Don't complain if tests don't hit defensive assertion code:
-    "raise NotImplementedError",
-    "pass",
+    'raise NotImplementedError',
+    'pass',
 
-    "if TYPE_CHECKING:",
+    'if TYPE_CHECKING:',
     'def main\(',
     'def simple_parser_main\(',
     '''if __name__ == ['"]__main__['"]:''',

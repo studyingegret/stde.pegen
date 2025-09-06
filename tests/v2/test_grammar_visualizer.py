@@ -1,16 +1,17 @@
 import textwrap
 from typing import List
-
+from textwrap import dedent
 from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
 from stde.pegen.grammar_visualizer_v2 import ASTGrammarPrinter
-from stde.pegen.utils_v2 import parse_string
+from stde.pegen.parser_v2 import FAILURE
 
 
 def test_simple_rule() -> None:
-    grammar = """
+    grammar = dedent("""
     start: 'a' 'b'
-    """
-    rules = parse_string(grammar, GrammarParser)
+    """)
+    rules = GrammarParser.from_text(grammar).start()
+    assert rules is not FAILURE
 
     printer = ASTGrammarPrinter()
     lines: List[str] = []
@@ -31,12 +32,13 @@ def test_simple_rule() -> None:
 
 
 def test_multiple_rules() -> None:
-    grammar = """
+    grammar = dedent("""
     start: a b
     a: 'a'
     b: 'b'
-    """
-    rules = parse_string(grammar, GrammarParser)
+    """)
+    rules = GrammarParser.from_text(grammar).start()
+    assert rules is not FAILURE
 
     printer = ASTGrammarPrinter()
     lines: List[str] = []
@@ -71,10 +73,11 @@ def test_multiple_rules() -> None:
 
 
 def test_deep_nested_rule() -> None:
-    grammar = """
+    grammar = dedent("""
     start: 'a' ['b'['c'['d']]]
-    """
-    rules = parse_string(grammar, GrammarParser)
+    """)
+    rules = GrammarParser.from_text(grammar).start()
+    assert rules is not FAILURE
 
     printer = ASTGrammarPrinter()
     lines: List[str] = []

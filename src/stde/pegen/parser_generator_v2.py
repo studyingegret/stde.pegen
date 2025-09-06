@@ -84,8 +84,8 @@ class ParserGenerator:
             raise ValidationError("Grammar without a trailer must have a 'start' rule")
         self.file: TextIO
         self.level = 0
-        compute_nullables(self.rules) #XXX: Value is thrown away intentionally???
-        self.first_graph, self.first_sccs = compute_left_recursives(self.rules)
+        mark_nullables(self.rules) #XXX: Value is thrown away intentionally???
+        self.first_graph, self.first_sccs = mark_left_recursives(self.rules)
         self.todo = self.rules.copy()  # Rules to generate
         self.counter = 0  # For name_rule()/name_loop()
         self.all_rules: Dict[str, Rule] = {}  # Rules + temporal rules
@@ -259,7 +259,7 @@ class NullableVisitor(GrammarVisitor):
         return True
 
 
-def compute_nullables(rules: Dict[str, Rule]) -> None:
+def mark_nullables(rules: Dict[str, Rule]) -> None:
     """Compute which rules in a grammar are nullable.
 
     Thanks to TatSu (tatsu/leftrec.py) for inspiration.
@@ -269,9 +269,10 @@ def compute_nullables(rules: Dict[str, Rule]) -> None:
         nullable_visitor.visit(rule)
 
 
-def compute_left_recursives(
+def mark_left_recursives(
     rules: Dict[str, Rule]
 ) -> Tuple[Dict[str, AbstractSet[str]], List[AbstractSet[str]]]:
+    """Returns byproducts."""
     graph = make_first_graph(rules)
     sccs = list(strongly_connected_components(graph.keys(), graph))
     for scc in sccs:
