@@ -1,8 +1,8 @@
 from typing import Any
 from textwrap import dedent
-from stde.pegen.grammar_v2 import GrammarVisitor
-from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
-from stde.pegen.parser_v2 import FAILURE
+from stde.pegen.v2.grammar import GrammarVisitor
+from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.v2.parser import FAILURE
 
 
 class Visitor(GrammarVisitor):

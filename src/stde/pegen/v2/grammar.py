@@ -21,7 +21,7 @@ from typing import (
 from stde.pegen.common import ValidationError # Also re-export
 
 if TYPE_CHECKING:
-    from stde.pegen.parser_generator import ParserGenerator
+    from stde.pegen.legacy.parser_generator import ParserGenerator
 
 
 class GrammarError(Exception):
@@ -83,7 +83,7 @@ class Grammar:
         ))
         self.rules = {rule.name: rule for rule in rules}
         self.extern_decls = {extern_decl.name: extern_decl for extern_decl in extern_decls}
-        self.metas = dict(metas)
+        self.metas = dict(metas) #TODO: Dedupe? List?
         self.items = self.rules | self.extern_decls
 
     def __getitem__(self, name: str) -> GrammarItem:
@@ -486,8 +486,21 @@ class Cut:
         return set()
 
 
+class Action:
+    def __init__(self, code: str, has_return_stmt: bool = False):
+        self.code = code
+        self.has_return_stmt = has_return_stmt
+
+    def __str__(self) -> str:
+        return "{ " + self.code + " }" #XXX:?
+
+    def __repr__(self) -> str:
+        return (f"Action({self.code!r})" if not self.has_return_stmt
+                else f"Action({self.code!r}, has_return_stmt=True)")
+
+
 Plain = Union[Leaf, Group]
-Item = Union[Plain, Opt, Repeat, Forced, Lookahead, Rhs, Cut]
+Item = Union[Plain, Opt, Repeat, Forced, Lookahead, Cut]
 GrammarItem = Union[Rule, ExternDecl]
 RuleName = Tuple[str, Optional[str]]
 MetaTuple = Tuple[str, Optional[str]]

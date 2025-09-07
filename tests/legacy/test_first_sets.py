@@ -1,9 +1,9 @@
 from typing import Dict, Set
 
-from stde.pegen.first_sets import FirstSetCalculator, Value
-from stde.pegen.grammar import Grammar
-from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.utils import parse_string
+from stde.pegen.legacy.first_sets import FirstSetCalculator, Value
+from stde.pegen.legacy.grammar import Grammar
+from stde.pegen.legacy.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.legacy.utils import parse_string
 
 
 def calculate_first_sets(grammar_source: str) -> Dict[str, Set[Value]]:

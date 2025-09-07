@@ -9,7 +9,7 @@ import io
 import tokenize
 
 import pytest
-from stde.pegen.tokenizer import Tokenizer
+from stde.pegen.legacy.tokenizer import Tokenizer
 
 
 # matrix mul 3.5

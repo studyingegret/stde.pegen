@@ -3,8 +3,8 @@
 from pathlib import Path
 
 import pytest
-from stde.pegen.build import load_grammar_from_file
-from stde.pegen.utils import generate_parser
+from stde.pegen.legacy.build import load_grammar_from_file
+from stde.pegen.legacy.utils import generate_parser
 
 
 @pytest.fixture(scope="session")

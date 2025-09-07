@@ -1,5 +1,7 @@
 # Adapted from mypy (mypy/build.py) under the MIT license.
 
+# XXX: Split for legacy/v2?
+
 from typing import AbstractSet, Dict, Iterable, Iterator, List, Set
 
 

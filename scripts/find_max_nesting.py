@@ -19,9 +19,9 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 sys.path.insert(0, ".")
-from stde.pegen.build import load_grammar_from_file
-from stde.pegen.utils import generate_parser, parse_string
-from stde.pegen.utils import generate_parser_c_extension #type:ignore[attr-defined]
+from stde.pegen.legacy.build import load_grammar_from_file
+from stde.pegen.legacy.utils import generate_parser, parse_string
+from stde.pegen.legacy.utils import generate_parser_c_extension #type:ignore[attr-defined]
 
 GRAMMAR_FILE = "data/python.gram"
 INITIAL_NESTING_DEPTH = 10

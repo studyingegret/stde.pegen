@@ -2,7 +2,7 @@ import io
 import sys
 from tokenize import NEWLINE, NUMBER, ENDMARKER, TokenInfo, generate_tokens
 
-from stde.pegen.tokenizer import Tokenizer
+from stde.pegen.legacy.tokenizer import Tokenizer
 
 
 def test_peek_getnext() -> None:

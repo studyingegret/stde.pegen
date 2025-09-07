@@ -12,7 +12,7 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, TextAreaField #type:ignore[import]
 from wtforms.validators import DataRequired #type:ignore[import]
 
-from stde.pegen.utils import generate_parser_from_string, parse_string
+from stde.pegen.legacy.utils import generate_parser_from_string, parse_string
 
 DEFAULT_GRAMMAR = """\
 start: expr NEWLINE? ENDMARKER { expr }

@@ -2,7 +2,7 @@
 from ast import literal_eval
 from typing import List
 
-from stde.pegen.grammar import (
+from stde.pegen.legacy.grammar import (
     Alt,
     Cut,
     Forced,

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from stde.pegen.common import ValidationError
-from stde.pegen.grammar import Alt, GrammarVisitor, Rhs, Rule, Grammar
+from stde.pegen.v2.grammar import Alt, GrammarVisitor, Rhs, Rule, Grammar
 
 
 class GrammarValidator(GrammarVisitor):
@@ -15,6 +15,7 @@ class GrammarValidator(GrammarVisitor):
         self.rulename = None
 
 
+#TODO: ...
 class SubRuleValidator(GrammarValidator):
     def visit_Rhs(self, node: Rhs) -> None:
         for index, alt in enumerate(node.alts):
@@ -34,7 +35,7 @@ class SubRuleValidator(GrammarValidator):
 # Instead, v1/v2 subclasses of ParserGenerator will call them
 # since only at that time they know if they are v1/v2.
 
-def validate_grammar(grammar: Grammar) -> None:
+def validate_grammar(grammar: Grammar) -> None: #...
     validator = SubRuleValidator(grammar)
     for rule_name, rule in grammar.rules.items():
         validator.validate_rule(rule_name, rule)

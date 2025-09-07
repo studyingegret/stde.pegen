@@ -12,7 +12,7 @@ class Action(IntFlag):
     THIRD = 4
 
 TEMP_FILE = "_run_mypy_temp.toml"
-NEW_EXCLUDE = r'tests/(v2/)?python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/parser_v2_old\.py'
+NEW_EXCLUDE = r'build/.*|tests/(v2/)?python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/v2/parser_old\.py'
 
 description = f"""\
 See section "Type checking" in CONTRIBUTING.md for details.
@@ -46,12 +46,12 @@ def compile_toml():
     #data = rtoml.load("pyproject.toml")["tool"]["mypy"]
     data = rtoml.load(Path(__file__).parent / "pyproject.toml")["tool"]["mypy"]
     # [[tool.mypy.overrides]]
-    # module = ["stde.pegen.grammar_parser_v2"]
+    # module = ["stde.pegen.v2.grammar_parser"]
     for i, item in enumerate(data["overrides"]):
-        if item["module"] == ["stde.pegen.grammar_parser_v2"]:
+        if item["module"] == ["stde.pegen.v2.grammar_parser"]:
             break
     else:
-        assert False, "No section for stde.pegen.grammar_parser_v2 matched"
+        assert False, "No section for stde.pegen.v2.grammar_parser matched"
     del data["overrides"][i]["follow_imports"]
     data["exclude"] = NEW_EXCLUDE
     rtoml.dump({"tool": {"mypy": data}}, Path(TEMP_FILE))
@@ -85,7 +85,7 @@ def main(args):
             r, w = os.pipe()
             with os.fdopen(r, "r") as rf:
                 with os.fdopen(w, "w") as wf:
-                    Popen(["mypy", "-m", "stde.pegen.grammar_parser_v2", f"--config-file={TEMP_FILE}"] + args.args,
+                    Popen(["mypy", "-m", "stde.pegen.v2.grammar_parser", f"--config-file={TEMP_FILE}"] + args.args,
                           stdout=wf, stderr=sys.stderr, env={"MYPY_FORCE_COLOR": "1"})
                 nerrors = 0
                 nfilterederrors = 0
@@ -122,7 +122,7 @@ def main(args):
             #CompletedProcess(proc.args, proc.returncode, None, None).check_returncode()
         if args.action & Action.THIRD:
             print_header(f"== Third run: just grammar_parser_v2.py, not filtering likely false-positives")
-            run(["mypy", "-m", "stde.pegen.grammar_parser_v2"] + args.args,
+            run(["mypy", "-m", "stde.pegen.v2.grammar_parser"] + args.args,
                 stdout=sys.stdout, stderr=sys.stderr)
         if args.action & Action.SECOND:
             print_header("Use --third-only to run mypy on grammar_parser_v2.py without filtering")

@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 from importlib.util import spec_from_file_location, module_from_spec
 from typing import Any
-from stde.pegen.build_v2 import generate_code_from_file, load_grammar_from_file
-from stde.pegen.utils2 import PathLike
+from stde.pegen.v2.build import generate_code_from_file, load_grammar_from_file
+from stde.pegen.utils import PathLike
 
 GRAMMAR_PATH = Path(__file__) / "../../../../data/python_v2.gram"
 SOURCE_PATH = Path(__file__) / "../parser_cache/py_parser.py"

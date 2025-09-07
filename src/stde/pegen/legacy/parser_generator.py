@@ -4,7 +4,7 @@ from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Set, TextIO
 from io import TextIOBase
 
 from stde.pegen import sccutils
-from stde.pegen.grammar import (
+from stde.pegen.legacy.grammar import (
     Alt,
     Cut,
     ExternDecl,

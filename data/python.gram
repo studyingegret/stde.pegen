@@ -13,7 +13,7 @@ from typing import (
     Any, Callable, Iterator, List, Literal, NoReturn, Sequence, Tuple, TypeVar, Union, TextIO
 )
 
-from stde.pegen.tokenizer import Tokenizer
+from stde.pegen.legacy.tokenizer import Tokenizer
 
 # Singleton ast nodes, created once for efficiency
 Load = ast.Load()

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3.8
+
 # TODO: Port to v2
 
 import argparse
 import pprint
 import sys
-from typing import Dict, NamedTuple, Set, Union
+from typing import Dict, Set, Union
 
-from stde.pegen.build import load_grammar_from_file
-from stde.pegen.parser_generator import compute_nullables
-from stde.pegen.grammar import (
+from stde.pegen.legacy.build import load_grammar_from_file
+from stde.pegen.legacy.parser_generator import compute_nullables
+from stde.pegen.legacy.grammar import (
     Alt,
     Cut,
     ExternDecl,
@@ -24,7 +25,6 @@ from stde.pegen.grammar import (
     Repeat1,
     Rhs,
     Rule,
-    GrammarItem,
     StringLeaf,
 )
 

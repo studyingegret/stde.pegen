@@ -1,7 +1,7 @@
 import pytest
 from textwrap import dedent
-from stde.pegen.build_v2 import generate_parser_from_grammar
-from stde.pegen.parser_v2 import FAILURE
+from stde.pegen.v2.build import generate_parser_from_grammar
+from stde.pegen.v2.parser import FAILURE
 
 def test_1() -> None:
     grammar = dedent('''

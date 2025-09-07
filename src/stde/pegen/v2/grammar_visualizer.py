@@ -2,8 +2,8 @@ import argparse
 import sys
 from typing import Any, Callable, Iterator, List, Tuple
 
-from stde.pegen.build_v2 import load_grammar_from_file
-from stde.pegen.grammar_v2 import Grammar, Rule
+from stde.pegen.v2.build import load_grammar_from_file
+from stde.pegen.v2.grammar import Grammar, Rule
 
 argparser = argparse.ArgumentParser(
     prog="stde.pegen", description="Pretty print the AST for a given PEG grammar" #TODO

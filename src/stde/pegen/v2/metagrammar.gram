@@ -1,5 +1,5 @@
 @header '''\
-#from stde.pegen.parser_v2_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
+#from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
 from typing import List, Union
 import token
@@ -8,7 +8,7 @@ from tokenize import TokenInfo
 
 FAILURE = ResultFlag.FAILURE
 
-from stde.pegen.grammar_v2 import (
+from stde.pegen.v2.grammar import (
     Alt,
     #Action,
     GrammarItem,

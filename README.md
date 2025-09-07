@@ -58,7 +58,7 @@ python parser.py <file-with-code-to-parse>
 
 ### As a library
 ```python
-from stde.pegen.build_v2 import generate_parser_from_file
+from stde.pegen.v2.build import generate_parser_from_file
 parser_class = generate_parser_from_file("data/expr.gram")
 parser = parser_class.from_text("1 + 2")
 print(parser.start())

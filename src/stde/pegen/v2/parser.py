@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 from typing import (TYPE_CHECKING, Any, Callable, ClassVar, Dict, Final, Generic, List, Literal, NamedTuple, Never, Optional,
                     Self, TextIO, Tuple, Type, TypeAlias, TypeVar, Union, cast, Protocol, overload)
 
-from stde.pegen.tokenizer import Tokenizer
-from stde.pegen.tokenizer import exact_token_types
+from stde.pegen.legacy.tokenizer import Tokenizer
+from stde.pegen.legacy.tokenizer import exact_token_types
 
 """
 [TODO] Move this doc

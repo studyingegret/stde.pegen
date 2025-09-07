@@ -11,8 +11,8 @@ from pathlib import PurePath
 from typing import Any, List, Optional
 
 sys.path.insert(0, os.getcwd())
-from stde.pegen.build import load_grammar_from_file
-from stde.pegen.utils import generate_parser, print_memstats
+from stde.pegen.legacy.build import load_grammar_from_file
+from stde.pegen.legacy.utils import generate_parser, print_memstats
 
 from scripts import show_parse
 
@@ -172,7 +172,7 @@ def parse_directory(
     try:
         import tokenize
 
-        from stde.pegen.tokenizer import Tokenizer
+        from stde.pegen.legacy.tokenizer import Tokenizer
 
         def parse(filepath):
             with open(filepath) as f:

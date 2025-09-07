@@ -7,13 +7,13 @@ import token
 from tokenize import NAME, NEWLINE, NUMBER, OP, TokenInfo
 from typing import Any, Dict, Type, cast
 
-from stde.pegen.parser_generator_v2 import mark_left_recursives, mark_nullables
+from stde.pegen.v2.parser_generator import mark_left_recursives, mark_nullables
 import pytest
-from stde.pegen.build_v2 import generate_parser_from_grammar, generate_parser_from_grammar, load_grammar_from_string
-from stde.pegen.grammar_v2 import Grammar, ValidationError
-from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
-from stde.pegen.parser_v2 import FAILURE, NO_MATCH, BaseParser, DefaultParser
-from stde.pegen.python_generator_v2 import PythonParserGenerator
+from stde.pegen.v2.build import generate_parser_from_grammar, generate_parser_from_grammar, load_grammar_from_string
+from stde.pegen.v2.grammar import Grammar, ValidationError
+from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.v2.parser import FAILURE, NO_MATCH, BaseParser, DefaultParser
+from stde.pegen.v2.python_generator import PythonParserGenerator
 
 
 def test_parse_grammar() -> None:

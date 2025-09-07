@@ -2,14 +2,14 @@ import sys
 import token
 import traceback
 
-from stde.pegen.parser_v2 import FAILURE
+from stde.pegen.v2.parser import FAILURE
 import pytest
-from stde.pegen.build_v2 import load_grammar_from_string, generate_parser_from_grammar
+from stde.pegen.v2.build import load_grammar_from_string, generate_parser_from_grammar
 from textwrap import dedent
 from tokenize import TokenInfo
 
 def test_simple() -> None:
-    from stde.pegen.build_v2 import generate_parser_from_grammar
+    from stde.pegen.v2.build import generate_parser_from_grammar
     grammar = dedent('''
     start: NUMBER "+" NUMBER NEWLINE $
     ''')
@@ -27,7 +27,7 @@ def test_simple() -> None:
     assert int(res[0].string) + int(res[2].string) == 3 #type:ignore[index]
 
 def test_simple_error() -> None:
-    from stde.pegen.build_v2 import generate_parser_from_grammar
+    from stde.pegen.v2.build import generate_parser_from_grammar
     grammar = dedent('''
     start: NUMBER "+" NUMBER NEWLINE $
     ''')

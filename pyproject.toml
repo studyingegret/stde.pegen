@@ -70,7 +70,7 @@ explicit_package_bases = true
 namespace_packages = true
 mypy_path = ["src"]
 # Note: Also remember to update NEW_EXCLUDE in run_mypy.py
-exclude = 'tests/(v2/)?python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/parser_v2_old\.py|src/stde/pegen/grammar_parser_v2\.py'
+exclude = 'build/.*|tests/(v2/)?python_parser/(data|parser_cache)/.*|tests/legacy/demo\.py|src/stde/pegen/v2/parser_old\.py|src/stde/pegen/v2/grammar_parser\.py'
 
 #follow_imports = "error" #?
 follow_imports = "normal"
@@ -103,12 +103,12 @@ module = ["stde.pegen", "scripts"]
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["stde.pegen.grammar_parser"]
+module = ["stde.pegen.legacy.grammar_parser"]
 strict_optional = false
 
 [[tool.mypy.overrides]]
-module = ["stde.pegen.grammar_parser_v2"]
-# Ignores any errors within stde.pegen.grammar_parser_v2.
+module = ["stde.pegen.v2.grammar_parser"]
+# Ignores any errors within stde.pegen.v2.grammar_parser.
 # There is special handling in run_mypy.py.
 follow_imports = "silent"
 

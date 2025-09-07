@@ -25,8 +25,8 @@ from typing import Any, List
 
 sys.path.insert(0, ".")
 
-from stde.pegen.build import load_grammar_from_file
-from stde.pegen.grammar import (
+from stde.pegen.legacy.build import load_grammar_from_file
+from stde.pegen.legacy.grammar import (
     Alt,
     Cut,
     Forced,

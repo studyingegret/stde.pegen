@@ -10,15 +10,12 @@ import sys
 import time
 import token
 import traceback
-from typing import Any, Union
-
-from stde.pegen.validator_v2 import validate_grammar_v2
-
-#TODO: Clean types
-from stde.pegen.build import generate_code_from_file, CodeFromFileProducts
-from stde.pegen.build_v2 import (generate_code_from_file as generate_code_from_file_v2,
-                            CodeFromFileProducts as CodeFromFileProductsV2)
-from stde.pegen.validator import validate_grammar
+from typing import Any
+from stde.pegen.legacy.build import generate_code_from_file, CodeFromFileProducts
+from stde.pegen.v2.build import (generate_code_from_file as generate_code_from_file_v2,
+                                 CodeFromFileProducts as CodeFromFileProductsV2)
+from stde.pegen.legacy.validator import validate_grammar
+from stde.pegen.v2.validator import validate_grammar as validate_grammar_v2
 
 
 def generate_python_code(

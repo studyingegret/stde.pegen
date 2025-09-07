@@ -1,9 +1,9 @@
 import pytest
 from textwrap import dedent
-from stde.pegen.grammar_v2 import Grammar
-from stde.pegen.grammar_parser_v2 import GeneratedParser as GrammarParser
-from stde.pegen.parser_v2 import FAILURE
-from stde.pegen.validator_v2 import SubRuleValidator, ValidationError
+from stde.pegen.v2.grammar import Grammar
+from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.validator import SubRuleValidator, ValidationError
 
 
 def test_rule_with_no_collision() -> None:

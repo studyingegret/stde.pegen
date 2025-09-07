@@ -39,14 +39,14 @@ import tokenize, io
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO, Tuple, Type, Union, Protocol, cast
 
 from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
-from stde.pegen.grammar import Grammar
-from stde.pegen.parser import Parser
-from stde.pegen.tokenizer import Tokenizer
-from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.parser_generator import ParserGenerator
-from stde.pegen.python_generator import PythonParserGenerator
-from stde.pegen.tokenizer import Tokenizer
-from stde.pegen.utils2 import open_file, File
+from stde.pegen.legacy.grammar import Grammar
+from stde.pegen.legacy.parser import Parser
+from stde.pegen.legacy.tokenizer import Tokenizer
+from stde.pegen.legacy.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.legacy.parser_generator import ParserGenerator
+from stde.pegen.legacy.python_generator import PythonParserGenerator
+from stde.pegen.legacy.tokenizer import Tokenizer
+from stde.pegen.utils import open_file, File
 
 __all__ = ["Grammar", "Parser", "Tokenizer", "GrammarParser", "ParserGenerator",
            "PythonParserGenerator", "Flags",

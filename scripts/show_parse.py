@@ -88,7 +88,7 @@ def main() -> None:
     program = sep.join(args.program)
     if args.grammar_file:
         sys.path.insert(0, os.curdir)
-        from stde.pegen.build import build_c_parser_and_generator #type:ignore[attr-defined]
+        from stde.pegen.legacy.build import build_c_parser_and_generator #type:ignore[attr-defined]
 
         build_c_parser_and_generator(
             args.grammar_file, "data/Tokens", "stde.pegen/parse.c", compile_extension=True

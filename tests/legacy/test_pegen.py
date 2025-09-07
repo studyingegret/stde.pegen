@@ -8,12 +8,12 @@ from tokenize import NAME, NEWLINE, NUMBER, OP, TokenInfo
 from typing import Any, Dict, Type, cast
 
 import pytest
-from stde.pegen.build import generate_parser_from_grammar, generate_code_from_grammar, load_grammar_from_string
-from stde.pegen.grammar import Grammar, ValidationError
-from stde.pegen.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.parser import Parser
-from stde.pegen.python_generator import PythonParserGenerator
-from stde.pegen.utils import generate_parser, generate_parser_from_string, parse_string, parse_string2
+from stde.pegen.legacy.build import generate_parser_from_grammar, generate_code_from_grammar, load_grammar_from_string
+from stde.pegen.legacy.grammar import Grammar, ValidationError
+from stde.pegen.legacy.grammar_parser import GeneratedParser as GrammarParser
+from stde.pegen.legacy.parser import Parser
+from stde.pegen.legacy.python_generator import PythonParserGenerator
+from stde.pegen.legacy.utils import generate_parser, generate_parser_from_string, parse_string, parse_string2
 
 
 def test_parse_grammar() -> None:

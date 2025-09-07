@@ -4,8 +4,8 @@ import token
 from typing import Any, Dict, List, Optional, Sequence, Set, Text, TextIO, Tuple, cast
 from io import TextIOBase
 
-from stde.pegen import grammar
-from stde.pegen.grammar import (
+from stde.pegen.legacy import grammar
+from stde.pegen.legacy.grammar import (
     Alt,
     Cut,
     Forced,
@@ -24,7 +24,7 @@ from stde.pegen.grammar import (
     Rule,
     StringLeaf,
 )
-from stde.pegen.parser_generator import ParserGenerator
+from stde.pegen.legacy.parser_generator import ParserGenerator
 
 MODULE_PREFIX = """\
 #!/usr/bin/env python3.8
@@ -36,13 +36,13 @@ import tokenize
 
 from typing import Any, Optional
 
-from stde.pegen.parser import memoize, memoize_left_rec, logger, Parser
+from stde.pegen.legacy.parser import memoize, memoize_left_rec, logger, Parser
 
 """
 MODULE_SUFFIX = """
 
 if __name__ == '__main__':
-    from stde.pegen.parser import simple_parser_main
+    from stde.pegen.legacy.parser import simple_parser_main
     simple_parser_main({class_name})
 """
 

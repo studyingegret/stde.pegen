@@ -28,7 +28,7 @@ It means, to match the input:
 
 Now we can generate a parser class from the grammar's logic::
 
-    from stde.pegen.build_v2 import generate_parser_from_grammar
+    from stde.pegen.v2.build import generate_parser_from_grammar
 
     grammar = '''
     start: NUMBER "+" NUMBER NEWLINE $
@@ -99,7 +99,7 @@ The syntax error's file name is ``<unknown>`` because the parser doesn't know
 where the input comes from. But if you know, you can ask it
 to put it in the error::
 
-    from stde.pegen.build_v2 import generate_parser_from_grammar
+    from stde.pegen.v2.build import generate_parser_from_grammar
 
     grammar = '''
     start: NUMBER "+" NUMBER NEWLINE $
@@ -408,7 +408,7 @@ the ``generate_parser_from_file`` convenience function:
 
 ::
 
-    from stde.pegen.build_v2 import generate_parser_from_file
+    from stde.pegen.v2.build import generate_parser_from_file
 
     grammar = generate_parser_from_file("grammar.txt").parser_class
 
@@ -417,7 +417,7 @@ See the generated code
 
 ::
 
-    from stde.pegen.build_v2 import generate_parser_from_file
+    from stde.pegen.v2.build import generate_parser_from_file
 
     # This isn't mentioned above, but the return value contains all intermediate products
     # produced when generating the parser class
@@ -548,7 +548,7 @@ if you want to use the generated code as a command line program [TODO: link].
 The default value is::
 
     if __name__ == '__main__':
-        from stde.pegen.parser_v2 import simple_parser_main
+        from stde.pegen.v2.parser import simple_parser_main
         simple_parser_main(GeneratedParser)
 
 .. note::
