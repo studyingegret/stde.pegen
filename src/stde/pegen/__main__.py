@@ -5,6 +5,10 @@
 Search the web for PEG Parsers for reference.
 """
 
+"""
+
+"""
+
 import argparse
 import sys
 import time
@@ -21,53 +25,47 @@ from stde.pegen.v2.validator import validate_grammar as validate_grammar_v2
 def generate_python_code(
     args: argparse.Namespace,
 ) -> CodeFromFileProducts:
-    verbose: int = args.verbose
-    verbose_tokenizer = verbose >= 3
-    verbose_parser = verbose == 2 or verbose >= 4
     try:
         return generate_code_from_file(
             args.grammar_file,
             args.output,
-            sys.stdout if verbose_tokenizer else None,
-            sys.stdout if verbose_parser else None,
+            sys.stdout if args.verbose_tokenization else None,
+            sys.stdout if args.verbose_parsing else None,
             skip_actions=args.skip_actions,
         )
     except Exception as err:
-        if args.verbose:
-            raise  # Show traceback
         traceback.print_exception(err.__class__, err, None)
-        sys.stderr.write("For full traceback, use -v\n")
-        sys.exit(1)
+        raise  # Show traceback
 
 
 def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProductsV2:
-    verbose: int = args.verbose
-    verbose_tokenizer = verbose >= 3
-    verbose_parser = verbose == 2 or verbose >= 4
     try:
         return generate_code_from_file_v2(
             args.grammar_file,
             args.output,
-            sys.stdout if verbose_tokenizer else None,
-            sys.stdout if verbose_parser else None,
+            sys.stdout if args.verbose_tokenization else None,
+            sys.stdout if args.verbose_parsing else None,
             skip_actions=args.skip_actions,
         )
     except Exception as err:
-        if args.verbose:
-            raise  # Show traceback
         traceback.print_exception(err.__class__, err, None)
-        sys.stderr.write("For full traceback, use -v\n")
-        sys.exit(1)
+        raise  # Show traceback
 
 
 argparser = argparse.ArgumentParser(
     prog="stde.pegen",
     description="Experimental PEG-like parser generator")
-argparser.add_argument("-q", "--quiet", action="store_true", help="Don't print the parsed grammar")
-argparser.add_argument("-v2", "--v2", action="store_true", help="Use v2 mode")
+argparser.add_argument("-v2", action="store_true",
+                       help="Use v2 mode")
 argparser.add_argument("-v", "--verbose", action="count", default=0,
-                       help="Print timing stats; repeat for more debug output")
-argparser.add_argument("grammar_file", type=argparse.FileType("r"), help="Grammar description")
+                       help="Show more information. When provided once, show cleaned grammar."
+                            "When provided twice, shwo timing stats and more.")
+argparser.add_argument("--verbose-tokenization", action="store_true",
+                       help="Show debug output of tokenization of grammar source")
+argparser.add_argument("--verbose-parsing", action="store_true",
+                       help="Show debug output of parsing of grammar source")
+argparser.add_argument("grammar_file", type=argparse.FileType("r"),
+                       help="Grammar description")
 argparser.add_argument("-o", "--output", metavar="OUT", default="parse.py",
                        help="Where to write the generated parser")
 argparser.add_argument("--skip-actions", action="store_true",
@@ -89,17 +87,17 @@ def main() -> None:
         t1 = time.time()
         validate_grammar_v2(products.grammar)
 
-    if not args.quiet:
-        if args.verbose:
-            print("Raw Grammar:")
-            for line in repr(products.grammar).splitlines():
-                print(" ", line)
+    if args.verbose > 1:
+        print("Raw Grammar:")
+        for line in repr(products.grammar).splitlines():
+            print(" ", line)
 
+    if args.verbose:
         print("Clean Grammar:")
         for line in str(products.grammar).splitlines():
             print(" ", line)
 
-    if args.verbose:
+    if args.verbose > 1:
         print("First Graph:")
         for src, dsts in products.parser_code_generator.first_graph.items():
             print(f"  {src} -> {', '.join(dsts)}")
@@ -118,7 +116,6 @@ def main() -> None:
                 else:
                     print()
 
-    if args.verbose:
         dt = t1 - t0
         diag = products.grammar_tokenizer.diagnose()
         nlines = diag.end[0]

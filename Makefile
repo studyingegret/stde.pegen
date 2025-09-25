@@ -7,13 +7,13 @@ ROOT = src/stde/pegen
 	default \
 	legacy-grammar-parser \
 	v2-grammar-parser \
-	v2-grammar-parser-vv \
+	v2-grammar-parser-verbose \
 	editable-install \
 	test \
 	test-legacy \
 	test-v2 \
 	test-v2-vv \
-	test-with-cov \
+	testcov \
 	tox-lint \
 	lint \
 	test-and-mypy \
@@ -44,13 +44,13 @@ help:
 # Modern tasks from Makefile3
 
 legacy-grammar-parser: $(ROOT)/* $(ROOT)/legacy/*
-	$(PYTHON) -m stde.pegen $(ROOT)/legacy/metagrammar.gram -o $(ROOT)/legacy/grammar_parser.py -v
+	python scripts/generate_parser.py legacy
 
 v2-grammar-parser: $(ROOT)/* $(ROOT)/v2/*
-	$(PYTHON) -m stde.pegen $(ROOT)/v2/metagrammar.gram -v2 -o $(ROOT)/v2/grammar_parser.py -v
+	python scripts/generate_parser.py v2
 
-v2-grammar-parser-vv: $(ROOT)/* $(ROOT)/v2/*
-	$(PYTHON) -m stde.pegen $(ROOT)/v2/metagrammar.gram -v2 -o $(ROOT)/v2/grammar_parser.py -vv
+v2-grammar-parser-verbose: $(ROOT)/* $(ROOT)/v2/*
+	python scripts/generate_parser.py v2 -v
 
 editably-install:
 	pip install -e . -C editable_mode=strict
@@ -64,10 +64,10 @@ test-legacy: legacy-grammar-parser
 test-v2: v2-grammar-parser
 	$(PYTHON) -m pytest tests -k v2
 
-test-v2-vv: v2-grammar-parser-vv
+test-v2-vv: v2-grammar-parser-verbose
 	$(PYTHON) -m pytest tests -k v2 -vv
 
-test-with-cov: legacy-grammar-parser v2-grammar-parser
+testcov: legacy-grammar-parser v2-grammar-parser
 	$(PYTHON) -m pytest \
 		--color=yes \
 		--cov=$(shell python -c "import stde.pegen, os; print(os.path.dirname(stde.pegen.__file__))") \
@@ -77,11 +77,12 @@ test-with-cov: legacy-grammar-parser v2-grammar-parser
 		$(PYTEST_ARGS) \
 		tests
 
-black:
-	$(PYTHON) -m black --check src tests
-
-flake8:
-	$(PYTHON) -m flake8 src tests
+# Currently unused
+#black:
+#	$(PYTHON) -m black --check src tests
+#
+#flake8:
+#	$(PYTHON) -m flake8 src tests
 
 mypy:
 	$(PYTHON) run_mypy.py
@@ -95,7 +96,8 @@ test-v2-and-mypy: test-v2 mypy
 
 lint: black flake8 mypy
 
-# Legacy tasks, might be cleaned in the future
+# Legacy tasks
+# They are currently unused, might be used or removed in the future
 
 legacy-tox-lint:
 	$(PYTHON) -m tox -e lint

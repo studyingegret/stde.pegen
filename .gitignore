@@ -144,3 +144,7 @@ tests/v2/python_parser/parser_cache/py_parser.py
 
 # run_mypy.py temp file
 _run_mypy_temp.toml
+
+# Grammar parser backup during generation
+src/stde/pegen/legacy/grammar_parser.py.bak
+src/stde/pegen/v2/grammar_parser.py.bak

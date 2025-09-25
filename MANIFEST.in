@@ -1,0 +1,4 @@
+# https://setuptools.pypa.io/en/latest/userguide/miscellaneous.html
+# https://github.com/pypa/setuptools/issues/5089
+graft src
+exclude src/stde/__init__.pyi src/stde/pegen/*/grammar_parser.py.bak

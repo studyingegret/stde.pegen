@@ -1,0 +1,379 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate legacy grammar parser",
+            "type": "shell",
+            "command": "source .venv/bin/activate && python scripts/generate_parser.py legacy",
+            "windows": { "command": ".venv\\Scripts\\activate && python scripts/generate_parser.py legacy" },
+            "problemMatcher": [
+                "$python"
+            ],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "Generate v2 grammar parser",
+            "type": "shell",
+            "command": "source .venv/bin/activate && python scripts/generate_parser.py v2",
+            "windows": { "command": ".venv\\Scripts\\activate && python scripts/generate_parser.py v2" },
+            "problemMatcher": [
+                "$python"
+            ],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "Generate v2 grammar parser (verbose)",
+            "type": "shell",
+            "command": "source .venv/bin/activate && python scripts/generate_parser.py v2 -v",
+            "windows": { "command": ".venv\\Scripts\\activate && python scripts/generate_parser.py v2 -v" },
+            "problemMatcher": [
+                "$python"
+            ],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "Refresh editable install",
+            "type": "shell",
+            "command": "source .venv/bin/activate && pip install -e . -C editable_mode=strict",
+            "windows": { "command": ".venv\\Scripts\\activate && pip install -e . -C editable_mode=strict" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "Test",
+            "type": "shell",
+            "dependsOn": [
+                "Generate grammar_parser.py",
+                "Generate grammar_parser_v2.py"
+            ],
+            "dependsOrder": "parallel",
+            "command": "source .venv/bin/activate && python -m pytest tests",
+            "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Test legacy",
+            "type": "shell",
+            "dependsOn": [
+                "Generate grammar_parser.py"
+            ],
+            "command": "source .venv/bin/activate && python -m pytest tests -vv",
+            "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests -vv" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Test v2",
+            "type": "shell",
+            "dependsOn": [
+                "Generate grammar_parser_v2.py"
+            ],
+            "command": "source .venv/bin/activate && python -m pytest tests -k v2",
+            "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests -k v2" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Test v2 (-vv)",
+            "type": "shell",
+            "dependsOn": [
+                "Generate grammar_parser_v2.py"
+            ],
+            "command": "source .venv/bin/activate && python -m pytest tests -k v2 -vv",
+            "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests -k v2 -vv" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Test with coverage report",
+            "type": "shell",
+            "dependsOn": [
+                "Generate grammar_parser.py",
+                "Generate grammar_parser_v2.py"
+            ],
+            "dependsOrder": "parallel",
+            "command": "source .venv/bin/activate && make testcov",
+            "windows": { "command": ".venv\\Scripts\\activate && make testcov" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Lint mypy",
+            "type": "shell",
+            "command": ".venv/bin/activate && python run_mypy.py",
+            "windows": {
+                "command": ".venv\\Scripts\\activate && python run_mypy.py"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "mypy",
+                    "source": "mypy",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "pattern": {
+                        "regexp": "^([^:]+):(\\d+):(\\d+):(\\d+):(\\d+): (\\w+): (.+?)(?:\\s*\\[([\\w-]+)\\])?\\s*$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "endLine": 4,
+                        "endColumn": 5,
+                        "severity": 6,
+                        "message": 7,
+                        "code": 8
+                    }
+                }
+            ],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Lint mypy (not filtering likely false-positives in grammar_parser_v2.py)",
+            "type": "shell",
+            "command": ".venv/bin/activate && python run_mypy.py --third-only",
+            "windows": {
+                "command": ".venv\\Scripts\\activate && python run_mypy.py --third-only"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "mypy",
+                    "source": "mypy",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "pattern": {
+                        "regexp": "^([^:]+):(\\d+):(\\d+):(\\d+):(\\d+): (\\w+): (.+?)(?:\\s*\\[([\\w-]+)\\])?\\s*$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "endLine": 4,
+                        "endColumn": 5,
+                        "severity": 6,
+                        "message": 7,
+                        "code": 8
+                    }
+                }
+            ],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Test and lint mypy",
+            "type": "shell",
+            "dependsOn": [
+                "Test",
+                "Lint mypy"
+            ],
+            "dependsOrder": "parallel",
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "never",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": {"kind": "test", "isDefault": true}
+        },
+        {
+            "label": "Test v2 and lint mypy",
+            "type": "shell",
+            "dependsOn": [
+                "Test v2 only",
+                "Lint mypy"
+            ],
+            "dependsOrder": "parallel",
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "never",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        {
+            "label": "Lint all (black, flake8, mypy)",
+            "type": "shell",
+            "dependsOn": [
+                "Lint black",
+                "Lint flake8",
+                "Lint mypy"
+            ],
+            "dependsOrder": "parallel",
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        },
+        //{
+        //    "label": "Lint black",
+        //    "type": "shell",
+        //    "command": "source .venv/bin/activate && python -c \"import black\" && python -m black --check src tests",
+        //    "windows": {
+        //        "command": ".venv\\Scripts\\activate && python -c \"import black\" && python -m black --check src tests"
+        //    },
+        //    "problemMatcher": [
+        //        "$python"
+        //    ],
+        //    "presentation": {
+        //        "panel": "dedicated",
+        //        "reveal": "always",
+        //        "revealProblems": "onProblem",
+        //        "clear": true,
+        //        "showReuseMessage": false
+        //    },
+        //    "group": "test"
+        //},
+        //{
+        //    "label": "Lint flake8",
+        //    "type": "shell",
+        //    "command": "source .venv/bin/activate && python -c \"import flake8\" && python -m flake8 src tests",
+        //    "windows": {
+        //        "command": ".venv\\Scripts\\activate && python -c \"import flake8\" && python -m flake8 src tests"
+        //    },
+        //    "problemMatcher": [
+        //        "$python"
+        //    ],
+        //    "presentation": {
+        //        "panel": "dedicated",
+        //        "reveal": "always",
+        //        "revealProblems": "onProblem",
+        //        "clear": true,
+        //        "showReuseMessage": false
+        //    },
+        //    "group": "test"
+        //},
+        {
+            "label": "Build docs",
+            "type": "shell",
+            "command": "source .venv/bin/activate && make -C docs",
+            "windows": { "command": ".venv\\Scripts\\activate && make -C docs" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "Build docs (force build all)",
+            "type": "shell",
+            "command": "source .venv/bin/activate && make -C docs --always-make",
+            "windows": { "command": ".venv\\Scripts\\activate && make -C docs --always-make" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "Open docs",
+            "type": "shell",
+            "command": "source .venv/bin/activate && make -C docs open",
+            "windows": { "command": ".venv\\Scripts\\activate && make -C docs open" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "tox lint task",
+            "type": "shell",
+            "command": ".venv/bin/activate && python -m tox -e lint",
+            "windows": { "command": ".venv\\Scripts\\activate && python -m tox -e lint" },
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "revealProblems": "onProblem",
+                "clear": true,
+                "showReuseMessage": false
+            },
+            "group": "test"
+        }
+    ]
+}
