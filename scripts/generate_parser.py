@@ -54,11 +54,13 @@ def main(args):
     if args.version == "legacy":
         metagrammar = LEGACY_METAGRAMMAR
         output = LEGACY_OUTPUT
-        version_flag = None
-    else:
+        version_flag = "--legacy"
+    elif args.version == "v2":
         metagrammar = V2_METAGRAMMAR
         output = V2_OUTPUT
-        version_flag = "-v2"
+        version_flag = "--v2"
+    else:
+        assert False, args.version
     if not os.path.exists(metagrammar):
         print(f"Error: Metagrammar file not found at {metagrammar}")
         return 1

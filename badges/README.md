@@ -1,0 +1,1 @@
+Save SVG badges here to reduce Shields.io workload. They'll also be more accessible in case of slow network.

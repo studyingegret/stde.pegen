@@ -70,8 +70,8 @@
             "label": "Test",
             "type": "shell",
             "dependsOn": [
-                "Generate grammar_parser.py",
-                "Generate grammar_parser_v2.py"
+                "Generate legacy grammar parser",
+                "Generate v2 grammar parser"
             ],
             "dependsOrder": "parallel",
             "command": "source .venv/bin/activate && python -m pytest tests",
@@ -89,7 +89,7 @@
             "label": "Test legacy",
             "type": "shell",
             "dependsOn": [
-                "Generate grammar_parser.py"
+                "Generate legacy grammar parser"
             ],
             "command": "source .venv/bin/activate && python -m pytest tests -vv",
             "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests -vv" },
@@ -106,7 +106,7 @@
             "label": "Test v2",
             "type": "shell",
             "dependsOn": [
-                "Generate grammar_parser_v2.py"
+                "Generate v2 grammar parser"
             ],
             "command": "source .venv/bin/activate && python -m pytest tests -k v2",
             "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests -k v2" },
@@ -123,7 +123,7 @@
             "label": "Test v2 (-vv)",
             "type": "shell",
             "dependsOn": [
-                "Generate grammar_parser_v2.py"
+                "Generate v2 grammar parser"
             ],
             "command": "source .venv/bin/activate && python -m pytest tests -k v2 -vv",
             "windows": { "command": ".venv\\Scripts\\activate && python -m pytest tests -k v2 -vv" },
@@ -140,8 +140,8 @@
             "label": "Test with coverage report",
             "type": "shell",
             "dependsOn": [
-                "Generate grammar_parser.py",
-                "Generate grammar_parser_v2.py"
+                "Generate legacy grammar parser",
+                "Generate v2 grammar parser"
             ],
             "dependsOrder": "parallel",
             "command": "source .venv/bin/activate && make testcov",

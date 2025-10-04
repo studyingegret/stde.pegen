@@ -250,6 +250,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             # used in metagrammar to support Python 3.12 f-strings; don't exist in 3.11
             "FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END"
         ])
+        #if "legacy" not in grammar.metas.get("require", ""):
+        #    raise ValueError('Using legacy mode require "@require legacy"')
         super().__init__(grammar, tokens)
         self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self) #pyright:ignore
         self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()

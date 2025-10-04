@@ -52,40 +52,46 @@ def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProductsV2:
         raise  # Show traceback
 
 
-argparser = argparse.ArgumentParser(
+p = argparse.ArgumentParser(
     prog="stde.pegen",
     description="Experimental PEG-like parser generator")
-argparser.add_argument("-v2", action="store_true",
-                       help="Use v2 mode")
-argparser.add_argument("-v", "--verbose", action="count", default=0,
-                       help="Show more information. When provided once, show cleaned grammar."
-                            "When provided twice, shwo timing stats and more.")
-argparser.add_argument("--verbose-tokenization", action="store_true",
-                       help="Show debug output of tokenization of grammar source")
-argparser.add_argument("--verbose-parsing", action="store_true",
-                       help="Show debug output of parsing of grammar source")
-argparser.add_argument("grammar_file", type=argparse.FileType("r"),
-                       help="Grammar description")
-argparser.add_argument("-o", "--output", metavar="OUT", default="parse.py",
-                       help="Where to write the generated parser")
-argparser.add_argument("--skip-actions", action="store_true",
-                       help="Suppress code emission for rule actions")
+p.set_defaults(mode="v2")
+g = p.add_mutually_exclusive_group()
+g.add_argument("--legacy", action="store_const", dest="mode", const="legacy",
+               help="Use legacy mode")
+g.add_argument("--v2", action="store_const", dest="mode", const="v2",
+               help="Use v2 mode (default)")
+p.add_argument("-v", "--verbose", action="count", default=0,
+               help="Show more information. When provided once, show cleaned grammar."
+                    "When provided twice, shwo timing stats and more.")
+p.add_argument("--verbose-tokenization", action="store_true",
+               help="Show debug output of tokenization of grammar source")
+p.add_argument("--verbose-parsing", action="store_true",
+               help="Show debug output of parsing of grammar source")
+p.add_argument("grammar_file", type=argparse.FileType("r"),
+               help="Grammar description")
+p.add_argument("-o", "--output", metavar="OUT", default="parse.py",
+               help="Where to write the generated parser")
+p.add_argument("--skip-actions", action="store_true",
+               help="Suppress code emission for rule actions")
 
 
 def main() -> None:
-    args = argparser.parse_args()
+    args = p.parse_args()
 
     products: Any
-    if args.v2:
+    if args.mode == "v2":
         t0 = time.time()
         products = generate_python_code_v2(args)
         t1 = time.time()
         validate_grammar(products.grammar)
-    else:
+    elif args.mode == "legacy":
         t0 = time.time()
         products = generate_python_code(args)
         t1 = time.time()
         validate_grammar_v2(products.grammar)
+    else:
+        assert False, args.mode
 
     if args.verbose > 1:
         print("Raw Grammar:")

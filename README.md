@@ -1,34 +1,32 @@
-<p style="width: 100%">
-<img src="https://github.com/we-like-parsers/pegen/raw/main/media/logo.svg" style="display: block; margin: 0 auto; width: 70%">
-</p>
+stde.pegen
+==========
 
------------------------------------
+[![mypy](badges/mypy-grey.svg)](https://www.mypy-lang.org)
+[![pytest](badges/pytest-grey.svg)](https://pytest.org)
 
-[![Downloads](https://pepy.tech/badge/pegen/month)](https://pepy.tech/project/pegen)
-[![PyPI version](https://badge.fury.io/py/pegen.svg)](https://badge.fury.io/py/pegen)
-![CI](https://github.com/we-like-parsers/pegen/actions/workflows/test.yml/badge.svg)
+A PEG parser generator based on the code of [Pegen](https://github.com/we-like-parsers/pegen).
 
-What is this?
--------------
-[This README is outdated]
+The "stde." in the name is from my GitHub username for namespacing only.
 
-Pegen is the parser generator used in CPython to produce the parser used by the interpreter. It allows to
-produce PEG parsers from a description of a formal Grammar.
+This project started as a PR for Pegen but ended up changing so much that I
+decided to make it a fork. The library is usable, but some project files
+(tutorial, reference, README, etc.) are outdated and incomplete.
 
-### About this fork
-Pegen's logic is tied to the way Python is parsed. This fork tries to decouple
-Pegen's logic with Python language's, as well as try some kinds of modifications.
+Currently I would appreciate contributions in the following aspects:
+- Documentation changes
+- Adding new tests, especially those that improve test coverage
 
-Incomplete list of notable changes compared to [original repo](https://github.com/we-like-parsers/pegen):
+If you have a question about using the library, please ask in the Discussions area.
+
+How this library is different from original Pegen
+-------------------------------------------------
+- Bug fixes
+- A new base parser that matches character by character without forcing tokenization,
+  compared to the default base parser that is limited to Python's tokenization
+- An interface usable via Python code
 - Implement `skip_actions` option
-- Refactor `build` module, making it more straightforward
-- [Breaking change] Rename Parser._mark → mark and Parser._reset → reset
-  <!--Commit: 7c076908935cf7980c72232d45996aa62c55327a-->
-  - Effect: Pegen parsers <u>generated</u> *before* the change
-    need an installation of Pegen *before* the change; Pegen parsers <u>generated</u> *after* the change
-    need an installation of Pegen *after* the change.
-
-Also, though it doesn't affect users, the code is heavily refactored, some of which are obviously(?) opinionated.
+- A new grammar grapher that draws more readable graphs
+- Support for rules that call arbitrary code (custom rules)
 
 Installing
 ----------
@@ -53,16 +51,28 @@ This will generate a file called `parser.py` in the current directory. This can 
 we just used:
 
 ```
-python parser.py <file-with-code-to-parse>
+python parser.py this-file.txt
 ```
 
 ### As a library
 ```python
 from stde.pegen.v2.build import generate_parser_from_file
-parser_class = generate_parser_from_file("data/expr.gram")
+parser_class = generate_parser_from_file("data/expr.gram").parser_class
 parser = parser_class.from_text("1 + 2")
 print(parser.start())
 ```
+
+Modes (legacy and v2)
+---------------------
+stde.pegen has legacy mode (`stde.pegen.legacy` package) and v2 mode
+(`stde.pegen.v2` package). The legacy mode is not maintained anymore, will probably
+never get documented, and is kept only for legacy reasons and as a reference for developing
+v2 (maybe). It *may* get removed in the future, so you should use v2 mode
+unless you know you really need to use legacy mode.
+
+Note
+----
+*Everything after this section is outdated.*
 
 Documentation
 -------------
