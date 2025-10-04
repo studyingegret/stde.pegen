@@ -30,10 +30,10 @@ How this library is different from original Pegen
 
 Installing
 ----------
-Install with `pip` or your favorite PyPI package manager.
+This library is not published to PyPI yet, so download the wheel from the Releases and install from it.
 
 ```
-pip install stde.pegen
+pip install the-wheel.whl
 ```
 
 How to generate a parser
@@ -44,14 +44,14 @@ Given a grammar file compatible with `stde.pegen` (you can write your own or sta
 Generate a parser by running:
 
 ```
-python -m stde.pegen <path-to-grammar-file> -o parser.py
+python -m stde.pegen grammar.txt -o parser.py
 ```
 
 This will generate a file called `parser.py` in the current directory. This can be used to parse code using the grammar that
 we just used:
 
 ```
-python parser.py this-file.txt
+python parser.py file-to-parse.txt
 ```
 
 ### As a library
@@ -72,7 +72,7 @@ unless you know you really need to use legacy mode.
 
 Note
 ----
-*Everything after this section is outdated.*
+*Everything below is outdated.*
 
 Documentation
 -------------
