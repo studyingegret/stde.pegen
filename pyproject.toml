@@ -47,7 +47,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 # Do not determine package version from non-version tags
 #git_describe_command = 'git describe --long --match "v[0123456789].*"'
-git_describe_command = 'git describe --abbrev=0 --match "v[0123456789].*"'
+git_describe_command = 'git describe --contains --abbrev=0 --match "v[0123456789].*"'
 
 [tool.black]
 line-length = 99
