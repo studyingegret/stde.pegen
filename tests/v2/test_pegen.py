@@ -746,3 +746,19 @@ def test_skip_actions() -> None:
     # Note: NAME returns TokenInfo
     assert (parser_class.from_text("hello").start()
             == TokenInfo(type=token.NAME, string="hello", start=(1, 0), end=(1, 5), line="hello"))
+
+def test_exec_ns() -> None:
+    grammar = dedent("""
+    @header '''
+    def it(x):
+        a.append(10)
+        return a + [x]
+    it(None)
+    '''
+    start: NAME { it(name.string) }
+    """)
+    exec_ns = {"a": []}
+    parser_class = generate_parser_from_grammar(grammar, exec_ns=exec_ns).parser_class
+    assert exec_ns["a"] == [10]
+    assert parser_class.from_text("the").start() == [10, 10, "the"]
+    assert parser_class.from_text("the").start() == [10, 10, 10, "the"]

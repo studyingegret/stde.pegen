@@ -116,7 +116,8 @@ def load_grammar_from_file(
     grammar_file: File,
     tokenizer_verbose_stream: Optional[TextIO] = None,
     parser_verbose_stream: Optional[TextIO] = None,
-    *, grammar_file_name: Optional[str] = None
+    *,
+    grammar_file_name: Optional[str] = None,
 ) -> GrammarFromFileProducts:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
@@ -141,7 +142,8 @@ def load_grammar_from_string(
     grammar_string: str,
     tokenizer_verbose_stream: Optional[TextIO] = None,
     parser_verbose_stream: Optional[TextIO] = None,
-    *, grammar_file_name: Optional[str] = None
+    *,
+    grammar_file_name: Optional[str] = None,
 ) -> GrammarFromStringProducts:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     # Note:
@@ -187,12 +189,14 @@ def generate_code_from_grammar(
 class ParserFromCodeProducts(NamedTuple):
     parser_class: Type[BaseParser]
 
-def generate_parser_from_code(parser_code: str, parser_class_name: str = "GeneratedParser",) -> ParserFromCodeProducts:
+def generate_parser_from_code(parser_code: str, parser_class_name: str = "GeneratedParser",
+                              exec_ns: Optional[dict] = None) -> ParserFromCodeProducts:
     """Warning: generate_parser_from_code evaluates Python code using exec()
     so do not pass it parser code from untrusted sources."""
-    ns: Any = {}
-    exec(parser_code, ns)
-    return ParserFromCodeProducts(ns[parser_class_name])
+    if exec_ns is None:
+        exec_ns = {}
+    exec(parser_code, exec_ns)
+    return ParserFromCodeProducts(exec_ns[parser_class_name])
 
 
 class CodeFromFileProducts(NamedTuple):
@@ -237,6 +241,7 @@ def generate_parser_from_grammar(
     tokenizer_verbose_stream: Optional[TextIO] = None,
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
+    exec_ns: Optional[dict] = None,
     *,
     grammar_file_name: Optional[str] = None,
 ) -> ParserFromGrammarProducts:
@@ -261,7 +266,8 @@ def generate_parser_from_grammar(
     # Parser code → Parser class
     return ParserFromGrammarProducts(
         generated_grammar, p.grammar_parser, p.grammar_tokenizer, p2.parser_code_generator,
-        p2.parser_code, generate_parser_from_code(p2.parser_code, parser_class_name).parser_class)
+        p2.parser_code, generate_parser_from_code(
+            p2.parser_code, parser_class_name, exec_ns).parser_class)
 
 
 class ParserFromFileProducts(NamedTuple):
@@ -276,8 +282,9 @@ def generate_parser_from_file(
     tokenizer_verbose_stream: Optional[TextIO] = None,
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
+    exec_ns: Optional[dict] = None,
     *,
-    grammar_file_name: Optional[str] = None
+    grammar_file_name: Optional[str] = None,
 ) -> ParserFromFileProducts:
     # Grammar file → Grammar
     p = load_grammar_from_file(
@@ -285,7 +292,7 @@ def generate_parser_from_file(
     # Grammar → Parser class
     p2 = generate_parser_from_grammar(
         p.grammar, tokenizer_verbose_stream, parser_verbose_stream, skip_actions,
-        grammar_file_name=grammar_file_name)
+        exec_ns, grammar_file_name=grammar_file_name)
     return ParserFromFileProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
                                      p2.parser_code_generator, p2.parser_class)
 
