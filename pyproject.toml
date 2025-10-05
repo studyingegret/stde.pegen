@@ -1,7 +1,7 @@
 
 [project]
 name = "stde.pegen"
-description = "CPython's PEG parser generator"
+description = "PEG parser generator based on Pegen"
 readme = "README.md"
 requires-python = ">=3.8, <4"
 license = "MIT"

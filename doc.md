@@ -1,3 +1,4 @@
+**[This document is partly outdated]**
 
 # Quick syntax overview
 

@@ -38,9 +38,45 @@ pip install the-wheel.whl
 
 How to generate a parser
 ------------------------
-Given a grammar file compatible with `stde.pegen` (you can write your own or start with one in the [`data`](data) directory):
+
+### As a library
+```python
+from stde.pegen.v2.build import generate_parser_from_grammar
+grammar = """
+start: expr NEWLINE $ { expr }
+
+expr:
+    | a=expr2 "+" b=expr { a + b }
+    | a=expr2 "-" b=expr { a - b }
+    | expr2
+
+expr2:
+    | a=expr2 "*" b=NUMBER { a * int(b.string) }
+    | a=expr2 "/" b=NUMBER { a / int(b.string) }
+    | NUMBER { int(number.string) }
+"""
+parser_class = generate_parser_from_grammar(grammar).parser_class
+parser = parser_class.from_text("1 + 2 * 3")
+print(parser.start())  # Output: 7
+```
 
 ### Command line
+Given a grammar file compatible with `stde.pegen`, e.g. with this saved as `grammar.txt`:
+
+```
+start: expr NEWLINE $ { expr }
+
+expr:
+    | a=expr2 "+" b=expr { a + b }
+    | a=expr2 "-" b=expr { a - b }
+    | expr2
+
+expr2:
+    | a=expr2 "*" b=NUMBER { a * int(b.string) }
+    | a=expr2 "/" b=NUMBER { a / int(b.string) }
+    | NUMBER { int(number.string) }
+```
+
 Generate a parser by running:
 
 ```
@@ -54,12 +90,15 @@ we just used:
 python parser.py file-to-parse.txt
 ```
 
-### As a library
+and will print the result of parsing rule `start`.
+
+The parser code can also be imported. You typically use the parser class
+which is named `GeneratedParser` by default.
+
 ```python
-from stde.pegen.v2.build import generate_parser_from_file
-parser_class = generate_parser_from_file("data/expr.gram").parser_class
+from parser import GeneratedParser
 parser = parser_class.from_text("1 + 2")
-print(parser.start())
+print(parser.start()) # Output: 3
 ```
 
 Modes (legacy and v2)
@@ -104,9 +143,9 @@ Differences with original pegen
 Repository structure
 --------------------
 * The `src` directory contains the `stde.pegen` source (the package itself).
-* The `tests` directory contains the test suite for the `stde.pegen` package.
+* The `tests` directory contains the test suite for `stde.pegen`.
 * The `data` directory contains some example grammars compatible with `stde.pegen`. This
-  includes a [pure-Python version of the Python grammar](data/python.gram).
+  includes a pure-Python version of the Python grammar (legacy mode: `python.gram`, v2 mode: `python_v2.gram`).
 * The `docs` directory contains the documentation for the package.
 * The `scripts` directory contains some useful scripts that can be used for visualizing
   grammars, benchmarking and other usages relevant to the development of the generator itself.
