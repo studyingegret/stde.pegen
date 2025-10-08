@@ -224,7 +224,7 @@ class StringLeaf(Leaf):
 class Rhs:
     def __init__(self, alts: List[Alt]):
         self.alts = alts
-        self.memo: Optional[Tuple[Optional[str], str]] = None
+        self.memo: Optional[Tuple[Optional[str], str]] = None # XXX: Not used?
 
     def __str__(self) -> str:
         return " | ".join(str(alt) for alt in self.alts)

@@ -193,7 +193,7 @@
             "group": "test"
         },
         {
-            "label": "Lint mypy (not filtering likely false-positives in grammar_parser_v2.py)",
+            "label": "Lint mypy (not filtering likely false-positives in v2 grammar parser)",
             "type": "shell",
             "command": ".venv/bin/activate && python run_mypy.py --third-only",
             "windows": {

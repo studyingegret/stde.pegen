@@ -82,9 +82,15 @@ class Base(DefaultParser):
         self.reset(prevmark) # Don't consume the last right brace
         tokens = _normalize_linecol(tokens)
         s = tokenize.untokenize(tokens)
-        if self._verbose:
-            print("##", repr(s))
+        if self._verbose: #XXX: ...
+            print("  " * self._level + "## Parsed code:", repr(s))
         return s
+
+def _rhs_from_alts_s(alts_s: List[Rhs]) -> Rhs:
+    all_alts: List[Alt] = []
+    for alts in alts_s:
+        all_alts.extend(alts.alts)
+    return Rhs(all_alts)
 '''
 
 @base Base
@@ -92,30 +98,19 @@ class Base(DefaultParser):
 start[Grammar]: grammar $
 
 grammar[Grammar]:
-    metas=metas? rules extern_rules=extern_rules? { Grammar(rules, extern_rules or [], metas or []) }
+    #metas=meta* rules=rule+ extern_decls=extern_decl* { Grammar(rules, extern_decls or [], metas or []) }
+    metas=meta* rules=rule+ extern_decls=extern_decl* { Grammar(rules, extern_decls, metas) }
 
-metas[List[MetaTuple]]:
-    | meta metas { [meta] + metas }
-    | meta { [meta] }
-
-meta[MetaTuple]:
+meta[MetaTuple]: #TODO
     | "@" NAME NEWLINE { (name.string, None) }
     | "@" a=NAME b=NAME NEWLINE { (a.string, b.string) }
     | "@" NAME STRING NEWLINE { (name.string, literal_eval(string.string)) }
-
-rules[List[Rule]]:
-    | rule rules { [rule] + rules }
-    | rule { [rule] }
 
 rule[Rule]:
     rulename opt=memoflag? ":" rule_rhs { Rule(rulename[0], rulename[1], rule_rhs, memo=opt) }
 
 # TODO: "nullable" / "not nullable" mark? (which?) (for first_sets.py)
-extern_rules[List[ExternDecl]]:
-    | extern_rule extern_rules { [extern_rule] + extern_rules }
-    | extern_rule { [extern_rule] }
-
-extern_rule[ExternDecl]:
+extern_decl[ExternDecl]:
     "extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann or None) }
 
 rulename[RuleName]:
@@ -125,33 +120,25 @@ rulename[RuleName]:
 
 rule_rhs[Rhs]:
     | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
-    | NEWLINE INDENT alt NEWLINE DEDENT { Rhs([alt]) }
+    | NEWLINE INDENT alts NEWLINE DEDENT { alts }
     | alts NEWLINE { alts }
 
 # In the future this may return something more complicated
 memoflag[str]:
     '(' "memo" ')' { "memo" }
 
-alts[Rhs]:
-    | alt "|" alts { Rhs([alt] + alts.alts) }
-    | alt { Rhs([alt]) }
+alts[Rhs]: # XXX: Test coverage problem here?
+    alts="|".alt+ { Rhs(alts) } # TODO: ...
 
 more_alts[Rhs]:
-    | "|" alts NEWLINE more_alts { Rhs(alts.alts + more_alts.alts) }
-    | "|" alts NEWLINE { Rhs(alts.alts) }
+    alts_s=("|" alts NEWLINE)+ { _rhs_from_alts_s(alts_s) }
 
 alt[Alt]:
-    | items '$' action { Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action) }
-    | items '$' { Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))], action=None) }
-    | items action { Alt(items, action=action) }
-    | items { Alt(items, action=None) }
-    | '$' { Alt([], action=None) }
-    #| items e='$'? action=action? {
-    #    Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
+    items e='$'? action=action? {
+        Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
 
 items[List[TopLevelItem]]:
-    | top_level_item items { [top_level_item] + items }
-    | top_level_item { [top_level_item] }
+    top_level_item+
 
 # Possibly named item (possibly with a type when named)
 top_level_item[TopLevelItem]:

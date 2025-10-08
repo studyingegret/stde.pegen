@@ -159,9 +159,8 @@ python -m pytest --color=yes --cov=$(python -c "import stde.pegen, os; print(os.
 There is also a `pycoverage` make task, but I don't know why it uses `--cov-append`.
 
 ## Type checking
-`ResultFlag.NO_VALUE` and `ResultFlag.FAILURE` are always False
-which cannot be explained to type checkers as far as I know.
-Because `grammar_parser_v2.py` using this fact, if you just run mypy ordinarily
+`ResultFlag.NO_VALUE` and `ResultFlag.FAILURE` are always False.
+Because the v2 grammar parser uses this fact, if you just run mypy ordinarily
 it will give a lot of false positives like
 
 ```
@@ -178,39 +177,44 @@ if (
     ...
 ):
     ann = r_ann
-    return ExternDecl(name.string, ann or None)
+    return ExternDecl(name.string, ann or None) # Error on this line
 ```
 
-because `Literal[ResultFlag.NO_MATCH]` is considered possibly True,
+because `Literal[ResultFlag.NO_MATCH]` is considered possibly True by mypy,
 and `ann` is of type `str | Literal[ResultFlag.NO_MATCH]`
 so `ann or None` is considered to possibly be `Literal[ResultFlag.NO_MATCH]`.
+Actually, `ann or None` will never be of type `Literal[ResultFlag.NO_MATCH]`
+because if `ann` is `NO_MATCH` then `or` selects `None`. However, I don't know a way
+to explain this fact to type checkers.
 
 The typhical solution is adding `#type:ignore` but it is not convenient to do so
-in `grammar_parser_v2.py` due to the way it is generated.
+in v2 grammar parser due to the way it is generated.
 
 Therefore, I designed `run_mypy.py`. It runs mypy and filters out errors containing
-`FAILURE` and `NO_MATCH` that happen in `grammar_parser_v2.py`, because they are likely
+`FAILURE` and `NO_MATCH` that happen in v2 grammar parser, because they are likely
 false positives.
 
-Recommended type check usage:
+Recommended method:
 
-- Run with filtering `grammar_parser_v2.py` enabled:
+- Run with filtering v2 grammar parser enabled:
   ```
   python run_mypy.py
   ```
-- Optionally, then run without filtering `grammar_parser_v2.py`,
+- Optionally, then run without filtering v2 grammar parser,
   to check for erroneously filtered errors, but this requires manual checking to tell
   which are false positives, and can be tiring, which is why it's optional:
   ```
   python run_mypy.py --third-only
   ```
+- If the script outputs errors that should be filtered out (mentioned above), try
+  running `dmypy stop` or `dmypy kill` and try again.
 
 Please add type annotations for all new code.
 
 ## All checks (?)
 
 <details>
-  <summary>Not used (click to expand)</summary>
+  <summary>Legacy, not used (click to expand)</summary>
 
 
 ```
@@ -225,7 +229,7 @@ and type annotations of the package. It also does some things I don't really und
 ## Lints
 
 <details>
-  <summary>Not used (click to expand)</summary>
+  <summary>Legacy, not used (click to expand)</summary>
 
 Checks code style with `black` and `flake8` (in folders `src`, `tests` only)
 and type checks with `mypy`.
@@ -241,7 +245,7 @@ make lint
 ## Code Formatting
 
 <details>
-  <summary>Not used (click to expand)</summary>
+  <summary>Legacy, not used (click to expand)</summary>
 
 `stde.pegen` uses [`black`](https://github.com/psf/black) for code formatting.
 I recommend setting up black in your editor to format on save.

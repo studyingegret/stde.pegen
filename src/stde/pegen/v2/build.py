@@ -37,7 +37,8 @@ from enum import Enum
 from functools import partial
 import sys
 import tokenize, io
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO, Tuple, Type, Union, Protocol, cast
+from typing import (TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO,
+                    Tuple, Type, Union, Protocol, cast, Dict)
 
 from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
 from stde.pegen.v2.grammar import Grammar
@@ -190,7 +191,7 @@ class ParserFromCodeProducts(NamedTuple):
     parser_class: Type[BaseParser]
 
 def generate_parser_from_code(parser_code: str, parser_class_name: str = "GeneratedParser",
-                              exec_ns: Optional[dict] = None) -> ParserFromCodeProducts:
+                              exec_ns: Optional[Dict[str, Any]] = None) -> ParserFromCodeProducts:
     """Warning: generate_parser_from_code evaluates Python code using exec()
     so do not pass it parser code from untrusted sources."""
     if exec_ns is None:
@@ -241,7 +242,7 @@ def generate_parser_from_grammar(
     tokenizer_verbose_stream: Optional[TextIO] = None,
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
-    exec_ns: Optional[dict] = None,
+    exec_ns: Optional[Dict[str, Any]] = None,
     *,
     grammar_file_name: Optional[str] = None,
 ) -> ParserFromGrammarProducts:
@@ -282,7 +283,7 @@ def generate_parser_from_file(
     tokenizer_verbose_stream: Optional[TextIO] = None,
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
-    exec_ns: Optional[dict] = None,
+    exec_ns: Optional[Dict[str, Any]] = None,
     *,
     grammar_file_name: Optional[str] = None,
 ) -> ParserFromFileProducts:

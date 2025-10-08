@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 import os
-import colorama
+import colorama # type:ignore[import-untyped]
 
 # Path configurations
 LEGACY_METAGRAMMAR = "src/stde/pegen/legacy/metagrammar.gram"
@@ -74,7 +74,7 @@ def main(args):
     cmd = [sys.executable, "-m", "stde.pegen", metagrammar, "-o", output]
     if version_flag:
         cmd.append(version_flag)
-    
+
     #cmd.append("-" + ("q" if not args.verbose else "v" * (args.verbose-1)))
     if args.verbose:
         cmd.append("-" + "v" * args.verbose)
@@ -94,4 +94,4 @@ def main(args):
     return 0
 
 if __name__ == "__main__":
-    main(p.parse_args())
+    main(p.parse_args()) #type:ignore[no-untyped-call] # TODO: Fix later

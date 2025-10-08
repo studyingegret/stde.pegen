@@ -34,10 +34,8 @@ def test_with_actions() -> None:
     start: a=NUMBER "+" b=NUMBER NEWLINE $ { int(a.string) + int(b.string) }
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    parser = parser_class.from_text("1 + 2")
-    assert parser.start() == 3
-    parser = parser_class.from_text("1 + a")
-    assert parser.start() == FAILURE
+    assert parser_class.from_text("1 + 2").start() == 3
+    assert parser_class.from_text("1 + a").start() == FAILURE
 
 def test_with_subtraction() -> None:
     grammar = dedent('''
@@ -46,12 +44,8 @@ def test_with_subtraction() -> None:
         | a=NUMBER "-" b=NUMBER NEWLINE $ { int(a.string) - int(b.string) }
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
-
-    parser = parser_class.from_text("3 + 4")
-    assert parser.start() == 7
-
-    parser = parser_class.from_text("5 - 10")
-    assert parser.start() == -5
+    assert parser_class.from_text("3 + 4").start() == 7
+    assert parser_class.from_text("5 - 10").start() == -5
 
 # Note: The section "Compound expressions"'s example code isn't tested yet.
 
@@ -72,19 +66,12 @@ def test_compound_and_with_multiplicative() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
 
     # Note: no input is originally in the guide
+    assert parser_class.from_text("42").start() == 42
+    assert parser_class.from_text("1 + 2").start() == 3
+    assert parser_class.from_text("1 + 2 * 3").start() == 7
+    assert parser_class.from_text("8 / 2 * 3").start() == 12
 
-    parser = parser_class.from_text("42")
-    assert parser.start() == 42
-
-    parser = parser_class.from_text("1 + 2")
-    assert parser.start() == 3
-
-    parser = parser_class.from_text("1 + 2 * 3")
-    assert parser.start() == 7  # 1 + (2 * 3) = 7
-
-    parser = parser_class.from_text("8 / 2 * 3")
-    assert parser.start() == 12  # (8/2)*3 = 12
-
+# Note: there is no input for this in the guide
 def test_parser_with_header() -> None:
     grammar = dedent('''
     @header """
@@ -105,23 +92,17 @@ def test_parser_with_header() -> None:
         | NUMBER { token_to_int(number) }
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
+    assert parser_class.from_text("3 * 4 + 5").start() == 17
+    assert parser_class.from_text("20 / 4 - 2").start() == 3
 
-    # Note: no input is originally in the guide
-
-    parser = parser_class.from_text("3 * 4 + 5")
-    assert parser.start() == 17
-
-    parser = parser_class.from_text("20 / 4 - 2")
-    assert parser.start() == 3
-
-def test_graphviz_color_parsing_char_based() -> None:
+def test_color_parsing_char_based() -> None:
     grammar = dedent('''
     @base CharBasedParser
 
-    start: "#" r=field g=field b=field a=field $ { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
-         | "#" r=field g=field b=field $ { (int(r, 16), int(g, 16), int(b, 16), 255) }
+    start: "#" r=field g=field b=field a=field $ { (r, g, b, a) }
+         | "#" r=field g=field b=field $ { (r, g, b, 255) }
 
-    field: a=char b=char { a + b }
+    field: a=char b=char { int(a + b, 16) }
     char: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
         | "a" | "b" | "c" | "d" | "e" | "f"
         | "A" | "B" | "C" | "D" | "E" | "F"
@@ -133,25 +114,22 @@ def test_graphviz_color_parsing_char_based() -> None:
     assert parser_class.from_text("#e0e1ccull").start() == FAILURE
 
 @pytest.mark.xfail
-def test_graphviz_color_parsing_with_default_parser() -> None:
+def test_color_parsing_with_default_parser() -> None:
     grammar = dedent('''
-    start: "#" r=field g=field b=field a=field { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
-         | "#" r=field g=field b=field { (int(r, 16), int(g, 16), int(b, 16), 255) }
+    start: "#" r=field g=field b=field a=field $ { (r, g, b, a) }
+         | "#" r=field g=field b=field $ { (r, g, b, 255) }
 
-    field: a=char b=char { a + b }
+    field: a=char b=char { int(a + b, 16) }
     char: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
         | "a" | "b" | "c" | "d" | "e" | "f"
         | "A" | "B" | "C" | "D" | "E" | "F"
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    parser = parser_class.from_text("#ff33cc")
-    assert parser.start() == (255, 51, 204, 255)
-    parser = parser_class.from_text("#002134aa")
-    assert parser.start() == (0, 33, 52, 170)
-    parser = parser_class.from_text("# 002134aa")
-    assert parser.start() == FAILURE
+    assert parser_class.from_text("#ff33cc").start() == (255, 51, 204, 255)
+    assert parser_class.from_text("#002134aa").start() == (0, 33, 52, 170)
+    assert parser_class.from_text("# 002134aa").start() == FAILURE
 
-# Now failing
+# Note: there is no input for this in the guide
 def test_compound_and_with_multiplicative_char_based() -> None:
     grammar = dedent(r'''
     @base CharBasedParser
@@ -169,27 +147,18 @@ def test_compound_and_with_multiplicative_char_based() -> None:
         | number
 
     number:
-        digits=("0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")* { int("".join(digits)) }
+        digits=digit+ { int("".join(digits)) }
 
-    s: (" " | "\t" | "\n")* #TODO bug
-    #s: s_*
-    #s_: " " | "\t" | "\n"
+    digit:
+        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+    s:
+        (" " | "\t")*
     ''')
-    p = generate_parser_from_grammar(grammar)
-    print(p.parser_code)
+    p = generate_parser_from_grammar(grammar, parser_verbose_stream=sys.stdout)
+    #print(p.parser_code)
     parser_class = p.parser_class
-    #assert False
-
-    # Note: no input is originally in the guide
-
-    parser = parser_class.from_text("42", verbose_stream=sys.stdout)
-    assert parser.start() == 42
-
-    parser = parser_class.from_text("1 + 2")
-    assert parser.start() == 3
-
-    parser = parser_class.from_text("1 + 2 * 3")
-    assert parser.start() == 7
-
-    parser = parser_class.from_text("8 / 2 * 3")
-    assert parser.start() == 12
+    assert parser_class.from_text("42").start() == 42
+    assert parser_class.from_text("1 + 2").start() == 3
+    assert parser_class.from_text("1 + 2 * 3").start() == 7
+    assert parser_class.from_text("8 / 2 * 3").start() == 12

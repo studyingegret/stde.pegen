@@ -3,6 +3,7 @@
 @base Base
 @class PythonParser
 @header '''
+
 import enum
 import io
 import itertools

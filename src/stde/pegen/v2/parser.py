@@ -43,8 +43,13 @@ class ResultFlag(Enum):
     def __bool__(self) -> bool: # Support "res or other_value"
         return False
 
+    def __str__(self) -> str:
+        #return f"{self.__class__.__name__}.{self._name_}" #XXX: ?
+        return f"{self._name_}"
+
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}.{self._name_}"
+        #return f"{self.__class__.__name__}.{self._name_}" #XXX: ?
+        return f"{self._name_}"
 
 
 RuleResult = Union[T2, Literal[ResultFlag.FAILURE]]
@@ -593,6 +598,7 @@ class CharBasedParser(BaseParser):
         line: int
         col: int
         pos: int
+        #TODO: Document these compare functions
         def __eq__(self, other: object, /) -> bool: return self[2] == other[2] #type:ignore
         def __lt__(self, other: Self, /) -> bool: return self[2] < other[2] #type:ignore
         def __le__(self, other: Self, /) -> bool: return self[2] <= other[2] #type:ignore

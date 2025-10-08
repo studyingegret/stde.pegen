@@ -224,7 +224,7 @@ class StringLeaf(Leaf):
 class Rhs:
     def __init__(self, alts: List[Alt]):
         self.alts = alts
-        self.memo: Optional[Tuple[Optional[str], str]] = None
+        #self.memo: Optional[Tuple[Optional[str], str]] = None # XXX: Unused
 
     def __str__(self) -> str:
         return " | ".join(str(alt) for alt in self.alts)
@@ -252,7 +252,7 @@ class Alt:
     #XXX: Purpose of icut?
     def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
         self.items = items
-        self.icut = icut
+        self.icut = icut #XXX: Unused except in __repr__?
         self.action = action
 
     def __str__(self) -> str:

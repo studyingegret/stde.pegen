@@ -757,7 +757,7 @@ def test_exec_ns() -> None:
     '''
     start: NAME { it(name.string) }
     """)
-    exec_ns = {"a": []}
+    exec_ns: dict[str, Any] = {"a": []}
     parser_class = generate_parser_from_grammar(grammar, exec_ns=exec_ns).parser_class
     assert exec_ns["a"] == [10]
     assert parser_class.from_text("the").start() == [10, 10, "the"]

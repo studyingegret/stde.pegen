@@ -410,7 +410,7 @@ the ``generate_parser_from_file`` convenience function:
 
     from stde.pegen.v2.build import generate_parser_from_file
 
-    grammar = generate_parser_from_file("grammar.txt").parser_class
+    parser_class = generate_parser_from_file("grammar.txt").parser_class
 
 See the generated code
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -581,7 +581,7 @@ An example of ``@base`` is described below.
 
 The preset to use for the grammar. By default, the default preset is used, equivalent to
 ``@preset default``. Currently the only other supported preset is ``char_based``.
-Presets are described below.
+Presets are described below [TODO].
 
 
 Match character by character with ``CharBasedParser``
@@ -594,8 +594,8 @@ So far we have been using ``DefaultParser`` as the base parser. However, it has 
   it will only match ``a b``, and not ``ab``. This can be an obstacle
   when matching character by character is really convenient. Similarly,
   ``"!" "="`` will not match ``"!="`` which may be convenient when matching Python
-  but can be an obstacle.
-- We lack features like regex matching or matching "any character".
+  but can be an obstacle if you want to write a new language.
+- We lack features like regex matching or matching "any character" ("I just want a character here, any character is fine").
 - Its pre-tokenization skips whitespace in a way beyond our control.
 
 stde.pegen provides another base parser: ``CharBasedParser``, which does no tokenizing and
@@ -607,18 +607,18 @@ Use it through
 
     @base CharBasedParser
 
-To demonstrate its advantages, let's write a parser that parses a
-`Graphviz color <https://graphviz.org/docs/attr-types/color/>`_ (the RGB and RGBA formats only).
+To demonstrate its advantages, let's write a parser that parses an
+#RRGGBB hex color or #RRGGBBAA hex color.
 It will return a tuple of (R, G, B, A) (when alpha is omitted, we take alpha=255).
 
 .. code-block:: none
 
     @base CharBasedParser
 
-    start: "#" r=field g=field b=field a=field $ { (int(r, 16), int(g, 16), int(b, 16), int(a, 16)) }
-         | "#" r=field g=field b=field $ { (int(r, 16), int(g, 16), int(b, 16), 255) }
+    start: "#" r=field g=field b=field a=field $ { (r, g, b, a) }
+         | "#" r=field g=field b=field $ { (r, g, b, 255) }
 
-    field: a=char b=char { a + b }
+    field: a=char b=char { int(a + b, 16) }
     char: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
         | "a" | "b" | "c" | "d" | "e" | "f"
         | "A" | "B" | "C" | "D" | "E" | "F"
@@ -629,11 +629,32 @@ and rejects ``#0021 34aa`` and ``#e0e1ccull``.
 .. note::
    You cannot just list "0-9a-fA-F" for rule ``char`` yet. This feature is TODO.
 
-The disadvantages is that you must deal with whitespace yourself:
+A disadvantage is that you must deal with whitespace yourself:
 
 .. code-block:: none
 
-    [TODO] Not put here because it's not working because of a stde.pegen bug
+    @base CharBasedParser
+
+    start: s expr s $ { expr }
+
+    expr:
+        | a=expr2 s "+" s b=expr { a + b }
+        | a=expr2 s "-" s b=expr { a - b }
+        | expr2
+
+    expr2:
+        | a=expr2 s "*" s b=number { a * b }
+        | a=expr2 s "/" s b=number { a / b }
+        | number
+
+    number:
+        digits=digit+ { int("".join(digits)) }
+
+    digit:
+        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+    s:
+        (" " | "\t")*
 
 so in this case it's trading convenience for maneuverability.
 
@@ -642,11 +663,6 @@ Parser presets (aka modes)
 
 .. note::
    You will also find presets called modes in this documentation.
-
-
-Custom rules
--------------------
-
 
 
 .. Canceled because I doubt the relevant source code.
@@ -660,3 +676,6 @@ Default mode (``@preset default``)
 
 Char-based mode (``@preset char_based``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Custom rules
+------------
