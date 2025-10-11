@@ -20,18 +20,27 @@ def _import_file(full_name: str, path: PathLike) -> Any:
     spec.loader.exec_module(mod)
     return mod
 
-def generate_python_parser_module() -> Any:
+_module: Any = None
+
+@pytest.fixture(scope="session")
+def python_parser_module(cache_v2_python_parser) -> Any:
+    if cache_v2_python_parser:
+        global _module
+        if _module is None:
+            generate_code_from_file(GRAMMAR_PATH, SOURCE_PATH)
+            _module = _import_file(SOURCE_PATH.stem, SOURCE_PATH)
+        return _module
     generate_code_from_file(GRAMMAR_PATH, SOURCE_PATH)
     return _import_file(SOURCE_PATH.stem, SOURCE_PATH)
 
 @pytest.fixture(scope="session")
-def python_parser_cls() -> Any:
-    return generate_python_parser_module().PythonParser
+def python_parser_cls(python_parser_module) -> Any:
+    return python_parser_module.PythonParser
 
 @pytest.fixture(scope="session")
-def python_parse_file() -> Any:
-    return generate_python_parser_module().parse_file
+def python_parse_file(python_parser_module) -> Any:
+    return python_parser_module.parse_file
 
 @pytest.fixture(scope="session")
-def python_parse_str() -> Any:
-    return generate_python_parser_module().parse_string
+def python_parse_str(python_parser_module) -> Any:
+    return python_parser_module.parse_string

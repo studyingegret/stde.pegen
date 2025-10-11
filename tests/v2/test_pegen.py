@@ -747,6 +747,23 @@ def test_skip_actions() -> None:
     assert (parser_class.from_text("hello").start()
             == TokenInfo(type=token.NAME, string="hello", start=(1, 0), end=(1, 5), line="hello"))
 
+
+def test_hanging_alts() -> None:
+    grammar_ = dedent("""
+    a:
+        "1" | "2" | "3"
+    b: "1"
+        | "2" | "3"
+    c: 
+        | "1"
+        | "2" | "3"
+    """)
+    grammar = GrammarParser.from_text(grammar_).start()
+    assert grammar is not FAILURE
+    assert (str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:]
+            == ': "1" | "2" | "3"')
+
+
 def test_exec_ns() -> None:
     grammar = dedent("""
     @header '''
@@ -762,3 +779,10 @@ def test_exec_ns() -> None:
     assert exec_ns["a"] == [10]
     assert parser_class.from_text("the").start() == [10, 10, "the"]
     assert parser_class.from_text("the").start() == [10, 10, 10, "the"]
+
+
+def test_parseerror() -> None:
+    grammar = dedent("""
+    start:
+        a:
+    """)

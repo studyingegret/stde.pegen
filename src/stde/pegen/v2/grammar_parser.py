@@ -7,7 +7,7 @@ from stde.pegen.v2.parser import (
     RuleResult, ResultFlag, NO_MATCH, FAILURE)
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
-from typing import List, Union
+from typing import List, Union, Iterable
 import token
 import tokenize
 from tokenize import TokenInfo
@@ -92,11 +92,6 @@ class Base(DefaultParser):
             print("  " * self._level + "## Parsed code:", repr(s))
         return s
 
-def _rhs_from_alts_s(alts_s: List[Rhs]) -> Rhs:
-    all_alts: List[Alt] = []
-    for alts in alts_s:
-        all_alts.extend(alts.alts)
-    return Rhs(all_alts)
 
 # Keywords and soft keywords are listed at the end of the parser definition.
 class GeneratedParser(Base):
@@ -307,22 +302,22 @@ class GeneratedParser(Base):
 
     @memoize
     def more_alts(self) -> RuleResult[Rhs]:
-        # more_alts: (("|" alts NEWLINE))+
+        # more_alts: (("|" alt NEWLINE?))+
         mark = self.mark()
         if (
-            (r_alts_s := (self._loop1_6())) is not FAILURE
+            (r_alts := (self._loop1_6())) is not FAILURE
         ):
-            alts_s = r_alts_s
-            return _rhs_from_alts_s(alts_s)
+            alts = r_alts
+            return Rhs(list(map(lambda x: x[1], alts)))
         self.reset(mark)
         return FAILURE
 
     @memoize
     def alt(self) -> RuleResult[Alt]:
-        # alt: items '$'? action?
+        # alt: top_level_item+ '$'? action? | '$' action?
         mark = self.mark()
         if (
-            (r_items := (self.items())) is not FAILURE
+            (r_items := (self._loop1_7())) is not FAILURE
             and
             (r_e := (_temp if (_temp := (self.match_string('$'))) is not FAILURE else NO_MATCH)) is not FAILURE
             and
@@ -331,19 +326,15 @@ class GeneratedParser(Base):
             items = r_items
             e = r_e
             action = r_action
-            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action)
+            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action or None)
         self.reset(mark)
-        return FAILURE
-
-    @memoize
-    def items(self) -> RuleResult[List [TopLevelItem]]:
-        # items: top_level_item+
-        mark = self.mark()
         if (
-            (r__loop1_7 := (self._loop1_7())) is not FAILURE
+            (self.match_string('$')) is not FAILURE
+            and
+            (r_action := (_temp if (_temp := (self.action())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
-            _loop1_7 = r__loop1_7
-            return _loop1_7
+            action = r_action
+            return Alt([TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action or None)
         self.reset(mark)
         return FAILURE
 
@@ -811,7 +802,7 @@ class GeneratedParser(Base):
 
     @memoize
     def _loop1_6(self) -> RuleResult[Any]:
-        # _loop1_6: ("|" alts NEWLINE)
+        # _loop1_6: ("|" alt NEWLINE?)
         mark = self.mark()
         children = []
         while (
@@ -853,19 +844,19 @@ class GeneratedParser(Base):
 
     @memoize
     def _tmp_9(self) -> RuleResult[Any]:
-        # _tmp_9: "|" alts NEWLINE
+        # _tmp_9: "|" alt NEWLINE?
         mark = self.mark()
         if (
             (r_literal := (self.match_string("|"))) is not FAILURE
             and
-            (r_alts := (self.alts())) is not FAILURE
+            (r_alt := (self.alt())) is not FAILURE
             and
-            (r_newline := (self.newline())) is not FAILURE
+            (r_opt := (_temp if (_temp := (self.newline())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
             literal = r_literal
-            alts = r_alts
-            newline = r_newline
-            return [literal, alts, newline]
+            alt = r_alt
+            opt = r_opt
+            return [literal, alt, opt]
         self.reset(mark)
         return FAILURE
 
