@@ -1,7 +1,7 @@
 @header '''\
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
-from typing import List, Union
+from typing import List, Union, Iterable
 import token
 import tokenize
 from tokenize import TokenInfo
@@ -86,7 +86,7 @@ class Base(DefaultParser):
             print("  " * self._level + "## Parsed code:", repr(s))
         return s
 
-def _rhs_from_alts_s(alts_s: List[Rhs]) -> Rhs:
+def _rhs_from_alts_s(alts_s: Iterable[Rhs]) -> Rhs:
     all_alts: List[Alt] = []
     for alts in alts_s:
         all_alts.extend(alts.alts)
@@ -131,7 +131,7 @@ alts[Rhs]: # XXX: Test coverage problem here?
     alts="|".alt+ { Rhs(alts) } # TODO: ...
 
 more_alts[Rhs]:
-    alts_s=("|" alts NEWLINE)+ { _rhs_from_alts_s(alts_s) }
+    alts_s=("|" alts NEWLINE)+ { _rhs_from_alts_s(map(lambda x: x[1], alts_s)) }
 
 alt[Alt]:
     items e='$'? action=action? {

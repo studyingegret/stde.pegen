@@ -94,4 +94,4 @@ def main(args):
     return 0
 
 if __name__ == "__main__":
-    main(p.parse_args()) #type:ignore[no-untyped-call] # TODO: Fix later
+    sys.exit(main(p.parse_args())) #type:ignore[no-untyped-call] # TODO: Fix later

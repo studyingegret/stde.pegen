@@ -40,7 +40,7 @@ class ResultFlag(Enum):
     NO_MATCH = 0
     FAILURE = 1
 
-    def __bool__(self) -> bool: # Support "res or other_value"
+    def __bool__(self) -> bool: # XXX: Support "res or other_value"?
         return False
 
     def __str__(self) -> str:

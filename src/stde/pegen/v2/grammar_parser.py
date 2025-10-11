@@ -7,7 +7,7 @@ from stde.pegen.v2.parser import (
     RuleResult, ResultFlag, NO_MATCH, FAILURE)
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
-from typing import List, Union
+from typing import List, Union, Iterable
 import token
 import tokenize
 from tokenize import TokenInfo
@@ -92,7 +92,7 @@ class Base(DefaultParser):
             print("  " * self._level + "## Parsed code:", repr(s))
         return s
 
-def _rhs_from_alts_s(alts_s: List[Rhs]) -> Rhs:
+def _rhs_from_alts_s(alts_s: Iterable[Rhs]) -> Rhs:
     all_alts: List[Alt] = []
     for alts in alts_s:
         all_alts.extend(alts.alts)
@@ -313,7 +313,7 @@ class GeneratedParser(Base):
             (r_alts_s := (self._loop1_6())) is not FAILURE
         ):
             alts_s = r_alts_s
-            return _rhs_from_alts_s(alts_s)
+            return _rhs_from_alts_s(map(lambda x: x[1], alts_s))
         self.reset(mark)
         return FAILURE
 
