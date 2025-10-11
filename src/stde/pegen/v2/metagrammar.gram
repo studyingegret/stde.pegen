@@ -86,11 +86,6 @@ class Base(DefaultParser):
             print("  " * self._level + "## Parsed code:", repr(s))
         return s
 
-def _rhs_from_alts_s(alts_s: Iterable[Rhs]) -> Rhs:
-    all_alts: List[Alt] = []
-    for alts in alts_s:
-        all_alts.extend(alts.alts)
-    return Rhs(all_alts)
 '''
 
 @base Base
@@ -131,7 +126,7 @@ alts[Rhs]: # XXX: Test coverage problem here?
     alts="|".alt+ { Rhs(alts) } # TODO: ...
 
 more_alts[Rhs]:
-    alts_s=("|" alts NEWLINE)+ { _rhs_from_alts_s(map(lambda x: x[1], alts_s)) }
+    alts=("|" alt NEWLINE?)+ { Rhs(list(map(lambda x: x[1], alts))) }
 
 alt[Alt]:
     | items=top_level_item+ e='$'? action=action? {
