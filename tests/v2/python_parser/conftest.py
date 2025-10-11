@@ -20,10 +20,6 @@ def _import_file(full_name: str, path: PathLike) -> Any:
     spec.loader.exec_module(mod)
     return mod
 
-@pytest.fixture(scope="session")
-def cache_v2_python_parser(request):
-    return request.config.getoption("--cache-v2-python-parser")
-
 _module: Any = None
 
 @pytest.fixture(scope="session")

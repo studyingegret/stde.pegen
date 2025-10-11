@@ -134,11 +134,9 @@ more_alts[Rhs]:
     alts_s=("|" alts NEWLINE)+ { _rhs_from_alts_s(map(lambda x: x[1], alts_s)) }
 
 alt[Alt]:
-    items e='$'? action=action? {
-        Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action) }
-
-items[List[TopLevelItem]]:
-    top_level_item+
+    | items=top_level_item+ e='$'? action=action? {
+        Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action or None) }
+    | '$' action=action? { Alt([TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action or None) }
 
 # Possibly named item (possibly with a type when named)
 top_level_item[TopLevelItem]:

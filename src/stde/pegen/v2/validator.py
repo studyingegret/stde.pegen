@@ -19,15 +19,15 @@ class GrammarValidator(GrammarVisitor):
 class SubRuleValidator(GrammarValidator):
     def visit_Rhs(self, node: Rhs) -> None:
         for index, alt in enumerate(node.alts):
-            alts_to_consider = node.alts[index + 1 :]
-            for other_alt in alts_to_consider:
+            for other_alt in node.alts[index+1:]:
                 self.check_intersection(alt, other_alt)
 
     def check_intersection(self, first_alt: Alt, second_alt: Alt) -> None:
         if str(second_alt).startswith(str(first_alt)):
             raise ValidationError(
                 f"In {self.rulename} there is an alternative that will "
-                f"never be visited:\n{second_alt}"
+                f"never be visited:\n{second_alt} "
+                f"(note: {first_alt} will match instead)"
             )
 
 

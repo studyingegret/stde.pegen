@@ -319,10 +319,10 @@ class GeneratedParser(Base):
 
     @memoize
     def alt(self) -> RuleResult[Alt]:
-        # alt: items '$'? action?
+        # alt: top_level_item+ '$'? action? | '$' action?
         mark = self.mark()
         if (
-            (r_items := (self.items())) is not FAILURE
+            (r_items := (self._loop1_7())) is not FAILURE
             and
             (r_e := (_temp if (_temp := (self.match_string('$'))) is not FAILURE else NO_MATCH)) is not FAILURE
             and
@@ -331,19 +331,15 @@ class GeneratedParser(Base):
             items = r_items
             e = r_e
             action = r_action
-            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action)
+            return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action or None)
         self.reset(mark)
-        return FAILURE
-
-    @memoize
-    def items(self) -> RuleResult[List [TopLevelItem]]:
-        # items: top_level_item+
-        mark = self.mark()
         if (
-            (r__loop1_7 := (self._loop1_7())) is not FAILURE
+            (self.match_string('$')) is not FAILURE
+            and
+            (r_action := (_temp if (_temp := (self.action())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
-            _loop1_7 = r__loop1_7
-            return _loop1_7
+            action = r_action
+            return Alt([TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action or None)
         self.reset(mark)
         return FAILURE
 
