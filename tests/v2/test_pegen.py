@@ -763,6 +763,13 @@ def test_hanging_alts() -> None:
     assert (str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:]
             == ': "1" | "2" | "3"')
 
+def test_invalid_hanging_alts() -> None:
+    grammar_ = dedent("""
+    a:
+        "1"
+        | "2" | "3"
+    """)
+    assert GrammarParser.from_text(grammar_).start() is FAILURE
 
 def test_exec_ns() -> None:
     grammar = dedent("""
