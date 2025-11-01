@@ -40,6 +40,9 @@ python scripts/grammar_grapher_2.py data/python.gram -hl return_stmt --no-termin
 python scripts/grammar_grapher_2.py data/python.gram -s return_stmt | dot -Tsvg > python.svg
 python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --no-terminals | dot -Tsvg > python.svg
 python scripts/grammar_grapher_2.py data/python.gram -s return_stmt --reverse-alts --no-terminals | dot -Tsvg > python-reverse.svg
+
+By default, the background is transparent. You can add a background color by passing -Gbgcolor=<color> to dot:
+python scripts/grammar_grapher_2.py data/python.gram | dot -Tsvg -Gbgcolor=white > python.svg
 """
 
 # TODO: Tooltip descriptions of nodes, edges?

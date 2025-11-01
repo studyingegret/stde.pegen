@@ -69,8 +69,6 @@ class ParserGenerator:
     check if the ParserGenerator accepts the grammar. (?)
     """
 
-    callmakervisitor: GrammarVisitor
-
     # validator.validate_grammar[_v2] should not be called by ParserGenerator.
     # Instead, v1/v2 subclasses of ParserGenerator will call them
     # since only at that time they know if they are v1/v2.

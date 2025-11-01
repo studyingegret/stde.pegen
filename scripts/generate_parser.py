@@ -12,8 +12,10 @@ import colorama # type:ignore[import-untyped]
 # Path configurations
 LEGACY_METAGRAMMAR = "src/stde/pegen/legacy/metagrammar.gram"
 LEGACY_OUTPUT = "src/stde/pegen/legacy/grammar_parser.py"
+LEGACY_BAD_OUTPUT = "src/stde/pegen/legacy/grammar_parser.bad.py"
 V2_METAGRAMMAR = "src/stde/pegen/v2/metagrammar.gram"
 V2_OUTPUT = "src/stde/pegen/v2/grammar_parser.py"
+V2_BAD_OUTPUT = "src/stde/pegen/v2/grammar_parser.bad.py"
 
 RED = colorama.Fore.LIGHTRED_EX
 GREEN = colorama.Fore.LIGHTGREEN_EX
@@ -43,21 +45,17 @@ def backup_file(file_path):
     return backup_path
 
 
-def restore_backup(original_path, backup_path):
-    """Restore file from backup"""
-    shutil.copy2(backup_path, original_path)
-    print(f"Restored from backup {original_path} <- {backup_path}")
-
-
 def main(args):
     colorama.just_fix_windows_console()
     if args.version == "legacy":
         metagrammar = LEGACY_METAGRAMMAR
         output = LEGACY_OUTPUT
+        bad_path = LEGACY_BAD_OUTPUT
         version_flag = "--legacy"
     elif args.version == "v2":
         metagrammar = V2_METAGRAMMAR
         output = V2_OUTPUT
+        bad_path = V2_BAD_OUTPUT
         version_flag = "--v2"
     else:
         assert False, args.version
@@ -85,8 +83,11 @@ def main(args):
         result = subprocess.run(cmd)
         if result.returncode:
             print(f"{RED}{BOLD}Error: Generation {i} failed with code {result.returncode}{RESET}{NORMAL}")
+            shutil.copy2(output, bad_path)
+            print(f"Broken parser stored in {bad_path}")
             if backup_path:
-                restore_backup(output, backup_path)
+                shutil.copy2(backup_path, output)
+                print(f"Restored from backup {output} <- {backup_path}")
             return result.returncode
         #XXX: Use first result as backup if backup_path initially None?
 

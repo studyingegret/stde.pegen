@@ -36,6 +36,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 #FSTRING_MIDDLE = getattr(token, "FSTRING_MIDDLE", None)
 #FSTRING_END = getattr(token, "FSTRING_END", None)
 
+class ParseError(SyntaxError):
+    pass
+
 class ResultFlag(Enum):
     NO_MATCH = 0
     FAILURE = 1
@@ -274,14 +277,15 @@ class BaseParser(ABC):
     @abstractmethod
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> "BaseParser": ...
 
-    def start(self) -> RuleResult[Any]:
-        """Expected grammar entry point.
+    if TYPE_CHECKING: #XXX: ?
+        def start(self) -> RuleResult[Any]:
+            """Expected grammar entry point.
 
-        This is not strictly necessary but is assumed to exist in most utility
-        functions consuming parser instances.
+            This is not strictly necessary but is assumed to exist in most utility
+            functions consuming parser instances.
 
-        """
-        ...
+            """
+            ...
 
     #@abstractmethod
     #def pos(self) -> Tuple[int, int]:

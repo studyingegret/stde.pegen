@@ -39,7 +39,7 @@ MODULE_PREFIX = """\
 from typing import Any, Optional
 from stde.pegen.v2.parser import (
     memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser,
-    RuleResult, ResultFlag, NO_MATCH, FAILURE)
+    RuleResult, ResultFlag, ParseError, NO_MATCH, FAILURE)
 """
 
 # TODO: Can turn off class_name interpolation?
@@ -119,30 +119,32 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
 
     Tuple[str | None, str] is the return type of all visitors.
 
-    The capture variable names "cut" is special.
+    The capture variable names "__cut" is special.
     """
-    def __init__(self, parser_generator: "PythonParserGenerator"):
+    def __init__(self, parser_generator: "PythonParserGenerator", r_call_names: Set[str]):
         self.gen = parser_generator
         self.cache: Dict[Any, Any] = {}
         self.keywords: Set[str] = set()
         self.soft_keywords: Set[str] = set()
+        self.r_call_names = r_call_names
 
     def visit_NameLeaf(self, node: NameLeaf) -> Tuple[Optional[str], str]:
         if node.value == "ENDMARKER":
             return None, "self.endmarker()"
         name = node.value.lower()
-        if iskeyword(name):
-            name += "_"
-        return name, f"self.{name}()"
+        capture_name = name + "_" if iskeyword(name) else name
+        code = f"self.r_{name}()" if name in self.r_call_names else f"self.{name}()"
+        return capture_name, code
 
     def visit_StringLeaf(self, node: StringLeaf) -> Tuple[str, str]:
         val = ast.literal_eval(node.value)
-        if re.match(r"[a-zA-Z_]\w*\Z", val):  # This is a keyword
+        if re.match(r"[a-zA-Z_]\w*\Z", val):  # This is a keyword #...
             if node.value.endswith("'"):
                 self.keywords.add(val)
             else:
                 self.soft_keywords.add(val)
-        return "literal", f"self.match_string({node.value})"
+        #return "literal", f"self.match_string({node.value})"
+        return "__literal", f"self.match_string({node.value})" #XXX: ?
 
     def visit_Rhs(self, node: Rhs) -> Tuple[Optional[str], str]:
         if node in self.cache:
@@ -211,7 +213,7 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
         return self.visit(node.rhs)
 
     def visit_Cut(self, node: Cut) -> Tuple[str, str]:
-        return "cut", "None"
+        return "__cut", "None"
 
     def visit_Forced(self, node: Forced) -> Tuple[str, str]:
         if isinstance(node.node, Group):
@@ -263,7 +265,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         super().__init__(grammar, tokens)
         _check_grammar(self.grammar)
         validate_grammar(self.grammar)
-        self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self) #pyright:ignore
+        self.callmakervisitor = PythonCallMakerVisitor(
+            self, set(self.grammar.rules.keys())) #pyright:ignore
         self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
         self._usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
         self.unreachable_formatting = unreachable_formatting or "None  # pragma: no cover"
@@ -274,7 +277,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.pre_action_stmts: List[str] = []
         self.action_ignore_variables: Set[str] = set()
         self.skip_actions = skip_actions
+        self._rulename_to_methname: Dict[str, str] = {}
 
+    #XXX Method be called more than once?
     def generate(self, file: TextIO, filename: str) -> None:
         super().generate(file, filename)
         metaheader = self.grammar.metas.get("metaheader", MODULE_PREFIX)
@@ -287,15 +292,28 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         base_cls_name = self.grammar.metas.get("base", "DefaultParser")
         self.print("# Keywords and soft keywords are listed at the end of the parser definition.")
         self.print(f"class {cls_name}({base_cls_name}):")
-        while self.todo:
-            for rulename, rule in list(self.todo.items()):
-                del self.todo[rulename]
-                self.print()
-                with self.indent():
+
+        with self.indent():
+            while self.todo:
+                for rulename, rule in list(self.todo.items()):
+                    del self.todo[rulename]
+                    self.print()
                     self.visit(rule)
 
-        self.print()
-        with self.indent():
+            for rulename, rule in self.grammar.rules.items():
+                #if not rule.export: continue
+                self.print()
+                self.print(f"def {rulename}(self) -> RuleResult[{rule.type}]:")
+                with self.indent():
+                    self.print("try:")
+                    with self.indent():
+                        self.print(f"return self.{self._rulename_to_methname[rulename]}()")
+                    self.print("except ParseError as e:")
+                    with self.indent():
+                        self.print("self.last_parse_error = e")
+                        self.print("return FAILURE")
+
+            self.print()
             self.print(f"KEYWORDS = {tuple(sorted(self.callmakervisitor.keywords))}")
             self.print(f"SOFT_KEYWORDS = {tuple(sorted(self.callmakervisitor.soft_keywords))}")
 
@@ -331,7 +349,9 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         else:
             self.print("@memoize")
         node_type = rule.type or "Any"
-        self.print(f"def {rule.name}(self) -> RuleResult[{node_type}]:")
+        func_name = rule.name if rule.name[0] == "_" else "r_" + rule.name
+        self._rulename_to_methname[rule.name] = func_name
+        self.print(f"def {func_name}(self) -> RuleResult[{node_type}]:")
         with self.indent():
             self.print(f"# {rule.name}: {rhs}")
             if rule.nullable:
@@ -381,14 +401,14 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             # Parentheses are needed because the trailing comma may appear :> (XXX)
             self.print(f"({call}) is not FAILURE")
         else:
-            if name == "cut":
-                self.print(f"(cut := ({call}) is not FAILURE)")
+            if name == "__cut":
+                self.print(f"(__cut := ({call}) is not FAILURE)")
             else:
                 name = self.dedupe_and_add_var(name)
-                name_r = self.dedupe_and_add_var("r_" + name)
-                self.print(f"({name_r} := ({call})) is not FAILURE")
-                self.pre_action_stmts.append(f"{name} = {name_r}")
-                self.action_ignore_variables.add(name_r)
+                #name_r = self.dedupe_and_add_var("r_" + name)
+                self.print(f"({name} := ({call})) is not FAILURE")
+                #self.pre_action_stmts.append(f"{name} = {name}")
+                #self.action_ignore_variables.add(name)
 
     def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
         if is_loop:
@@ -457,13 +477,13 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
             used = self.actually_used_names_in_action(action_code)
             if has_cut:
-                used.add("cut")
+                used.add("__cut")
 
         with self.local_variable_context():
             self.pre_action_stmts.clear()
             self.action_ignore_variables.clear()
             if has_cut:
-                self.print("cut = False")
+                self.print("__cut = False")
             if is_loop:
                 self.print("while (")
             else:
@@ -491,7 +511,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.
             if has_cut:
-                self.print("if cut:")
+                self.print("if __cut:")
                 with self.indent():
                     self.add_return("FAILURE")
 
