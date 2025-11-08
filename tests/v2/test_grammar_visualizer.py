@@ -3,7 +3,7 @@ from typing import List
 from textwrap import dedent
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.grammar_visualizer import ASTGrammarPrinter
-from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.parser import FAILURE, ParseFailure
 
 
 def test_simple_rule() -> None:
@@ -11,7 +11,7 @@ def test_simple_rule() -> None:
     start: 'a' 'b'
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
 
     printer = ASTGrammarPrinter()
     lines: List[str] = []
@@ -38,7 +38,7 @@ def test_multiple_rules() -> None:
     b: 'b'
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
 
     printer = ASTGrammarPrinter()
     lines: List[str] = []
@@ -77,7 +77,7 @@ def test_deep_nested_rule() -> None:
     start: 'a' ['b'['c'['d']]]
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
 
     printer = ASTGrammarPrinter()
     lines: List[str] = []

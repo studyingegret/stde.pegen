@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.parser import FAILURE, ParseFailure
 from stde.pegen.v2.build import generate_code_from_grammar, generate_parser_from_grammar, load_grammar_from_string
 
 # To debug a parser run, add `verbose_stream=sys.stdout` in `from_text`
@@ -18,10 +18,10 @@ def test_not_whitespace_tokenized() -> None:
     #    generate_code_from_grammar(load_grammar_from_string(grammar).grammar, output_file=f)
     parser = generate_parser_from_grammar(grammar).parser_class
     #TODO: Change interface to return error information?
-    assert parser.from_text("").start() == FAILURE
+    assert isinstance(parser.from_text("").start(), ParseFailure)
     assert parser.from_text("aba").start() == ["a", "b", "a"]
-    assert parser.from_text(" ").start() == FAILURE
-    assert parser.from_text("a b").start() == FAILURE
+    assert isinstance(parser.from_text(" ").start(), ParseFailure)
+    assert isinstance(parser.from_text("a b").start(), ParseFailure)
 
 def test_locations() -> None:
     grammar = dedent("""
@@ -38,11 +38,11 @@ def test_locations() -> None:
     #print(generate_code_from_grammar(load_grammar_from_string(grammar).grammar).parser_code)
     parser = generate_parser_from_grammar(grammar).parser_class
     #TODO
-    assert parser.from_text("").start() == FAILURE
+    assert isinstance(parser.from_text("").start(), ParseFailure)
     assert parser.from_text("a,b,a").start() == ([
         ("a", ((1, 1), (1, 1))),
         ("b", ((1, 3), (1, 3))),
         ("a", ((1, 5), (1, 5))),
     ], ((1, 1), (1, 5)))
-    assert parser.from_text(" ").start() == FAILURE
-    assert parser.from_text("a, b").start() == FAILURE
+    assert isinstance(parser.from_text(" ").start(), ParseFailure)
+    assert isinstance(parser.from_text("a, b").start(), ParseFailure)

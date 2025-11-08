@@ -43,7 +43,7 @@ from typing import (TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO,
 from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
 from stde.pegen.v2.grammar import Grammar
 #from stde.pegen.legacy.parser import Parser
-from stde.pegen.v2.parser import FAILURE, BaseParser
+from stde.pegen.v2.parser import FAILURE, BaseParser, ParseFailure
 from stde.pegen.legacy.tokenizer import Tokenizer
 #from stde.pegen.legacy.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
@@ -125,11 +125,8 @@ def load_grammar_from_file(
     with open_file(grammar_file) as file:
         tokenizer = Tokenizer.from_stream(file, verbose_stream=tokenizer_verbose_stream)
         parser = GrammarParser(tokenizer, verbose_stream=parser_verbose_stream)
-        #grammar = parser.start()
-        #if not grammar:
-        #    raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
         grammar = parser.start()
-        if grammar is FAILURE:
+        if isinstance(grammar, ParseFailure):
             raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return GrammarFromFileProducts(grammar, parser, tokenizer)
 
@@ -157,7 +154,7 @@ def load_grammar_from_string(
     tokenizer = Tokenizer.from_text(grammar_string, verbose_stream=tokenizer_verbose_stream)
     parser = GrammarParser(tokenizer, verbose_stream=parser_verbose_stream)
     grammar = parser.start()
-    if grammar is FAILURE:
+    if isinstance(grammar, ParseFailure):
         raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
     return GrammarFromStringProducts(grammar, parser, tokenizer)
 

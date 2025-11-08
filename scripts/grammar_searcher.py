@@ -70,7 +70,7 @@ from contextlib import contextmanager
 import operator
 from ast import literal_eval
 
-from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.parser import FAILURE, ParseFailure
 
 #from stde.pegen import build, build_v2, grammar as grammar_mod, grammar_v2
 from stde.pegen.legacy import build, grammar as grammar_mod
@@ -174,7 +174,7 @@ class Query(NamedTuple):
 def _parse_query(s: str) -> Query:
     parser = parser_class.from_text(s)
     res = parser.start()
-    if res is FAILURE:
+    if isinstance(res, ParseFailure):
         raise parser.make_syntax_error(f"Cannot parse query {s}.")
     #print(res)
     item = Item(ItemType.STRING if res[0][0] else ItemType.NAME, res[0][1]) #type:ignore[index]

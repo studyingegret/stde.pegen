@@ -2,7 +2,7 @@ from typing import Any
 from textwrap import dedent
 from stde.pegen.v2.grammar import GrammarVisitor
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.parser import FAILURE, ParseFailure
 
 
 class Visitor(GrammarVisitor):
@@ -19,7 +19,7 @@ def test_parse_trivial_grammar() -> None:
     start: 'a'
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
     visitor = Visitor()
 
     visitor.visit(rules)
@@ -33,7 +33,7 @@ def test_parse_or_grammar() -> None:
     rule: 'a' | 'b'
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
     visitor = Visitor()
 
     visitor.visit(rules)
@@ -51,7 +51,7 @@ def test_parse_repeat1_grammar() -> None:
     start: 'a'+
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
     visitor = Visitor()
 
     visitor.visit(rules)
@@ -65,7 +65,7 @@ def test_parse_repeat0_grammar() -> None:
     start: 'a'*
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
     visitor = Visitor()
 
     visitor.visit(rules)
@@ -80,7 +80,7 @@ def test_parse_optional_grammar() -> None:
     start: 'a' ['b']
     """)
     rules = GrammarParser.from_text(grammar).start()
-    assert rules is not FAILURE
+    assert not isinstance(rules, ParseFailure)
     visitor = Visitor()
 
     visitor.visit(rules)

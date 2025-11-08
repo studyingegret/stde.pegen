@@ -3,7 +3,7 @@ import token
 from textwrap import dedent
 from tokenize import TokenInfo
 
-from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.parser import FAILURE, ParseFailure
 import pytest
 from stde.pegen.v2.build import generate_parser_from_grammar
 
@@ -22,7 +22,7 @@ def test_beginning() -> None:
 
     parser = parser_class.from_text("1 + a")
     result = parser.start()
-    assert result == FAILURE
+    assert isinstance(result, ParseFailure)
     exc = parser.make_syntax_error("Cannot parse expression", "some name")
     assert "Cannot parse expression" in str(exc)
     assert exc.filename == "some name"
@@ -35,7 +35,7 @@ def test_with_actions() -> None:
     ''')
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("1 + 2").start() == 3
-    assert parser_class.from_text("1 + a").start() == FAILURE
+    assert isinstance(parser_class.from_text("1 + a").start(), ParseFailure)
 
 def test_with_subtraction() -> None:
     grammar = dedent('''
@@ -110,8 +110,8 @@ def test_color_parsing_char_based() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("#1f1e33").start() == (31, 30, 51, 255)
     assert parser_class.from_text("#002134aa").start() == (0, 33, 52, 170)
-    assert parser_class.from_text("#0021 34aa").start() == FAILURE
-    assert parser_class.from_text("#e0e1ccull").start() == FAILURE
+    assert isinstance(parser_class.from_text("#0021 34aa").start(), ParseFailure)
+    assert isinstance(parser_class.from_text("#e0e1ccull").start(), ParseFailure)
 
 @pytest.mark.xfail
 def test_color_parsing_with_default_parser() -> None:
@@ -127,7 +127,7 @@ def test_color_parsing_with_default_parser() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("#ff33cc").start() == (255, 51, 204, 255)
     assert parser_class.from_text("#002134aa").start() == (0, 33, 52, 170)
-    assert parser_class.from_text("# 002134aa").start() == FAILURE
+    assert isinstance(parser_class.from_text("# 002134aa").start(), ParseFailure)
 
 # Note: there is no input for this in the guide
 def test_compound_and_with_multiplicative_char_based() -> None:

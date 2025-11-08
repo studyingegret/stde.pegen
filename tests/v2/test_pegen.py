@@ -12,7 +12,7 @@ import pytest
 from stde.pegen.v2.build import generate_parser_from_grammar, generate_parser_from_grammar, load_grammar_from_string
 from stde.pegen.v2.grammar import Grammar, ValidationError
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.v2.parser import FAILURE, NO_MATCH, BaseParser, DefaultParser
+from stde.pegen.v2.parser import FAILURE, NO_MATCH, BaseParser, DefaultParser, ParseError, ParseFailure
 from stde.pegen.v2.python_generator import PythonParserGenerator
 
 
@@ -28,7 +28,7 @@ def test_parse_grammar() -> None:
     term: NUMBER
     """).strip()
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     assert str(grammar) == expected
     # Check the str() and repr() of a few rules; AST nodes don't support ==.
     rules = grammar.rules
@@ -45,7 +45,7 @@ def test_parse_grammar_with_types() -> None:
     c_rule[expr_ty*]: a=NUMBER? { _new_expr_ty(a) }
     """)
     grammar = GrammarParser.from_text(grammar_).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     rules = grammar.rules
     assert rules["start"].type.replace(" ", "") == "ast.BinOp" #type:ignore
     assert rules["term"].type.replace(" ", "") == "T[int]" #type:ignore
@@ -68,7 +68,7 @@ def test_long_rule_str() -> None:
         | one one one
     """
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     assert str(grammar.rules["start"]) == dedent(expected).strip()
 
 
@@ -79,7 +79,7 @@ def test_typed_rules() -> None:
     term[int]: NUMBER
     """)
     grammar = GrammarParser.from_text(grammar_).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     rules = grammar.rules
     # Check the str() and repr() of a few rules; AST nodes don't support ==.
     assert str(rules["start"]) == "start: sum NEWLINE"
@@ -96,7 +96,7 @@ def test_gather() -> None:
     thing: NUMBER
     """)
     grammar_obj = GrammarParser.from_text(grammar).start()
-    assert grammar_obj is not FAILURE
+    assert not isinstance(grammar_obj, ParseFailure)
     rules = grammar_obj.rules
     assert str(rules["start"]) == "start: ','.thing+ NEWLINE"
     print(repr(rules["start"]))
@@ -268,7 +268,7 @@ def test_repeat_1_simple() -> None:
         ],
         TokenInfo(NEWLINE, string="\n", start=(1, 5), end=(1, 6), line="1 2 3\n"),
     ]
-    assert parser_class.from_text("1\n").start() is FAILURE
+    assert isinstance(parser_class.from_text("1\n").start(), ParseFailure)
 
 
 def test_repeat_1_complex() -> None:
@@ -292,7 +292,7 @@ def test_repeat_1_complex() -> None:
         ],
         TokenInfo(NEWLINE, string="\n", start=(1, 9), end=(1, 10), line="1 + 2 + 3\n"),
     ]
-    assert parser_class.from_text("1\n").start() is FAILURE
+    assert isinstance(parser_class.from_text("1\n").start(), ParseFailure)
 
 
 def test_repeat_with_sep_simple() -> None:
@@ -322,7 +322,7 @@ def test_left_recursive() -> None:
     baz: NAME?
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     rules = grammar.rules
     mark_left_recursives(rules)
     assert not rules["start"].left_recursive
@@ -371,7 +371,7 @@ def test_python_expr() -> None:
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
     node = parser_class.from_text("(1 + 2*3 + 5)/(6 - 2)\n").start()
-    assert node is not FAILURE
+    assert not isinstance(node, ParseFailure)
     code = compile(node, "", "eval")
     val = eval(code)
     assert val == 3.0
@@ -383,7 +383,7 @@ def test_nullable() -> None:
     sign: ['-' | '+']
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     rules = grammar.rules
     mark_nullables(rules)
     assert rules["start"].nullable is False  # Not None!
@@ -396,7 +396,7 @@ def test_advanced_left_recursive() -> None:
     sign: ['-']
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     rules = grammar.rules
     mark_nullables(rules)
     assert rules["start"].nullable is False  # Not None!
@@ -413,7 +413,7 @@ def test_mutually_left_recursive() -> None:
     bar: foo 'C' | 'D'
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     out = io.StringIO()
     genr = PythonParserGenerator(grammar)
     rules = grammar.rules
@@ -468,14 +468,14 @@ def test_nasty_mutually_left_recursive() -> None:
     maybe: maybe '-' | target
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     out = io.StringIO()
     genr = PythonParserGenerator(grammar)
     genr.generate(out, "<string>")
     ns: Dict[str, Any] = {}
     exec(out.getvalue(), ns)
     parser_class = ns["GeneratedParser"]
-    assert parser_class.from_text("x - + =").start() is FAILURE
+    assert isinstance(parser_class.from_text("x - + =").start(), ParseFailure)
 
 
 def test_lookahead() -> None:
@@ -556,7 +556,7 @@ def test_cut_early_exit() -> None:
     name: NAME
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
-    assert parser_class.from_text("(a)", verbose_stream=sys.stdout).start() is FAILURE
+    assert isinstance(parser_class.from_text("(a)", verbose_stream=sys.stdout).start(), ParseFailure)
 
 
 def test_dangling_reference() -> None:
@@ -597,7 +597,7 @@ def test_soft_keyword() -> None:
     assert parser_class.from_text("string 'b'", verbose_stream=sys.stdout).start() == "'b'"
     assert parser_class.from_text("number test 1", verbose_stream=sys.stdout).start() == "test = 1"
     assert parser_class.from_text("string test 'b'", verbose_stream=sys.stdout).start() == "test = 'b'"
-    assert parser_class.from_text("test 1", verbose_stream=sys.stdout).start() is FAILURE
+    assert isinstance(parser_class.from_text("test 1", verbose_stream=sys.stdout).start(), ParseFailure)
 
 
 def test_forced() -> None:
@@ -606,16 +606,7 @@ def test_forced() -> None:
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("number :", verbose_stream=sys.stdout).start()
-    
-    #parser = parser_class.from_text("a", verbose_stream=sys.stdout)
-    #assert parser.start() is FAILURE
-    #assert "expected ':'" in str(parser.make_syntax_error())
-    
-    #TODO
-    parser = parser_class.from_text("a", verbose_stream=sys.stdout)
-    with pytest.raises(SyntaxError) as e:
-        parser.start()
-    assert "expected ':'" in str(e.exconly())
+    assert "expected ':'" in str(parser_class.from_text("a", verbose_stream=sys.stdout).start().parse_exc)
 
 
 
@@ -626,9 +617,8 @@ def test_forced_with_group() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("number :", verbose_stream=sys.stdout).start()
     assert parser_class.from_text("number ;", verbose_stream=sys.stdout).start()
-    with pytest.raises(SyntaxError) as e:
-        parser_class.from_text("a", verbose_stream=sys.stdout).start()
-    assert "expected (':' | ';')" in e.value.args[0]
+    res = parser_class.from_text("a", verbose_stream=sys.stdout).start()
+    assert "expected (':' | ';')" in res.parse_exc.args[0]
 
 
 UNREACHABLE = "None  # This is a test"
@@ -639,7 +629,7 @@ def test_unreachable_explicit() -> None:
     start: NAME { UNREACHABLE }
     """)
     grammar = GrammarParser.from_text(source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     out = io.StringIO()
     genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
     genr.generate(out, "<string>")
@@ -652,7 +642,7 @@ def test_unreachable_implicit1() -> None:
     invalid_input: NUMBER { None }
     """)
     grammar = GrammarParser.from_text(source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     out = io.StringIO()
     genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
     genr.generate(out, "<string>")
@@ -665,7 +655,7 @@ def test_unreachable_implicit2() -> None:
     invalid_input: NUMBER { None }
     """)
     grammar = GrammarParser.from_text(source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     out = io.StringIO()
     genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
     genr.generate(out, "<string>")
@@ -678,7 +668,7 @@ def test_unreachable_implicit3() -> None:
     invalid_input: NUMBER
     """)
     grammar = GrammarParser.from_text(source).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     out = io.StringIO()
     genr = PythonParserGenerator(grammar, unreachable_formatting=UNREACHABLE)
     genr.generate(out, "<string>")
@@ -704,7 +694,7 @@ def test_locations_in_alt_action_and_group() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     source = "2*3\n"
     parsed = parser_class.from_text(source).start()
-    assert parsed is not FAILURE
+    assert not isinstance(parsed, ParseFailure)
     o = ast.dump(parsed.body, include_attributes=True)
     p = ast.dump(ast.parse(source).body[0].value, include_attributes=True).replace( #type:ignore
         " kind=None,", ""
@@ -731,9 +721,9 @@ def test_hard_keywords() -> None:
     """)
     parser_class = generate_parser_from_grammar(grammar).parser_class
     parser = parser_class.from_text("hello world")
-    assert parser.start() is FAILURE
+    assert isinstance(parser.start(), ParseFailure)
     assert parser.make_syntax_error("").args[1][1:] == (1, 7, 'hello world')
-    assert parser_class.from_text("world").start() is not FAILURE
+    assert not isinstance(parser_class.from_text("world").start(), ParseFailure)
 
 
 def test_skip_actions() -> None:
@@ -759,9 +749,10 @@ def test_hanging_alts() -> None:
         | "2" | "3"
     """)
     grammar = GrammarParser.from_text(grammar_).start()
-    assert grammar is not FAILURE
+    assert not isinstance(grammar, ParseFailure)
     assert (str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:]
             == ': "1" | "2" | "3"')
+
 
 def test_invalid_hanging_alts() -> None:
     grammar_ = dedent("""
@@ -769,7 +760,8 @@ def test_invalid_hanging_alts() -> None:
         "1"
         | "2" | "3"
     """)
-    assert GrammarParser.from_text(grammar_).start() is FAILURE
+    assert isinstance(GrammarParser.from_text(grammar_).start(), ParseFailure)
+
 
 def test_exec_ns() -> None:
     grammar = dedent("""
@@ -790,6 +782,22 @@ def test_exec_ns() -> None:
 
 def test_parseerror() -> None:
     grammar = dedent("""
-    start:
-        a:
+    @header '''
+    def it(x):
+        if x == "a":
+            raise ValueError("message")
+        elif x == "b":
+            raise SyntaxError("message")
+        else:
+            raise ParseError("message")
+    '''
+    start: NAME { it(name.string) }
     """)
+    parser_class = generate_parser_from_grammar(grammar).parser_class
+    with pytest.raises(ValueError, match="message"):
+        parser_class.from_text("a").start()
+    with pytest.raises(SyntaxError, match="message"):
+        parser_class.from_text("b").start()
+    res = parser_class.from_text("c").start()
+    assert isinstance(res, ParseFailure)
+    assert res.parse_exc.args == ("message",) #type:ignore

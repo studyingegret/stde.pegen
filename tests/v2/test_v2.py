@@ -2,7 +2,7 @@ import sys
 import token
 import traceback
 
-from stde.pegen.v2.parser import FAILURE
+from stde.pegen.v2.parser import FAILURE, ParseFailure
 import pytest
 from stde.pegen.v2.build import load_grammar_from_string, generate_parser_from_grammar
 from textwrap import dedent
@@ -37,7 +37,7 @@ def test_simple_error() -> None:
 
     parser = parser_class.from_text("1 + a", verbose_stream=sys.stdout)
     res = parser.start()
-    assert res == FAILURE
+    assert isinstance(res, ParseFailure)
     with pytest.raises(SyntaxError) as excinfo:
         e = parser.make_syntax_error("Cannot evaluate expression.")
         print(e)

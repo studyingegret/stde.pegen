@@ -54,16 +54,16 @@ class ResultFlag(Enum):
         #return f"{self.__class__.__name__}.{self._name_}" #XXX: ?
         return f"{self._name_}"
 
+class ParseFailure(NamedTuple):
+    """Return value of a parse function upon parse failure."""
+    parse_exc: Optional[ParseError] = None
+
 
 RuleResult = Union[T2, Literal[ResultFlag.FAILURE]]
 
-if TYPE_CHECKING:
-    NO_MATCH: Literal[ResultFlag.NO_MATCH] = ResultFlag.NO_MATCH
-    FAILURE: Literal[ResultFlag.FAILURE] = ResultFlag.FAILURE
-else:
-    NO_MATCH = ResultFlag.NO_MATCH
-    FAILURE = ResultFlag.FAILURE
-#reveal_type(NO_MATCH)
+# Type annotations are necessary to make them recognised as Literal
+NO_MATCH: Literal[ResultFlag.NO_MATCH] = ResultFlag.NO_MATCH
+FAILURE: Literal[ResultFlag.FAILURE] = ResultFlag.FAILURE
 
 class MarkRequirements(Protocol):
     def __hash__(self) -> int: ...
@@ -220,7 +220,7 @@ def memoize_left_rec(method: Callable[["BaseParser"], RuleResult[T]]) -> Callabl
 
 
 class BaseParser(ABC):
-    """Parsing base class v2."""
+    """v2 parsing base class."""
 
     #XXX: How much of this can change depending on the exact parser type?
     KEYWORDS: ClassVar[Tuple[str, ...]]
@@ -250,7 +250,7 @@ class BaseParser(ABC):
     _level: int
     in_recursive_rule: int
 
-    # Cooperation with python_generator_v2.py
+    # Cooperation with python_generator.py
     # XXX: There are more coupling cooperations to reveal?
     call_invalid_rules: bool
 
@@ -278,7 +278,7 @@ class BaseParser(ABC):
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> "BaseParser": ...
 
     if TYPE_CHECKING: #XXX: ?
-        def start(self) -> RuleResult[Any]:
+        def start(self) -> Any:
             """Expected grammar entry point.
 
             This is not strictly necessary but is assumed to exist in most utility
@@ -380,7 +380,7 @@ class BaseParser(ABC):
 
     def force(self, res: Any, expectation: str) -> Optional[Any]:
         if res is FAILURE:
-            raise self.make_syntax_error(f"expected {expectation}") #...
+            raise self.make_parse_error(f"expected {expectation}") #...
         return res
 
     def positive_lookahead(self, func: Callable[..., RuleResult[T]], *args: Any, **kwargs: Any) -> RuleResult[T]:
@@ -400,10 +400,17 @@ class BaseParser(ABC):
 
     #XXX: ?
     #XXX: filename?
-    @abstractmethod
+    #@abstractmethod
     def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
         line, col, line_text = self.diagnose()
         return SyntaxError(message, (filename, line, col, line_text))
+
+    #XXX: ?
+    #XXX: filename?
+    #@abstractmethod
+    def make_parse_error(self, message: str, filename: str = "<unknown>") -> ParseError:
+        line, col, line_text = self.diagnose()
+        return ParseError(message, (filename, line, col, line_text))
 
 
 # Tokens added in Python 3.12
@@ -455,8 +462,8 @@ class DefaultParser(BaseParser):
     def diagnose(self) -> Tuple[int, int, str]:
         t = self._tokenizer.diagnose()
         end_line = t.end[0]
-        if t.type == token.ENDMARKER:
-            end_line -= 1
+        #if t.type == token.ENDMARKER: #XXX: ?
+        #    end_line -= 1
         return (end_line, t.end[1], t.line)
 
     # Begin tokens
@@ -693,9 +700,9 @@ class CharBasedParser(BaseParser):
     def _update_farthest(self, mark: Mark) -> None:
         self._farthest = max(mark, self._farthest)
 
-    def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
-        line, col, line_text = self.diagnose()
-        return SyntaxError(message, (filename, line, col, line_text))
+    #def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
+    #    line, col, line_text = self.diagnose()
+    #    return SyntaxError(message, (filename, line, col, line_text))
 
 
 #? How to change this?
@@ -739,7 +746,7 @@ def simple_parser_main(parser_class: Type[BaseParser]) -> None:
 
     t1 = time.time()
 
-    if tree is FAILURE:
+    if isinstance(tree, ParseFailure):
         err = parser.make_syntax_error(filename)
         traceback.print_exception(err.__class__, err, None)
         sys.exit(1)

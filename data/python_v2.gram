@@ -121,12 +121,18 @@ class Base(DefaultParser):
         self.filename = filename
         self.py_version = min(py_version, sys.version_info) if py_version else sys.version_info
 
+    # Let `&&x` raise SyntaxError instead of ParseError for compatibility with old code
+    def force(self, res: Any, expectation: str) -> Optional[Any]:
+        if res is FAILURE:
+            raise self.make_syntax_error(f"expected {expectation}")
+        return res
+
     def parse(self, rule: str, call_invalid_rules: bool = False) -> Optional[ast.AST]:
         old = self.call_invalid_rules
         self.call_invalid_rules = call_invalid_rules
         res = getattr(self, rule)()
 
-        if res is FAILURE:
+        if isinstance(res, ParseFailure):
 
             # Grab the last token that was parsed in the first run to avoid
             # polluting a generic error reports with progress made by invalid rules.
