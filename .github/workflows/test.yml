@@ -1,3 +1,5 @@
+# NOTE Not adapted for this repo yet.
+
 name: Run test suite
 
 on:

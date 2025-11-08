@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-from stde.pegen.v2.parser import FAILURE, ParseFailure
+from stde.pegen.v2.parser import ParseFailure
 from stde.pegen.v2.build import generate_code_from_grammar, generate_parser_from_grammar, load_grammar_from_string
 
 # To debug a parser run, add `verbose_stream=sys.stdout` in `from_text`

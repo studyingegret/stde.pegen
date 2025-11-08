@@ -2,7 +2,7 @@ import sys
 import token
 import traceback
 
-from stde.pegen.v2.parser import FAILURE, ParseFailure
+from stde.pegen.v2.parser import ParseFailure
 import pytest
 from stde.pegen.v2.build import load_grammar_from_string, generate_parser_from_grammar
 from textwrap import dedent

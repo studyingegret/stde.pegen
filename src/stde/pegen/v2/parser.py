@@ -564,10 +564,6 @@ class DefaultParser(BaseParser):
             return self._tokenizer.getnext()
         return FAILURE
 
-    def make_syntax_error(self, message: str, filename: str = "<unknown>") -> SyntaxError:
-        tok = self._tokenizer.diagnose()
-        return SyntaxError(message, (filename, tok.start[0], 1 + tok.start[1], tok.line))
-
 
 def _count_nlines_and_last_col(s: str) -> Tuple[int, int]:
     """Second return item is always 0 when first return item is 0"""

@@ -3,7 +3,7 @@ from typing import List
 from textwrap import dedent
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.grammar_visualizer import ASTGrammarPrinter
-from stde.pegen.v2.parser import FAILURE, ParseFailure
+from stde.pegen.v2.parser import ParseFailure
 
 
 def test_simple_rule() -> None:

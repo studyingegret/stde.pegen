@@ -3,7 +3,7 @@ import token
 from textwrap import dedent
 from tokenize import TokenInfo
 
-from stde.pegen.v2.parser import FAILURE, ParseFailure
+from stde.pegen.v2.parser import ParseFailure
 import pytest
 from stde.pegen.v2.build import generate_parser_from_grammar
 

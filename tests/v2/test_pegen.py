@@ -12,7 +12,7 @@ import pytest
 from stde.pegen.v2.build import generate_parser_from_grammar, generate_parser_from_grammar, load_grammar_from_string
 from stde.pegen.v2.grammar import Grammar, ValidationError
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.v2.parser import FAILURE, NO_MATCH, BaseParser, DefaultParser, ParseError, ParseFailure
+from stde.pegen.v2.parser import NO_MATCH, BaseParser, DefaultParser, ParseError, ParseFailure
 from stde.pegen.v2.python_generator import PythonParserGenerator
 
 

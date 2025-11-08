@@ -2,7 +2,7 @@ from typing import Any
 from textwrap import dedent
 from stde.pegen.v2.grammar import GrammarVisitor
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
-from stde.pegen.v2.parser import FAILURE, ParseFailure
+from stde.pegen.v2.parser import ParseFailure
 
 
 class Visitor(GrammarVisitor):

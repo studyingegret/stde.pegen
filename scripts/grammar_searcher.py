@@ -70,7 +70,7 @@ from contextlib import contextmanager
 import operator
 from ast import literal_eval
 
-from stde.pegen.v2.parser import FAILURE, ParseFailure
+from stde.pegen.v2.parser import ParseFailure
 
 #from stde.pegen import build, build_v2, grammar as grammar_mod, grammar_v2
 from stde.pegen.legacy import build, grammar as grammar_mod

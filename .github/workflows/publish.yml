@@ -1,3 +1,5 @@
+# NOTE Not adapted for this repo yet.
+
 name: Build and publish Python 🐍 distribution 📦 to PyPI and GH
 
 on:
