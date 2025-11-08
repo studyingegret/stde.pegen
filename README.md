@@ -30,11 +30,15 @@ How this library is different from original Pegen
 
 Installing
 ----------
-This library is not published to PyPI yet, so download the wheel from the Releases and install from it.
+This library is not published to PyPI yet, so download the wheel from the [Releases](https://github.com/studyingegret/stde.pegen/releases) and install from it.
 
 ```
 pip install the-wheel.whl
 ```
+
+> **Note:** The latest commit of the repository is not compatible with the v0.0.0 release
+> because I am stocking up commits for a new major version and plan to not make
+> releases before that.
 
 How to generate a parser
 ------------------------
@@ -111,7 +115,7 @@ unless you know you really need to use legacy mode.
 
 Note
 ----
-*Everything below is outdated.*
+***Everything below is outdated.***
 
 Documentation
 -------------
