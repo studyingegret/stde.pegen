@@ -459,12 +459,16 @@ class DefaultParser(BaseParser):
         #    m = self.mark()
         #    self._tokenizer.getnext()
 
+    #def diagnose(self) -> Tuple[int, int, str]:
+    #    t = self._tokenizer.diagnose()
+    #    end_line = t.end[0]
+    #    #if t.type == token.ENDMARKER: #XXX: ?
+    #    #    end_line -= 1
+    #    return (end_line, t.end[1], t.line)
+
     def diagnose(self) -> Tuple[int, int, str]:
         t = self._tokenizer.diagnose()
-        end_line = t.end[0]
-        #if t.type == token.ENDMARKER: #XXX: ?
-        #    end_line -= 1
-        return (end_line, t.end[1], t.line)
+        return (t.start[0], 1 + t.start[1], t.line)
 
     # Begin tokens
 
