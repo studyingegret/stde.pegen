@@ -2,10 +2,11 @@ import ast
 from keyword import iskeyword
 import re
 import token
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Text, TextIO, Tuple, cast
-from io import TextIOBase
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Self, Sequence, Set, Text, TextIO, Tuple, cast
+#from io import TextIOBase
 
-from stde.pegen.v2.validator import ValidationError, validate_grammar
+from stde.pegen.common import ValidationError
+from stde.pegen.v2.validate import check_unreachable_rules
 
 from stde.pegen.v2.grammar import (
     Action,
@@ -57,14 +58,14 @@ ADDITIONAL_TOKENS = {
 }
 
 ALLOWED_METAS = {"class", "base", "location_format", "metaheader",
-                 "header", "trailer", "require"}
+                 "header", "trailer", "require", "preset"}
 
 # TODO: Doc
 # All v2 generators should accept the require string "v2".
 ALLOWED_REQUIRES = {"v2", "v2-python"}
 
 
-class InvalidNodeVisitor(GrammarVisitor[bool]): #?
+class _InvalidNodeVisitor(GrammarVisitor[bool]): #?
     """TODO: Docstring"""
     def visit_NameLeaf(self, node: NameLeaf) -> bool:
         name = node.value
@@ -112,7 +113,7 @@ class InvalidNodeVisitor(GrammarVisitor[bool]): #?
 
 #... with Parser
 # TODO?
-class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
+class _PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
     """Translates grammar items to a 2-tuple of
     - Capture variable name (None for no capture variable name) (`str | None`)
     - Matching code (`str`)
@@ -224,7 +225,7 @@ class PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
             return "forced", f"self.force({expr}, {node.node.value!r})"
 
 
-class UsedNamesVisitor(ast.NodeVisitor):
+class _UsedNamesVisitor(ast.NodeVisitor):
     """TODO: Docstring"""
     def generic_visit(self, node: ast.AST) -> Set[str]:
         result = set()
@@ -241,34 +242,36 @@ class UsedNamesVisitor(ast.NodeVisitor):
         return {node.id}
 
 
-
-def _check_grammar(grammar: Grammar) -> None:
-    if not (m := set(grammar.metas.keys())) <= ALLOWED_METAS:
-        raise ValidationError(f"Unrecognized metas: {','.join(m - ALLOWED_METAS)}")
-    if "require" in grammar.metas and grammar.metas["require"] not in ALLOWED_REQUIRES:
-        raise ValidationError("Grammar is not adapted for this parser generator "
-                              f"(it requires {grammar.metas["require"]!r})")
-
-
 #TODO: print indented text
 class PythonParserGenerator(ParserGenerator, GrammarVisitor):
+    def __new__(
+        cls,
+        grammar: Grammar,
+        unreachable_formatting: Optional[str] = None,
+        *, # For maximum compatibility #XXX: Maybe not neccessary?
+        skip_actions: bool = False,
+    ) -> Self:
+        extra_names: Set[str] = {
+            "python": set(token.tok_name.values()) | ADDITIONAL_TOKENS,
+            #"char_based": {"any_char"}
+            "char_based": set()
+        }[grammar.metas.get("preset", "python")]
+        return super().__new__(cls, grammar, extra_names)
+
     def __init__(
         self,
         grammar: Grammar,
-        tokens: Set[str] = set(token.tok_name.values()) | ADDITIONAL_TOKENS,
         unreachable_formatting: Optional[str] = None,
-        *, # For maximum compatibility
+        *, # For maximum compatibility #XXX: Maybe not neccessary?
         skip_actions: bool = False,
     ):
         # TODO: tokens customizable based on parser?
         # TODO: How to handle LOCATIONS?
-        super().__init__(grammar, tokens)
-        _check_grammar(self.grammar)
-        validate_grammar(self.grammar)
-        self.callmakervisitor = PythonCallMakerVisitor(
-            self, set(self.grammar.rules.keys())) #pyright:ignore
-        self._invalidvisitor: InvalidNodeVisitor = InvalidNodeVisitor()
-        self._usednamesvisitor: UsedNamesVisitor = UsedNamesVisitor()
+        self.grammar = grammar
+        super().__init__(grammar)
+        self.callmakervisitor = _PythonCallMakerVisitor(self, set(self.grammar.rules.keys())) #pyright:ignore
+        self._invalidvisitor = _InvalidNodeVisitor()
+        self._usednamesvisitor = _UsedNamesVisitor()
         self.unreachable_formatting = unreachable_formatting or "None  # pragma: no cover"
         self.location_formatting = self.grammar.metas.get("location_format",
             "lineno=start_lineno, col_offset=start_colno, "
@@ -279,14 +282,26 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.skip_actions = skip_actions
         self._rulename_to_methname: Dict[str, str] = {}
 
+    #TODO: Tests
+    @classmethod
+    def validate(cls, grammar: Grammar, extra_names: Set[Text]) -> None:
+        super().validate(grammar, extra_names)
+        if not (m := set(grammar.metas.keys())) <= ALLOWED_METAS:
+            raise ValidationError(f"Unrecognized metas: {','.join(m - ALLOWED_METAS)}")
+        if "require" in grammar.metas and grammar.metas["require"] not in ALLOWED_REQUIRES:
+            raise ValidationError("Grammar is not adapted for this parser generator "
+                                  f"(it requires {grammar.metas["require"]!r})")
+        check_unreachable_rules(grammar)
+        preset = grammar.metas.get("preset", "python")
+        if preset not in {"python", "char_based"}:
+            raise ValidationError(f"Unknown grammar preset {preset}")
+
     #XXX Method be called more than once?
     def generate(self, file: TextIO, filename: str) -> None:
         super().generate(file, filename)
-        metaheader = self.grammar.metas.get("metaheader", MODULE_PREFIX)
-        if metaheader is not None:
+        if (metaheader := self.grammar.metas.get("metaheader", MODULE_PREFIX)) is not None:
             self.print(metaheader.rstrip("\n").format(filename=filename))
-        header = self.grammar.metas.get("header", "")
-        if header:
+        if header := self.grammar.metas.get("header", ""):
             self.print(header)
         cls_name = self.grammar.metas.get("class", "GeneratedParser")
         base_cls_name = self.grammar.metas.get("base", "DefaultParser")

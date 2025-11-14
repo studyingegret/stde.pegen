@@ -1,8 +1,9 @@
 from contextlib import contextmanager
 from abc import abstractmethod
-from typing import Any, AbstractSet, Dict, Iterator, List, Set, TextIO, Tuple
+from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Self, Set, TextIO, Tuple
 
 from stde.pegen.sccutils import find_cycles_in_scc, strongly_connected_components
+from stde.pegen.common import ValidationError
 from stde.pegen.v2.grammar import (
     Alt,
     Cut,
@@ -10,7 +11,6 @@ from stde.pegen.v2.grammar import (
     Forced,
     Gather,
     Grammar,
-    ValidationError,
     GrammarItem,
     GrammarVisitor,
     Group,
@@ -27,7 +27,7 @@ from stde.pegen.v2.grammar import (
 )
 
 
-class CheckingVisitor(GrammarVisitor):
+class _CheckingVisitor(GrammarVisitor):
     def __init__(self, items: Dict[str, GrammarItem], extra_names: Set[str]):
         self.items = items
         self.extra_names = extra_names
@@ -52,11 +52,6 @@ class CheckingVisitor(GrammarVisitor):
             raise ValidationError(f"Variable names cannot start with underscore ({node.name})")
 
 
-def validate_items(items: Dict[str, GrammarItem], tokens: Set[str]) -> None:
-    checker = CheckingVisitor(items, tokens)
-    checker.visit(items.values())
-
-
 class ParserGenerator:
     """ParserGenerators should keep the following convention:
     - __init__ should validate the grammar (except for checks
@@ -69,22 +64,33 @@ class ParserGenerator:
     check if the ParserGenerator accepts the grammar. (?)
     """
 
-    # validator.validate_grammar[_v2] should not be called by ParserGenerator.
-    # Instead, v1/v2 subclasses of ParserGenerator will call them
-    # since only at that time they know if they are v1/v2.
-    def __init__(self, grammar: Grammar, tokens: Set[str]):
-        self.grammar = grammar
-        self.rules = grammar.rules
-        validate_items(self.grammar.items, tokens) #TODO: -> extern + preset in grammar
-        if "trailer" not in grammar.metas and "start" not in self.rules:
+    def __new__(cls, grammar: Grammar, extra_names: Optional[Set[str]] = None) -> Self:
+        if extra_names is None:
+            extra_names = set()
+        cls.validate(grammar, extra_names)
+        return cls(grammar)
+
+    #TODO: Tests
+    @classmethod
+    def validate(cls, grammar: Grammar, extra_names: Set[str]) -> None:
+        #TODO: -> extern + preset in grammar
+        checker = _CheckingVisitor(grammar.items, extra_names or set())
+        checker.visit(grammar.items.values())
+        if "trailer" not in grammar.metas and "start" not in grammar.rules:
             raise ValidationError("Grammar without a trailer must have a 'start' rule")
+
+    def __init__(self, grammar: Grammar):
+        self.grammar = grammar
         self.file: TextIO
         self.level = 0
-        mark_nullables(self.rules) #XXX: Value is thrown away intentionally???
-        self.first_graph, self.first_sccs = mark_left_recursives(self.rules)
-        self.todo = self.rules.copy()  # Rules to generate
-        self.counter = 0  # For name_rule()/name_loop()
-        self.all_rules: Dict[str, Rule] = {}  # Rules + temporal rules
+        mark_nullables(self.grammar.rules)
+        self.first_graph, self.first_sccs = mark_left_recursives(self.grammar.rules)
+        # Rules to generate
+        self.todo = self.grammar.rules.copy()
+        # For name_rule()/name_loop()
+        self.counter = 0
+        # Rules + temporal rules
+        self.all_rules: Dict[str, Rule] = {}
         self._local_variable_stack: List[List[str]] = []
 
     @contextmanager
@@ -99,6 +105,7 @@ class ParserGenerator:
 
     @abstractmethod
     def generate(self, file: TextIO, filename: str) -> None:
+        """generate() of subclasses of ParserGenerator must call the generate() of ParserGenerator."""
         self.file = file
 
     @contextmanager
@@ -120,9 +127,8 @@ class ParserGenerator:
         for line in lines.splitlines():
             self.print(line)
 
-    #XXX: What does this do?
+    # NOTE: I've tested that it is not invoked by the tests.
     def collect_todo(self) -> None:
-        # I've tested that it is not invoked by the tests.
         raise NotImplementedError("collect_todo looks like a TODO feature.")
         done: Set[str] = set()
         while True:

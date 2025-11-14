@@ -179,7 +179,6 @@ def generate_code_from_grammar(
             return CodeFromGrammarProducts(gen, file.getvalue())
     else:
         with open_file(output_file, "w") as file:
-            gen = PythonParserGenerator(grammar, skip_actions=skip_actions)
             gen.generate(file, grammar_file_name)
             return CodeFromGrammarProducts(gen, None)
 

@@ -4,7 +4,7 @@ from stde.pegen.common import ValidationError
 from stde.pegen.v2.grammar import Alt, GrammarVisitor, Rhs, Rule, Grammar
 
 
-class GrammarValidator(GrammarVisitor):
+class _UnreachableRuleChecker(GrammarVisitor):
     def __init__(self, grammar: Grammar) -> None:
         self.grammar = grammar
         self.rulename: Optional[str] = None
@@ -14,9 +14,6 @@ class GrammarValidator(GrammarVisitor):
         self.visit(node)
         self.rulename = None
 
-
-#TODO: ...
-class SubRuleValidator(GrammarValidator):
     def visit_Rhs(self, node: Rhs) -> None:
         for index, alt in enumerate(node.alts):
             for other_alt in node.alts[index+1:]:
@@ -26,16 +23,12 @@ class SubRuleValidator(GrammarValidator):
         if str(second_alt).startswith(str(first_alt)):
             raise ValidationError(
                 f"In {self.rulename} there is an alternative that will "
-                f"never be visited:\n{second_alt} "
+                f"never be visited:\n{second_alt}\n"
                 f"(note: {first_alt} will match instead)"
             )
 
 
-# Should not be called by ParserGenerator.
-# Instead, v1/v2 subclasses of ParserGenerator will call them
-# since only at that time they know if they are v1/v2.
-
-def validate_grammar(grammar: Grammar) -> None: #...
-    validator = SubRuleValidator(grammar)
+def check_unreachable_rules(grammar: Grammar) -> None: #...
+    checker = _UnreachableRuleChecker(grammar)
     for rule_name, rule in grammar.rules.items():
-        validator.validate_rule(rule_name, rule)
+        checker.validate_rule(rule_name, rule)

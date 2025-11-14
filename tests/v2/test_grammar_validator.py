@@ -1,9 +1,8 @@
 import pytest
 from textwrap import dedent
-from stde.pegen.v2.grammar import Grammar
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.parser import ParseFailure
-from stde.pegen.v2.validator import SubRuleValidator, ValidationError
+from stde.pegen.v2.validate import check_unreachable_rules, ValidationError
 
 
 def test_rule_with_no_collision() -> None:
@@ -15,9 +14,7 @@ def test_rule_with_no_collision() -> None:
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
     assert not isinstance(grammar, ParseFailure)
-    validator = SubRuleValidator(grammar)
-    for rule_name, rule in grammar.rules.items():
-        validator.validate_rule(rule_name, rule)
+    check_unreachable_rules(grammar)
 
 def test_rule_with_simple_collision() -> None:
     grammar_source = dedent("""
@@ -28,10 +25,8 @@ def test_rule_with_simple_collision() -> None:
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
     assert not isinstance(grammar, ParseFailure)
-    validator = SubRuleValidator(grammar)
     with pytest.raises(ValidationError):
-        for rule_name, rule in grammar.rules.items():
-            validator.validate_rule(rule_name, rule)
+        check_unreachable_rules(grammar)
 
 def test_rule_with_collision_after_some_other_rules() -> None:
     grammar_source = dedent("""
@@ -44,7 +39,5 @@ def test_rule_with_collision_after_some_other_rules() -> None:
     """)
     grammar = GrammarParser.from_text(grammar_source).start()
     assert not isinstance(grammar, ParseFailure)
-    validator = SubRuleValidator(grammar)
     with pytest.raises(ValidationError):
-        for rule_name, rule in grammar.rules.items():
-            validator.validate_rule(rule_name, rule)
+        check_unreachable_rules(grammar)

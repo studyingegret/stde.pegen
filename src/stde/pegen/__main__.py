@@ -19,7 +19,7 @@ from stde.pegen.legacy.build import generate_code_from_file, CodeFromFileProduct
 from stde.pegen.v2.build import (generate_code_from_file as generate_code_from_file_v2,
                                  CodeFromFileProducts as CodeFromFileProductsV2)
 from stde.pegen.legacy.validator import validate_grammar
-from stde.pegen.v2.validator import validate_grammar as validate_grammar_v2
+from stde.pegen.v2.validate import check_unreachable_rules as validate_grammar_v2
 
 
 def generate_python_code(
