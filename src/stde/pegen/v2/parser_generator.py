@@ -25,31 +25,7 @@ from stde.pegen.v2.grammar import (
     Rule,
     StringLeaf,
 )
-
-
-class _CheckingVisitor(GrammarVisitor):
-    def __init__(self, items: Dict[str, GrammarItem], extra_names: Set[str]):
-        self.items = items
-        self.extra_names = extra_names
-
-    def visit_Rule(self, rule: Rule) -> None:
-        if rule.name.startswith("_"):
-            raise ValidationError(f"Rule names cannot start with underscore ({rule.name})")
-        self.visit(rule.rhs)
-
-    def visit_NameLeaf(self, node: NameLeaf) -> None:
-        if node.value not in self.items and node.value not in self.extra_names:
-            # TODO: Add line/col info to (leaf) nodes
-            raise ValidationError(f"Unknown name {node.value!r}")
-
-    def visit_TopLevelItem(self, node: TopLevelItem) -> None:
-        if node.name and node.name.startswith("_"):
-            raise ValidationError(f"Variable names cannot start with underscore ({node.name})")
-        self.visit(node.item)
-
-    def visit_ExternDecl(self, node: TopLevelItem) -> None:
-        if node.name and node.name.startswith("_"):
-            raise ValidationError(f"Variable names cannot start with underscore ({node.name})")
+from stde.pegen.v2.validate import basic_check
 
 
 class ParserGenerator:
@@ -68,14 +44,13 @@ class ParserGenerator:
         if extra_names is None:
             extra_names = set()
         cls.validate(grammar, extra_names)
-        return cls(grammar)
+        return super().__new__(cls)
 
     #TODO: Tests
     @classmethod
     def validate(cls, grammar: Grammar, extra_names: Set[str]) -> None:
         #TODO: -> extern + preset in grammar
-        checker = _CheckingVisitor(grammar.items, extra_names or set())
-        checker.visit(grammar.items.values())
+        basic_check(grammar, extra_names)
         if "trailer" not in grammar.metas and "start" not in grammar.rules:
             raise ValidationError("Grammar without a trailer must have a 'start' rule")
 

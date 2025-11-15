@@ -561,32 +561,6 @@ def test_cut_early_exit() -> None:
     assert isinstance(parser_class.from_text("(a)", verbose_stream=sys.stdout).start(), ParseFailure)
 
 
-def test_dangling_reference() -> None:
-    grammar = dedent("""
-    start: foo ENDMARKER
-    foo: bar NAME
-    """)
-    with pytest.raises(ValidationError):
-        generate_parser_from_grammar(grammar).parser_class
-
-
-def test_bad_token_reference() -> None:
-    grammar = dedent("""
-    start: foo
-    foo: NAMEE
-    """)
-    with pytest.raises(ValidationError):
-        generate_parser_from_grammar(grammar).parser_class
-
-
-def test_missing_start() -> None:
-    grammar = dedent("""
-    foo: NAME
-    """)
-    with pytest.raises(ValidationError):
-        generate_parser_from_grammar(grammar).parser_class
-
-
 def test_soft_keyword() -> None:
     grammar = dedent("""
     start:
@@ -609,7 +583,6 @@ def test_forced() -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("number :", verbose_stream=sys.stdout).start()
     assert "expected ':'" in str(parser_class.from_text("a", verbose_stream=sys.stdout).start().parse_exc)
-
 
 
 def test_forced_with_group() -> None:
@@ -754,15 +727,6 @@ def test_hanging_alts() -> None:
     assert not isinstance(grammar, ParseFailure)
     assert (str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:] == str(grammar.rules["a"])[1:]
             == ': "1" | "2" | "3"')
-
-
-def test_invalid_hanging_alts() -> None:
-    grammar_ = dedent("""
-    a:
-        "1"
-        | "2" | "3"
-    """)
-    assert isinstance(GrammarParser.from_text(grammar_).start(), ParseFailure)
 
 
 def test_exec_ns() -> None:

@@ -76,6 +76,7 @@ class MarkRequirements(Protocol):
     def __ge__(self, other: Self, /) -> bool: ...
 
 
+# TODO: Map r_rulename method names back to rulename when logging
 def logger(method: F) -> F:
     """For non-memoized functions that we want to be logged.
 
@@ -354,7 +355,7 @@ class BaseParser(ABC):
         return self.last_pos()
 
     def showpeek(self) -> str:
-        line, col = self.next_pos() # Note: just a default, doesn't mean pos() is always the best
+        line, col = self.next_pos() # Just a default, not always the best
         return f"{line}.{col}"
 
     @abstractmethod
