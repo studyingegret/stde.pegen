@@ -1,13 +1,48 @@
 #!/usr/bin/env python
 """
-Utility for generating grammar parsers with backup functionality
+Generate grammar parsers with backup functionality
+
+See CONTRIBUTING.md for design details.
 """
-import argparse
-import shutil
-import subprocess
-import sys
-import os
-import colorama # type:ignore[import-untyped]
+
+import sys, os, argparse, shutil, subprocess, builtins
+from typing import TYPE_CHECKING, Any, NamedTuple
+from functools import partial
+
+class _Colors(NamedTuple):
+    RED: str = ""
+    GREEN: str = ""
+    WHITE: str = ""
+    MAGENTA: str = ""
+    BOLD: str = ""
+    NORMAL: str = ""
+    RESET: str = ""
+
+class Colors(_Colors):
+    @classmethod
+    def null(cls):
+        return cls()
+    @property
+    def RST(self):
+        return self.RESET + self.NORMAL
+
+try:
+    import colorama # type:ignore[import-untyped]
+    colors = Colors(
+        colorama.Fore.LIGHTRED_EX,
+        colorama.Fore.LIGHTGREEN_EX,
+        colorama.Fore.LIGHTWHITE_EX,
+        colorama.Fore.MAGENTA,
+        colorama.Style.BRIGHT,
+        colorama.Style.NORMAL,
+        colorama.Fore.RESET
+    )
+    just_fix_windows_console = colorama.just_fix_windows_console
+    has_colorama = True
+except ImportError:
+    colors = Colors()
+    just_fix_windows_console = lambda: None
+    has_colorama = False
 
 # Path configurations
 LEGACY_METAGRAMMAR = "src/stde/pegen/legacy/metagrammar.gram"
@@ -17,24 +52,29 @@ V2_METAGRAMMAR = "src/stde/pegen/v2/metagrammar.gram"
 V2_OUTPUT = "src/stde/pegen/v2/grammar_parser.py"
 V2_BAD_OUTPUT = "src/stde/pegen/v2/grammar_parser.bad.py"
 
-RED = colorama.Fore.LIGHTRED_EX
-GREEN = colorama.Fore.LIGHTGREEN_EX
-WHITE = colorama.Fore.LIGHTWHITE_EX
-MAGENTA = colorama.Fore.MAGENTA
-BOLD = colorama.Style.BRIGHT
-NORMAL = colorama.Style.NORMAL
-RESET = colorama.Fore.RESET
 
 p = argparse.ArgumentParser(
-    description="Generate grammar parser with backup functionality")
-p.add_argument("version", choices=["legacy", "v2"],
+    description=__doc__,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    add_help=False)
+g = p.add_argument_group("Positional arguments")
+g.add_argument("version", choices=["legacy", "v2"],
                help="Parser version to generate")
-p.add_argument("-v", "--verbose", action="count", default=0,
+g = p.add_argument_group("Options")
+g.add_argument("-h", "--help", action="help",
+               help="Show this help message and exit")
+g.add_argument("-v", "--verbose", action="count", default=0,
                help="Verbosity level (use -v, -vv, etc.)")
-p.add_argument("-g", "--generations", type=int, default=2,
+g.add_argument("-g", "--generations", type=int, default=2,
                help="Number of generations to run (default: 2, see CONTRIBUTING.md for why)")
-p.add_argument("args", nargs="*", # NOT argparse.REMAINDER! It's no good
-               help="Arguments to pass to generator (precede with '--')")
+g.add_argument("--color", choices=["on", "auto", "off"], default="auto",
+               help="Whether to use colored output. "
+                    "'auto' means only use colored output when both stdout and stderr are tty.")
+g = p.add_argument_group("Raw arguments")
+g.add_argument("args", nargs="*", # NOT argparse.REMAINDER! It's no good
+               help="Arguments passed to the underlying generator "
+                    "stde.pegen.__main__. Precede with '--'. "
+                    "See `python -m stde.pegen -h`")
 
 
 def backup_file(file_path):
@@ -45,8 +85,22 @@ def backup_file(file_path):
     return backup_path
 
 
+
 def main(args):
-    colorama.just_fix_windows_console()
+    if TYPE_CHECKING:
+        def print(*args: Any, **kwargs: Any) -> None: pass
+    else:
+        print = partial(builtins.print, flush=True)
+    use_color = (args.color == "auto" and sys.stdout.isatty() and sys.stderr.isatty()
+                 or args.color == "on")
+    if use_color and not has_colorama:
+        print("Warning: Color is determined to be enabled but colorama is not available. "
+              "No color will be printed.")
+    if use_color:
+        just_fix_windows_console()
+        c = colors
+    else:
+        c = Colors.null()
     if args.version == "legacy":
         metagrammar = LEGACY_METAGRAMMAR
         output = LEGACY_OUTPUT
@@ -79,10 +133,10 @@ def main(args):
     cmd.extend(args.args)
     #raise
     for i in range(1, args.generations + 1):
-        print(f"{WHITE}{BOLD}Generation {i}/{args.generations}: {' '.join(cmd)}{RESET}{NORMAL}")
+        print(f"{c.WHITE}{c.BOLD}Generation {i}/{args.generations}: {' '.join(cmd)}{c.RST}")
         result = subprocess.run(cmd)
         if result.returncode:
-            print(f"{RED}{BOLD}Error: Generation {i} failed with code {result.returncode}{RESET}{NORMAL}")
+            print(f"{c.RED}{c.BOLD}Error: Generation {i} failed with code {result.returncode}{c.RST}")
             shutil.copy2(output, bad_path)
             print(f"Broken parser stored in {bad_path}")
             if backup_path:
@@ -91,7 +145,7 @@ def main(args):
             return result.returncode
         #XXX: Use first result as backup if backup_path initially None?
 
-    print(f"{GREEN}{BOLD}Generation successful!{RESET}{NORMAL}")
+    print(f"{c.GREEN}{c.BOLD}Generation successful!{c.RST}")
     return 0
 
 if __name__ == "__main__":

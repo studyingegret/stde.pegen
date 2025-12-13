@@ -2,6 +2,7 @@
 
 @base Base
 @class PythonParser
+@location_format "lineno=start_lineno + 1, col_offset=start_colno, end_lineno=end_lineno + 1, end_col_offset=end_colno"
 @header '''
 
 import enum
@@ -16,7 +17,7 @@ from typing import (
     Any, Callable, Iterator, List, Literal, NoReturn, Sequence, Tuple, TypeVar, Union, TextIO, Optional
 )
 
-from stde.pegen.legacy.tokenizer import Tokenizer
+from stde.pegen.v2.tokenizer import Tokenizer
 
 # Singleton ast nodes, created once for efficiency
 Load = ast.Load()

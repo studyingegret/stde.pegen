@@ -13,43 +13,12 @@ import argparse
 import sys
 import time
 import token
-import traceback
+#import traceback
 from typing import Any
-from stde.pegen.legacy.build import generate_code_from_file, CodeFromFileProducts
-from stde.pegen.v2.build import (generate_code_from_file as generate_code_from_file_v2,
-                                 CodeFromFileProducts as CodeFromFileProductsV2)
-from stde.pegen.legacy.validator import validate_grammar
-from stde.pegen.v2.validate import check_unreachable_rules as validate_grammar_v2
-
-
-def generate_python_code(
-    args: argparse.Namespace,
-) -> CodeFromFileProducts:
-    try:
-        return generate_code_from_file(
-            args.grammar_file,
-            args.output,
-            sys.stdout if args.verbose_tokenization else None,
-            sys.stdout if args.verbose_parsing else None,
-            skip_actions=args.skip_actions,
-        )
-    except Exception as err:
-        traceback.print_exception(err.__class__, err, None)
-        raise  # Show traceback
-
-
-def generate_python_code_v2(args: argparse.Namespace) -> CodeFromFileProductsV2:
-    try:
-        return generate_code_from_file_v2(
-            args.grammar_file,
-            args.output,
-            sys.stdout if args.verbose_tokenization else None,
-            sys.stdout if args.verbose_parsing else None,
-            skip_actions=args.skip_actions,
-        )
-    except Exception as err:
-        traceback.print_exception(err.__class__, err, None)
-        raise  # Show traceback
+from stde.pegen.legacy import build as lg
+from stde.pegen.v2 import build as v2
+#from stde.pegen.legacy.validator import validate_grammar
+#from stde.pegen.v2.validate import check_unreachable_rules as validate_grammar_v2
 
 
 p = argparse.ArgumentParser(
@@ -79,29 +48,36 @@ p.add_argument("--skip-actions", action="store_true",
 def main() -> None:
     args = p.parse_args()
 
-    products: Any
-    if args.mode == "v2":
-        t0 = time.time()
-        products = generate_python_code_v2(args)
-        t1 = time.time()
-        validate_grammar(products.grammar)
-    elif args.mode == "legacy":
-        t0 = time.time()
-        products = generate_python_code(args)
-        t1 = time.time()
-        validate_grammar_v2(products.grammar)
-    else:
-        assert False, args.mode
+    t0 = time.time()
+
+    md = v2 if args.mode == "v2" else lg
+    products: Any # [emoji] asffdaffa!!!
+    tokenizer_verbose_stream = sys.stdout if args.verbose_tokenization else None
+    parser_verbose_stream = sys.stdout if args.verbose_parsing else None
+
+    if args.verbose > 0:
+        print("Parsing grammar")
+
+    products = md.load_grammar_from_file(
+        args.grammar_file,
+        tokenizer_verbose_stream=tokenizer_verbose_stream,
+        parser_verbose_stream=parser_verbose_stream)
 
     if args.verbose > 1:
         print("Raw Grammar:")
         for line in repr(products.grammar).splitlines():
             print(" ", line)
 
-    if args.verbose:
+    if args.verbose > 0:
         print("Clean Grammar:")
         for line in str(products.grammar).splitlines():
             print(" ", line)
+        print("Generating parser code")
+
+    products = md.generate_code_from_grammar(
+        products.grammar,
+        output_file=args.output,
+        skip_actions=args.skip_actions)
 
     if args.verbose > 1:
         print("First Graph:")
@@ -121,6 +97,8 @@ def main() -> None:
                     print("  # Left-recursive")
                 else:
                     print()
+
+        t1 = time.time()
 
         dt = t1 - t0
         diag = products.grammar_tokenizer.diagnose()

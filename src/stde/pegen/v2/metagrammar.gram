@@ -55,7 +55,7 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
 
 
 class Base(DefaultParser):
-    @memoize
+    @memoize #XXX:?
     def action_contents(self) -> RuleResult[str]:
         """Note: The result should be parsable by ast.parse."""
         m = self.mark()
@@ -86,6 +86,11 @@ class Base(DefaultParser):
             print("  " * self._level + "## Parsed code:", repr(s))
         return s
 
+    # Temporary trick (plan to make it built-in)
+    @logger
+    def empty(self) -> RuleResult[None]:
+        return None
+
 '''
 
 @base Base
@@ -109,14 +114,26 @@ extern_decl[ExternDecl]:
     "extern" NAME ann=annotation? NEWLINE { ExternDecl(name.string, ann or None) }
 
 rulename[RuleName]:
-    | NAME annotation { (name.string, annotation) }
-    | NAME { (name.string, None) }
-    #| NAME annotation=annotation? { (name.string, annotation) } #XXX: ?
+    | NAME ann=annotation? { (name.string, ann or None) } #XXX: ?
 
+#TODO: Test
+# Note: This consumes a potentially following newline
 rule_rhs[Rhs]:
-    | alts=alts? NEWLINE INDENT more_alts DEDENT { Rhs(alts.alts + more_alts.alts) if alts else more_alts }
-    | NEWLINE INDENT alts NEWLINE DEDENT { alts }
-    | alts NEWLINE { alts }
+    | NEWLINE INDENT alts NEWLINE DEDENT { alts } #TODO
+    # more_alts already consumes a potentially following newline
+    | alts=alts? NEWLINE m=(INDENT more_alts DEDENT)? {
+        Rhs((alts.alts if alts else []) + (m[1].alts if m else [])) }
+    | action NEWLINE { Rhs([Alt([], action=action)]) }
+    | NEWLINE INDENT action NEWLINE DEDENT { Rhs([Alt([], action=action)]) }
+
+# For testing (TODO: clean)
+a: {1}
+#TODO:
+# start:
+#    {LOCATIONS}
+# start: {LOCATIONS}
+
+# TODO: Flat capturing of "?"
 
 # In the future this may return something more complicated
 memoflag[str]:
@@ -191,3 +208,4 @@ target_fstring_middle[str]:
 
 #annotation[str]: "[" ~ target_atoms "]" { target_atoms }
 extern action_contents[str]
+extern empty[None]

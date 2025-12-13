@@ -44,7 +44,7 @@ from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
 from stde.pegen.v2.grammar import Grammar
 #from stde.pegen.legacy.parser import Parser
 from stde.pegen.v2.parser import BaseParser, ParseFailure
-from stde.pegen.legacy.tokenizer import Tokenizer
+from stde.pegen.v2.tokenizer import Tokenizer
 #from stde.pegen.legacy.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.parser_generator import ParserGenerator

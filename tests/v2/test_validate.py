@@ -2,8 +2,7 @@ from textwrap import dedent
 import pytest
 from stde.pegen.v2.parser import ParseFailure
 from stde.pegen.v2.parser_generator import ParserGenerator
-from stde.pegen.v2.python_generator import PythonParserGenerator
-from stde.pegen.v2.grammar import Grammar, Rule, Rhs, Alt, TopLevelItem, NameLeaf
+from stde.pegen.v2.grammar import Grammar
 from stde.pegen.v2.build import load_grammar_from_string
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.common import ValidationError

@@ -23,9 +23,9 @@ class _UnreachableRuleChecker(GrammarVisitor):
     def check_intersection(self, first_alt: Alt, second_alt: Alt) -> None:
         if str(second_alt).startswith(str(first_alt)):
             raise ValidationError(
-                f"In {self.rulename} there is an alternative that will "
-                f"never be visited:\n{second_alt}\n"
-                f"(note: {first_alt} will match instead)"
+                f"In rule {self.rulename}: The branch \n    {second_alt}\nwill "
+                f"never be visited because\n    "
+                f"{first_alt}\nwill match before it is tried"
             )
 
 

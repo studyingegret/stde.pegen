@@ -497,27 +497,31 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         with self.local_variable_context():
             self.pre_action_stmts.clear()
             self.action_ignore_variables.clear()
-            if has_cut:
-                self.print("__cut = False")
-            if is_loop:
-                self.print("while (")
+            if not alt.items:
+                self.print("if True: # Empty branch")
             else:
-                self.print("if (")
-            with self.indent():
-                first = True
-                if has_invalid:
-                    self.print("self.call_invalid_rules")
-                    first = False
-                for item in alt.items:
-                    if first:
+                if has_cut:
+                    self.print("__cut = False")
+                if is_loop:
+                    self.print("while (")
+                else:
+                    self.print("if (")
+                with self.indent():
+                    first = True
+                    if has_invalid:
+                        self.print("self.call_invalid_rules")
                         first = False
                     else:
-                        self.print("and")
-                    self.visit(item, used=used, unreachable=unreachable)
-                    if is_gather:
-                        self.print("is not None")
+                        for item in alt.items:
+                            if first:
+                                first = False
+                            else:
+                                self.print("and")
+                            self.visit(item, used=used, unreachable=unreachable)
+                            if is_gather:
+                                self.print("is not None")
+                self.print("):")
 
-            self.print("):")
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
                 self.print_action(action_code, locations, unreachable,
