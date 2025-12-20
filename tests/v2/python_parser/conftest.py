@@ -23,8 +23,9 @@ def _import_file(full_name: str, path: PathLike) -> Any:
 _module: Any = None
 
 @pytest.fixture(scope="session")
-def python_parser_module(cache_v2_python_parser) -> Any:
-    if cache_v2_python_parser:
+def python_parser_module(pytestconfig) -> Any:
+    #raise
+    if pytestconfig.option.cache_v2_python_parser:
         global _module
         if _module is None:
             generate_code_from_file(GRAMMAR_PATH, SOURCE_PATH)
@@ -44,3 +45,20 @@ def python_parse_file(python_parser_module) -> Any:
 @pytest.fixture(scope="session")
 def python_parse_str(python_parser_module) -> Any:
     return python_parser_module.parse_string
+
+def pytest_addoption(parser):
+    parser.addoption("--v2-python-parser-cache",
+                     choices=["true", "false"],
+                     type=lambda x: x == "true",
+                     default=True,
+                     dest="cache_v2_python_parser",
+                     help="Cache the v2 Python parser (upon successful generation) to save time "
+                          "(default true)")
+    parser.addoption("--v2-python-parser-verbose",
+                     action="store_true",
+                     default=False,
+                     dest="v2_python_parser_verbose",
+                     help="Enable verbose output during v2 Python parser generation")
+
+#def pytest_runtest_call(item: pytest.Item) -> None:
+#    print("::", item)
