@@ -1,39 +1,53 @@
 # See https://docs.pytest.org/en/stable/example/nonpython.html
 
 #from functools import partial
+from pprint import pprint
 import random
 import sys
 import pytest
 from types import SimpleNamespace
-from typing import Any, List
-#import _pytest
-from _pytest.python import Function
+from typing import Any, List, Tuple, Type
+from .utils import Testcases
+from _pytest.mark import ParameterSet
+
+# TODO: Handle additional marks
 
 def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str, obj: object) -> Any:
-    print(f"> {name} {obj} {collector.obj=} {collector=}")
+    #print(f"> {name} {obj} {collector.obj=} {collector=}")
     #if callable(obj) and isinstance(collector, pytest.Module):
-    if hasattr(obj, "__iter__"):
-        def change_name(x):
-            x.name += "aaa"
-            return x
+    if isinstance(obj, Testcases):
+        print("::", obj)
+        pprint(list(obj))
 
         # Hell of a hack to create a function on the fly
         # Why doesn't pytest officially(?) support this?? QaQ.
 
-        # Function wants to check the signature so I'll not use partial (XXX:?)
+        # `Function` wants to check the signature so I'll not use partial (XXX:?)
+        # Encapsulates `data` in closure
         def run_data(
             python_parse_file,
             python_parse_str,
             tmp_path,
             request,
             hello,
+            source: str,
+            exc_cls: Type,
+            message: str,
+            start: Tuple[int, int],
+            end: Tuple[int, int],
+            min_python_version: Tuple[int, int]
         ):
             print(hello, request.node)
             parse_invalid_syntax(
                 python_parse_file,
                 python_parse_str,
                 tmp_path,
-                *obj  #type:ignore
+                source,
+                exc_cls,
+                message,
+                start,
+                end,
+                min_python_version
             )
 
         # May also work, kept it here just in case
@@ -47,12 +61,30 @@ def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str
         # (Another solution I can think of is to patch _pytest.python.Function with FunctionHack)
         original_obj = collector.obj
         collector.obj = SimpleNamespace({name: run_data})
-        oh_jesus_my_dear_precious_functions_i_love_you = list(
-            map(change_name, collector._genfunctions(name, run_data)))
+        oh_jesus_my_dear_precious_functions_i_love_you = list(collector._genfunctions(
+            name,
+            pytest.mark.parametrize(
+                "source, exc_cls, message, start, end, min_python_version",
+                obj, #type:ignore
+                ids=list(map(
+                    lambda ix: f"{ix[0]}-{ix[1][0]}" #type:ignore
+                               if _expects_syntax_error(ix[1]) #type:ignore
+                               else f"{ix[0]}-{ix[1][0]}-{_expects_exc_name(ix[1])}", #type:ignore
+                    enumerate(obj) #type:ignore
+                ))
+            )(run_data)
+        ))
         collector.obj = original_obj
         return oh_jesus_my_dear_precious_functions_i_love_you
     return None
 
+def _expects_exc_name(x):
+    return (x.values[1] if isinstance(x, ParameterSet) else x[1]).__name__ #pyright:ignore
+
+def _expects_syntax_error(x):
+    return _expects_exc_name(x) == "SyntaxError"
+
+# Will remove it later
 @pytest.fixture
 def hello():
     print(random.choice(["hello", "你好", "Bonjour", "konichiwa (sorry, i don't have a Japanese IME)"]))
@@ -79,11 +111,11 @@ def parse_invalid_syntax(
     python_parse_str,
     tmp_path,
     source,
+    exc_cls,
     message,
     start,
     end,
-    exc_cls=SyntaxError,
-    min_python_version=(3, 10),
+    min_python_version,
 ) -> None:
     # Check we obtain the expected error from Python
     try:
@@ -93,9 +125,10 @@ def parse_invalid_syntax(
     except Exception as py_e:
         assert (
             False
-        ), f"Python produced {py_e.__class__.__name__} instead of {exc_cls.__name__}: {py_e}"
+        ), f"Python produced {py_e!r} instead of {exc_cls.__name__}({message!r})"
     else:
-        assert False, f"Python did not throw any exception, expected {exc_cls}"
+        assert False, ("Python did not throw any exception, expected "
+                       f"{exc_cls.__name__}({message!r})")
 
     # Check our parser raises both from str and file mode.
     with pytest.raises(exc_cls) as e:
