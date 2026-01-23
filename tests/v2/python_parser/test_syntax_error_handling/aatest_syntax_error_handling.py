@@ -1,5 +1,8 @@
 """Test syntax errors for cases where the parser can generate helpful messages."""
 
+# NOTE: Tests are moved to test_a.py. This file is abandoned
+# and kept here only in case of inconsistency with test_a.py.
+
 import sys
 
 import pytest

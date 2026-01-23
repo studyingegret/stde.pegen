@@ -1,3 +1,7 @@
+"""Test syntax errors for cases where the parser can generate helpful messages."""
+
+# Ported from aatest_syntax_error_handling.py (previously test_syntax_error_handling.py).
+
 #TODO:Typing
 
 import sys, pytest
@@ -6,17 +10,14 @@ from .utils import Testcases
 
 # Each tuple in list contains the following fields in order ("=" means default value if missing):
 # source, message, start, end, exc_cls=SyntaxError, min_python_version=(3, 10)
-
-#(
-#    source: Optional[str] = None,
-#    exc_cls: Type = SyntaxError,
-#    message: Optional[str] = None,
-#    start: Optional[Tuple[int, int]] = None,
-#    end: Optional[Tuple[int, int]] = None,
-#    min_python_version: Optional[Tuple[int, int]] = (3, 10)
-#)
-
-# TODO: Marks like skipif
+#
+# source: Optional[str] = None,
+# message: Optional[str] = None,
+# start: Optional[Tuple[int, int]] = None,
+# end: Optional[Tuple[int, int]] = None,
+# exc_cls: Type = SyntaxError,
+# min_python_version: Optional[Tuple[int, int]] = (3, 10)
+#
 
 test_syntax_error_in_str = Testcases.with_marks([
     pytest.mark.skipif(
