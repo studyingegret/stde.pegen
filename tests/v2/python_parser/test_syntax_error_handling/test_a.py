@@ -1,3 +1,5 @@
+#TODO:Typing
+
 import sys, pytest
 from typing import Optional, Tuple, Type
 from .utils import Testcases
@@ -16,7 +18,10 @@ from .utils import Testcases
 
 # TODO: Marks like skipif
 
-test_syntax_error_in_str = Testcases([
+test_syntax_error_in_str = Testcases.with_marks([
+    pytest.mark.skipif(
+        sys.version_info < (3, 9), reason="Python 3.8 diagnostic is subpar in this case.")
+]).create([
     (
         "f'a = {}'",
         (
@@ -811,7 +816,9 @@ test_invalid_finally_stmt = Testcases.with_args(exc_cls=None).create([
         (6, 5),
     ),
 ])
-test_invalid_match_stmt = Testcases.with_args(exc_cls=None).create([
+test_invalid_match_stmt = Testcases.with_args(exc_cls=None).with_marks([
+    pytest.mark.skipif(sys.version_info < (3, 10), reason="Valid only in Python 3.10+")
+]).create([
     (
         "match a\n\tpass",
         SyntaxError,
@@ -827,7 +834,9 @@ test_invalid_match_stmt = Testcases.with_args(exc_cls=None).create([
         (2, 5),
     ),
 ])
-test_invalid_case_stmt = Testcases.with_args(exc_cls=None).create([
+test_invalid_case_stmt = Testcases.with_args(exc_cls=None).with_marks([
+    pytest.mark.skipif(sys.version_info < (3, 10), reason="Valid only in Python 3.10+")
+]).create([
     (
         "match a:\n\tcase 1\n\t\tpass",
         SyntaxError,
@@ -843,7 +852,9 @@ test_invalid_case_stmt = Testcases.with_args(exc_cls=None).create([
         (3, 6),
     ),
 ])
-test_invalid_case_pattern = Testcases.with_args(exc_cls=None).create([
+test_invalid_case_pattern = Testcases.with_args(exc_cls=None).with_marks([
+    pytest.mark.skipif(sys.version_info < (3, 10), reason="Valid only in Python 3.10+")
+]).create([
     # As pattern
     (
         "match a:\n\tcase 1 as _:\n\t\tpass",
@@ -1136,7 +1147,9 @@ test_invalid_dict_key_value = Testcases.with_args(exc_cls=None).create([
         (1, 12),
     ),
 ])
-test_syntax_error_in_type_params = Testcases([
+test_syntax_error_in_type_params = Testcases.with_marks([
+    pytest.mark.skipif(sys.version_info < (3, 12), reason="Requires Python 3.12+")
+]).create([
     (
         "def f[*T: (int, float)]():\n\tpass",
         "cannot use constraints with TypeVarTuple",

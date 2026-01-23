@@ -1,12 +1,17 @@
-
+#TODO:Typing
 
 from dataclasses import dataclass
+import dataclasses
 import sys, pytest
-from typing import Dict, List, NamedTuple, Optional, Tuple, Type
+from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, Union
+from pytest import Mark, MarkDecorator
 
 from _pytest.mark import ParameterSet
 
+@dataclass
 class Testcases:
+    # Note: Actually unneccessary, I don't know why I want to keep it
+    # Might be removed in the future?
     def __new__(cls,
         items: List[Tuple],
         source: Optional[str] = None,
@@ -24,7 +29,7 @@ class Testcases:
         return _Builder()
 
     @classmethod
-    def with_marks(cls, marks) -> "_Builder":
+    def with_marks(cls, marks: Union[MarkDecorator, Iterable[Union[MarkDecorator, Mark]]]) -> "_Builder":
         return _Builder().with_marks(marks)
 
     @classmethod
@@ -67,7 +72,8 @@ class Testcases:
     def __repr__(self):
         return f"Testcases(items={self.items}, overrides={self.overrides}, marks={self.marks})"
 
-class _Builder(NamedTuple):
+@dataclass
+class _Builder:
     marks = ()
     source: Optional[str] = None
     exc_cls: Optional[Type] = SyntaxError
@@ -81,7 +87,7 @@ class _Builder(NamedTuple):
         return self
     def with_args(self, **kwargs):
         #self.__dict__.update(kwargs) #...
-        return self._replace(**kwargs)
+        return dataclasses.replace(self, **kwargs)
     def create(self, items):
         return Testcases(
             items=items,

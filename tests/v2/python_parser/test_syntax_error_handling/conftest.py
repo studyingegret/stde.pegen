@@ -1,8 +1,6 @@
 # See https://docs.pytest.org/en/stable/example/nonpython.html
-
-#from functools import partial
+#TODO:Typing
 from pprint import pprint
-import random
 import sys
 import pytest
 from types import SimpleNamespace
@@ -10,11 +8,8 @@ from typing import Any, List, Tuple, Type
 from .utils import Testcases
 from _pytest.mark import ParameterSet
 
-# TODO: Handle additional marks
 
 def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str, obj: object) -> Any:
-    #print(f"> {name} {obj} {collector.obj=} {collector=}")
-    #if callable(obj) and isinstance(collector, pytest.Module):
     if isinstance(obj, Testcases):
         print("::", obj)
         pprint(list(obj))
@@ -22,58 +17,29 @@ def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str
         # Hell of a hack to create a function on the fly
         # Why doesn't pytest officially(?) support this?? QaQ.
 
-        # `Function` wants to check the signature so I'll not use partial (XXX:?)
-        # Encapsulates `data` in closure
-        def run_data(
-            python_parse_file,
-            python_parse_str,
-            tmp_path,
-            request,
-            hello,
-            source: str,
-            exc_cls: Type,
-            message: str,
-            start: Tuple[int, int],
-            end: Tuple[int, int],
-            min_python_version: Tuple[int, int]
-        ):
-            print(hello, request.node)
-            parse_invalid_syntax(
-                python_parse_file,
-                python_parse_str,
-                tmp_path,
-                source,
-                exc_cls,
-                message,
-                start,
-                end,
-                min_python_version
-            )
-
-        # May also work, kept it here just in case
-        #class FunctionHack(Function):
-        #    def _getobj(self):
-        #        return run_data
+        _label_fn = lambda ix: (
+            f"{ix[0]}-{ix[1][0]}" #type:ignore
+            if _expects_syntax_error(ix[1]) #type:ignore
+            else f"{ix[0]}-{ix[1][0]}-{_expects_exc_name(ix[1])}" #type:ignore
+        )
+        parameterize = pytest.mark.parametrize(
+            "source, exc_cls, message, start, end, min_python_version",
+            obj, #type:ignore
+            ids=list(map(_label_fn, enumerate(obj))) #type:ignore
+        )
+        fn = run_data_factory()
+        fn = parameterize(fn)
+        for mark in reversed(obj.marks):
+            fn = mark(fn)
 
         # This reach-in is necessary to get the right object passed to pytest.Function
         # We'll not use `with`, because if this code fails, we don't want to
         # run tests anyway (XXX:?)
-        # (Another solution I can think of is to patch _pytest.python.Function with FunctionHack)
+        # (Another solution I can think of is to patch
+        # _pytest.python.Function with FunctionHack, see below)
         original_obj = collector.obj
-        collector.obj = SimpleNamespace({name: run_data})
-        oh_jesus_my_dear_precious_functions_i_love_you = list(collector._genfunctions(
-            name,
-            pytest.mark.parametrize(
-                "source, exc_cls, message, start, end, min_python_version",
-                obj, #type:ignore
-                ids=list(map(
-                    lambda ix: f"{ix[0]}-{ix[1][0]}" #type:ignore
-                               if _expects_syntax_error(ix[1]) #type:ignore
-                               else f"{ix[0]}-{ix[1][0]}-{_expects_exc_name(ix[1])}", #type:ignore
-                    enumerate(obj) #type:ignore
-                ))
-            )(run_data)
-        ))
+        collector.obj = SimpleNamespace({name: fn})
+        oh_jesus_my_dear_precious_functions_i_love_you = list(collector._genfunctions(name, fn))
         collector.obj = original_obj
         return oh_jesus_my_dear_precious_functions_i_love_you
     return None
@@ -84,27 +50,40 @@ def _expects_exc_name(x):
 def _expects_syntax_error(x):
     return _expects_exc_name(x) == "SyntaxError"
 
-# Will remove it later
-@pytest.fixture
-def hello():
-    print(random.choice(["hello", "你好", "Bonjour", "konichiwa (sorry, i don't have a Japanese IME)"]))
-    return "hello"
+# XXX:?
+# pytest complains `duplicate parametrization of 'source'` even with copy.deepcopy.
+# It seems that even after copy.deepcopy the function is still the same instance.
+# So a factory is neccessary.
+def run_data_factory():
+    # Note that `pytest.Function` wants to check the signature.
+    def run_data(
+        python_parse_file,
+        python_parse_str,
+        tmp_path,
+        source: str,
+        exc_cls: Type,
+        message: str,
+        start: Tuple[int, int],
+        end: Tuple[int, int],
+        min_python_version: Tuple[int, int]
+    ):
+        parse_invalid_syntax(
+            python_parse_file,
+            python_parse_str,
+            tmp_path,
+            source,
+            exc_cls,
+            message,
+            start,
+            end,
+            min_python_version
+        )
+    return run_data
 
-#def run_data(
-#    python_parse_file,
-#    python_parse_str,
-#    tmp_path,
-#    request,
-#    hello,
-#    data: List,
-#):
-#    print(hello, request.node)
-#    parse_invalid_syntax(
-#        python_parse_file,
-#        python_parse_str,
-#        tmp_path,
-#        *data
-#    )
+# May also work, kept it here just in case
+#class FunctionHack(Function):
+#    def _getobj(self):
+#        return run_data
 
 def parse_invalid_syntax(
     python_parse_file,
