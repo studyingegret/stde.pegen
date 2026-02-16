@@ -10,6 +10,10 @@ from _pytest.mark import ParameterSet
 
 @dataclass
 class Testcases:
+    # Tell pytest this is not a test class, although its name starts with "Test"
+    # Silences "PytestCollectionWarning: cannot collect test class 'Testcases' because it has a __init__ constructor"
+    __test__ = False
+
     # Note: Actually unneccessary, I don't know why I want to keep it
     # Might be removed in the future?
     def __new__(cls,

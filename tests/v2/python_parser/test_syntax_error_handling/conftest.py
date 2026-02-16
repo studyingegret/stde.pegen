@@ -1,13 +1,35 @@
 # See https://docs.pytest.org/en/stable/example/nonpython.html
 #TODO:Typing
+import pathlib
 from pprint import pprint
 import sys
 import pytest
+import re
 from types import SimpleNamespace
-from typing import Any, List, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type
 from .utils import Testcases
 from _pytest.mark import ParameterSet
 
+
+def_linenos_k = pytest.StashKey[Dict[str, int]]()
+
+
+def pytest_pycollect_makemodule(module_path: pathlib.Path, parent: pytest.Collector) -> pytest.Module:# | None:
+    module = pytest.Module.from_parent(parent, path=module_path)
+    module.stash[def_linenos_k] = read_def_linenos(module_path)
+    return module
+
+def read_def_linenos(path):
+    linenos = {}
+    with open(path, encoding="utf-8") as f:
+        for lineno, line in enumerate(f, 1):
+            if m := re.match(r"\s*(test_[\w\d]+)\s*=", line):
+                name = m[1]
+                if name in linenos:
+                    print(f"Warning: redefinition of {name} on line {lineno} "
+                          f"(previously defined on line {linenos[name]})")
+                linenos[name] = lineno
+    return linenos
 
 def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str, obj: object) -> Any:
     if isinstance(obj, Testcases):
@@ -27,7 +49,12 @@ def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str
             obj, #type:ignore
             ids=list(map(_label_fn, enumerate(obj))) #type:ignore
         )
-        fn = run_data_factory()
+
+        # Set the lineno so that IDEs' "Go to definition" goes to the right lineno
+        # instead of the lineno of definition of run_data (in run_data_factory)
+        if name not in collector.stash[def_linenos_k]:
+            print(f"Warning: lineno of {name} not collected for {collector.path} ({collector=!r})")
+        fn = run_data_factory(firstlineno=collector.stash[def_linenos_k][name])
         fn = parameterize(fn)
         for mark in reversed(obj.marks):
             fn = mark(fn)
@@ -54,7 +81,7 @@ def _expects_syntax_error(x):
 # pytest complains `duplicate parametrization of 'source'` even with copy.deepcopy.
 # It seems that even after copy.deepcopy the function is still the same instance.
 # So a factory is neccessary.
-def run_data_factory():
+def run_data_factory(firstlineno=1):
     # Note that `pytest.Function` wants to check the signature.
     def run_data(
         python_parse_file,
@@ -78,6 +105,7 @@ def run_data_factory():
             end,
             min_python_version
         )
+    run_data.__code__ = run_data.__code__.replace(co_firstlineno=firstlineno)
     return run_data
 
 # May also work, kept it here just in case

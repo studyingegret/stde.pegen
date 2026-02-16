@@ -18,6 +18,14 @@ from .utils import Testcases
 # exc_cls: Type = SyntaxError,
 # min_python_version: Optional[Tuple[int, int]] = (3, 10)
 #
+# TODO: Document the above better
+
+# NOTE: The firstlineno metadata of the factory function for each item
+# is adjusted to the lineno of the definitions' lineno.
+# This is so that IDEs' "Go to definition" goes to the lineno of the definition here
+# instead of the lineno of run_data (in conftest.py/run_data_factory).
+# The algorithm to detect the definitions' lineno is currently a bit coarse.
+# See conftest.py for the exact algorithm.
 
 test_syntax_error_in_str = Testcases.with_marks([
     pytest.mark.skipif(
