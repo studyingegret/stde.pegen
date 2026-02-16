@@ -5,11 +5,10 @@
 Search the web for PEG Parsers for reference.
 """
 
-"""
-
-"""
+# TODO: Write a test for this
 
 import argparse
+from enum import Enum
 import sys
 import time
 import token
@@ -21,6 +20,10 @@ from stde.pegen.v2 import build as v2
 #from stde.pegen.v2.validate import check_unreachable_rules as validate_grammar_v2
 
 
+class OutputOption(Enum):
+    DISABLE = 0
+    NOT_GIVEN = 1
+
 p = argparse.ArgumentParser(
     prog="stde.pegen",
     description="Experimental PEG-like parser generator")
@@ -31,7 +34,7 @@ g.add_argument("--legacy", action="store_const", dest="mode", const="legacy",
 g.add_argument("--v2", action="store_const", dest="mode", const="v2",
                help="Use v2 mode (default)")
 p.add_argument("-v", "--verbose", action="count", default=0,
-               help="Show more information. When provided once, show cleaned grammar."
+               help="Show more information. When provided once, show cleaned grammar. "
                     "When provided twice, shwo timing stats and more.")
 p.add_argument("--verbose-tokenization", action="store_true",
                help="Show debug output of tokenization of grammar source")
@@ -39,14 +42,26 @@ p.add_argument("--verbose-parsing", action="store_true",
                help="Show debug output of parsing of grammar source")
 p.add_argument("grammar_file", type=argparse.FileType("r"),
                help="Grammar description")
-p.add_argument("-o", "--output", metavar="OUT", default="parse.py",
-               help="Where to write the generated parser")
 p.add_argument("--skip-actions", action="store_true",
                help="Suppress code emission for rule actions")
+# XXX: stats stdout, parser stderr / stats stderr, parser stdout?
+# XXX: Make it mandatory to give one of these options?
+g = p.add_argument_group("Output options")
+g.set_defaults(output=OutputOption.NOT_GIVEN)
+g.add_argument("-o", "--output", dest="output",
+               help="File path to write the generated parser to")
+g.add_argument("-s", "--stats-only", action="store_const", dest="output", const=OutputOption.DISABLE,
+               help="Do not write the generated parser anywhere; just print stats about the grammar")
 
 
 def main() -> None:
     args = p.parse_args()
+
+    if args.output == OutputOption.NOT_GIVEN:
+        # XXX: ?
+        #print("Warning: Neither -o or -s is given. The behavior of this script in this case has changed, "
+        #      "and will behave as if -s is given, instead of writing to `parse.py` like before.")
+        args.output = OutputOption.DISABLE
 
     t0 = time.time()
 
@@ -74,26 +89,24 @@ def main() -> None:
             print(" ", line)
         print("Generating parser code")
 
-    products = md.generate_code_from_grammar(
+    products2 = md.generate_code_from_grammar(
         products.grammar,
-        output_file=args.output,
+        output_file=md.Flags.RETURN if args.output is OutputOption.DISABLE else args.output, #type:ignore
         skip_actions=args.skip_actions)
 
     if args.verbose > 1:
         print("First Graph:")
-        for src, dsts in products.parser_code_generator.first_graph.items():
+        for src, dsts in products2.parser_code_generator.first_graph.items():
             print(f"  {src} -> {', '.join(dsts)}")
         print("First SCCS:")
-        for scc in products.parser_code_generator.first_sccs:
+        for scc in products2.parser_code_generator.first_sccs:
             print(" ", scc, end="")
             if len(scc) > 1:
-                print(
-                    "  # Indirectly left-recursive; leaders:",
-                    {name for name in scc if products.grammar.rules[name].leader},
-                )
+                print("  # Indirectly left-recursive; leaders:",
+                      {name for name in scc if products.grammar.rules[name].leader})
             else:
                 name = next(iter(scc))
-                if name in products.parser_code_generator.first_graph[name]:
+                if name in products2.parser_code_generator.first_graph[name]:
                     print("  # Left-recursive")
                 else:
                     print()

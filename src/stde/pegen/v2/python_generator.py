@@ -511,15 +511,14 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                     if has_invalid:
                         self.print("self.call_invalid_rules")
                         first = False
-                    else:
-                        for item in alt.items:
-                            if first:
-                                first = False
-                            else:
-                                self.print("and")
-                            self.visit(item, used=used, unreachable=unreachable)
-                            if is_gather:
-                                self.print("is not None")
+                    for item in alt.items:
+                        if first:
+                            first = False
+                        else:
+                            self.print("and")
+                        self.visit(item, used=used, unreachable=unreachable)
+                        if is_gather:
+                            self.print("is not None")
                 self.print("):")
 
             with self.indent():

@@ -92,7 +92,8 @@ def run_data_factory(firstlineno=1):
         message: str,
         start: Tuple[int, int],
         end: Tuple[int, int],
-        min_python_version: Tuple[int, int]
+        min_python_version: Tuple[int, int],
+        pytestconfig,
     ):
         parse_invalid_syntax(
             python_parse_file,
@@ -103,7 +104,8 @@ def run_data_factory(firstlineno=1):
             message,
             start,
             end,
-            min_python_version
+            min_python_version,
+            pytestconfig,
         )
     run_data.__code__ = run_data.__code__.replace(co_firstlineno=firstlineno)
     return run_data
@@ -123,6 +125,7 @@ def parse_invalid_syntax(
     start,
     end,
     min_python_version,
+    pytestconfig,
 ) -> None:
     # Check we obtain the expected error from Python
     try:
@@ -139,7 +142,7 @@ def parse_invalid_syntax(
 
     # Check our parser raises both from str and file mode.
     with pytest.raises(exc_cls) as e:
-        python_parse_str(source, "exec")
+        python_parse_str(source, "exec", verbose=pytestconfig.option.v2_python_parser_verbose)
 
     print(str(e.exconly()))
     assert message in str(e.exconly())

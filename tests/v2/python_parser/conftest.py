@@ -12,7 +12,7 @@ SOURCE_PATH = Path(__file__) / "../parser_cache/py_parser.py"
 
 def _import_file(full_name: str, path: PathLike) -> Any:
     """Import a python module from a path"""
-    spec = spec_from_file_location(full_name, path) #type:ignore #XXX: typeshed error?
+    spec = spec_from_file_location(full_name, path) #type:ignore #XXX: typeshed bug?
     assert spec
     assert spec.loader is not None
     mod = module_from_spec(spec)
@@ -55,8 +55,8 @@ def pytest_addoption(parser):
                      help="Cache the v2 Python parser (upon successful generation) to save time "
                           "(default true)")
     parser.addoption("--v2-python-parser-verbose",
-                     action="store_true",
-                     default=False,
+                     action="store_false",
+                     default=True,
                      dest="v2_python_parser_verbose",
                      help="Enable verbose output during v2 Python parser generation")
 
