@@ -46,19 +46,5 @@ def python_parse_file(python_parser_module) -> Any:
 def python_parse_str(python_parser_module) -> Any:
     return python_parser_module.parse_string
 
-def pytest_addoption(parser):
-    parser.addoption("--v2-python-parser-cache",
-                     choices=["true", "false"],
-                     type=lambda x: x == "true",
-                     default=True,
-                     dest="cache_v2_python_parser",
-                     help="Cache the v2 Python parser (upon successful generation) to save time "
-                          "(default true)")
-    parser.addoption("--v2-python-parser-verbose",
-                     action="store_false",
-                     default=True,
-                     dest="v2_python_parser_verbose",
-                     help="Enable verbose output during v2 Python parser generation")
-
 #def pytest_runtest_call(item: pytest.Item) -> None:
 #    print("::", item)

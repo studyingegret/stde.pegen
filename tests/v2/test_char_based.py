@@ -48,9 +48,22 @@ def test_locations() -> None:
             ((2, 4), (2, 5)),
         ],
         # Note: Ending with a "\n" pushes the end position onto the next line.
-        # It is easier this way to process later (for example, move all locations
-        # 3 characters to the right).
+        # It is easier this way to process later (for example, move all locations/elements
+        # 3 characters to the right). (XXX: on second thoughts, is it really so?
+        # But it does reflect the source more accurately(?))
+        # (This is different from DefaultParser;
+        # see also the comment in tests.v2.test_parsing.test_locations)
         ((0, 0), (3, 0))
+        # On second thoughts it might be better to let \n
+        # be the last character on a line
+        # instead of jumping to the next line within itself
+        #
+        # The only advantage I can think (guess) of for the current behavior
+        # is that it proves that tokens are "consecutive"
+        # (next token's start is this token's end)
+        # But I can't remember where this property is taken advanage of
+        #
+        # (TODO)
     )
 
 def test_null_locations() -> None:

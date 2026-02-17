@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import dataclasses
 import sys, pytest
-from typing import Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, Union
 from pytest import Mark, MarkDecorator
 
 from _pytest.mark import ParameterSet
@@ -110,32 +110,38 @@ def fill_overrides(x, overrides: Dict) -> Tuple:
     ninserted = 0
     for i, v in sorted(overrides.items(), key=lambda x: x[0]):
         ret.insert(i + ninserted, v)
-        ninserted += 1
+        #ninserted += 1
     return tuple(ret)
 
 if __name__ == "__main__":
-    testcases = Testcases([
-        (
-            "f'a = {}'",
+    if not TYPE_CHECKING:
+        testcases = Testcases([
             (
-                "valid expression required before '}'"
-                if sys.version_info >= (3, 12)
-                else "f-string: empty expression not allowed"
+                "f'a = {}'",
+                (
+                    "valid expression required before '}'"
+                    if sys.version_info >= (3, 12)
+                    else "f-string: empty expression not allowed"
+                ),
+                (1, 8) if sys.version_info >= (3, 12) else None,
+                (1, 9) if sys.version_info >= (3, 12) else None,
             ),
-            (1, 8) if sys.version_info >= (3, 12) else None,
-            (1, 9) if sys.version_info >= (3, 12) else None,
-        ),
-        (
-            "f'a = {=}'",
             (
-                "expression required before '='"
-                if sys.version_info >= (3, 11)
-                else "f-string: empty expression not allowed"
+                "f'a = {=}'",
+                (
+                    "expression required before '='"
+                    if sys.version_info >= (3, 11)
+                    else "f-string: empty expression not allowed"
+                ),
+                (1, 8) if sys.version_info >= (3, 12) else None,
+                (1, 9) if sys.version_info >= (3, 12) else None,
             ),
-            (1, 8) if sys.version_info >= (3, 12) else None,
-            (1, 9) if sys.version_info >= (3, 12) else None,
-        ),
-    ])
+        ])
 
-    for case in testcases:
-        print(case)
+        for case in testcases:
+            print(case)
+            
+        print(fill_overrides(("def f(a, *):\n\tpass", (1, 10), (1, 11)), {1: "aaa", 2:"bbb", 3:"ccc"}))
+        
+        t = Testcases.with_args(message="a").create([("def f(a, *):\n\tpass", (1, 10), (1, 11))])
+        assert list(t)[0] == ('def f(a, *):\n\tpass', SyntaxError, 'a', (1, 10), (1, 11), (3, 10)), list(t)[0]

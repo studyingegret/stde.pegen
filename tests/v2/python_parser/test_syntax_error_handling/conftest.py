@@ -127,6 +127,9 @@ def parse_invalid_syntax(
     min_python_version,
     pytestconfig,
 ) -> None:
+    verbose_tokenizer_stream = sys.stdout if pytestconfig.option.v2_python_parser_verbose_tokenizer else None
+    verbose_parser_stream = sys.stdout if pytestconfig.option.v2_python_parser_verbose_parser else None
+
     # Check we obtain the expected error from Python
     try:
         exec(source, {}, {})
@@ -142,7 +145,10 @@ def parse_invalid_syntax(
 
     # Check our parser raises both from str and file mode.
     with pytest.raises(exc_cls) as e:
-        python_parse_str(source, "exec", verbose=pytestconfig.option.v2_python_parser_verbose)
+        # XXX stdout or stderr?
+        python_parse_str(source, "exec",
+                         verbose_tokenizer_stream=verbose_tokenizer_stream,
+                         verbose_parser_stream=verbose_parser_stream)
 
     print(str(e.exconly()))
     assert message in str(e.exconly())
@@ -152,7 +158,9 @@ def parse_invalid_syntax(
         f.write(source)
 
     with pytest.raises(exc_cls) as e:
-        python_parse_file(str(test_file))
+        python_parse_file(str(test_file),
+                          verbose_tokenizer_stream=verbose_tokenizer_stream,
+                          verbose_parser_stream=verbose_parser_stream)
 
     # Check Python message but do not expect message to match for earlier Python versions
     if sys.version_info >= min_python_version:

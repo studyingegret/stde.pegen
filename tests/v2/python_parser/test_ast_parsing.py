@@ -67,7 +67,7 @@ import pytest
         ),
     ],
 )
-def test_parser(python_parse_file, python_parse_str, filename):
+def test_parser(python_parse_file, python_parse_str, filename, pytestconfig):
     path = Path(__file__).parent / "data" / filename
     with open(path) as f:
         source = f.read()
@@ -80,7 +80,11 @@ def test_parser(python_parse_file, python_parse_str, filename):
             kwargs["indent"] = "  "
 
         try:
-            pp_ast = python_parse_str(part, "exec")
+            pp_ast = python_parse_str(
+                part, "exec",
+                verbose_tokenizer_stream=sys.stdout if pytestconfig.option.v2_python_parser_verbose_tokenizer else None,
+                verbose_parser_stream=sys.stdout if pytestconfig.option.v2_python_parser_verbose_parser else None
+            )
         except Exception:
             temp = io.StringIO(part)
             print("Parsing failed:")
@@ -98,7 +102,8 @@ def test_parser(python_parse_file, python_parse_str, filename):
         o = ast.dump(original, **kwargs)
         p = ast.dump(pp_ast, **kwargs)
         diff = "\n".join(
-            difflib.unified_diff(o.split("\n"), p.split("\n"), "cpython", "python-pegen")
+            difflib.unified_diff(o.split("\n"), p.split("\n"), "cpython", "python-pegen",
+                                 n=pytestconfig.option.v2_python_parser_diff_ncontext)
         )
         if diff:
             print(part)
@@ -107,5 +112,6 @@ def test_parser(python_parse_file, python_parse_str, filename):
 
     o = ast.dump(ast.parse(source), **kwargs)
     p = ast.dump(python_parse_file(path), **kwargs)
-    diff = "\n".join(difflib.unified_diff(o.split("\n"), p.split("\n"), "cpython", "python-pegen"))
+    diff = "\n".join(difflib.unified_diff(o.split("\n"), p.split("\n"), "cpython", "python-pegen",
+                                          n=pytestconfig.option.v2_python_parser_diff_ncontext))
     assert not diff

@@ -141,18 +141,27 @@ class Tokenizer(AbstractTokenizer):
         return self._tokens[-1]
 
     def get_last_non_whitespace_token(self) -> Optional[TokenInfo]:
-        for tok in reversed(self._tokens[: self._index]):
+        for tok in reversed(self._tokens[:self._index]):
             if tok.type not in {token.ENDMARKER, token.NEWLINE, token.INDENT, token.DEDENT}:
                 return tok
         else:
             return None
 
-    #XXX: What to exclude?
+    #XXX: What (else) to exclude?
+    #XXX: ?
     def get_last_token_2(self) -> Optional[TokenInfo]:
         """For DefaultParser.pos."""
-        for tok in reversed(self._tokens[: self._index+1]):
+        # For the purposes of supporting test_null_locations_1 (`start: $ { LOCATIONS }`)
+        # ENDMARKER should not be ignored.
+        # (Which hopefully isn't too breaking, but I really want to push it through)
+        # (p.s. ENDMARKER's start pos is its end pos)
+        for tok in reversed(self._tokens[:self._index]):
+            # Note: Ignoring token.NEWLINE is causing inconsistencies in the samples
+            # in tests.v2.test_parsing.test_locations
+            # but, well, I guess it's just traditional behavior of CPython
+            # and don't have motivation to (think about) changing it
             if tok.type not in {token.NEWLINE, token.INDENT, token.DEDENT}:
-                print(tok)
+                #print(tok) #TODO: ... o.O
                 return tok
         else:
             return None

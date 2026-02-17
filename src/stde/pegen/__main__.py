@@ -12,17 +12,17 @@ from enum import Enum
 import sys
 import time
 import token
-#import traceback
 from typing import Any
 from stde.pegen.legacy import build as lg
 from stde.pegen.v2 import build as v2
-#from stde.pegen.legacy.validator import validate_grammar
-#from stde.pegen.v2.validate import check_unreachable_rules as validate_grammar_v2
 
 
 class OutputOption(Enum):
     DISABLE = 0
     NOT_GIVEN = 1
+
+# Satisfy mypy
+g: Any
 
 p = argparse.ArgumentParser(
     prog="stde.pegen",
