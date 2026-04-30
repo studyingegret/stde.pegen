@@ -1,5 +1,7 @@
 # PEG grammar for Python
 
+# Note: Sync the signatures of relevant functions with tests.v2.python_parser.conftest
+
 @base Base
 @class PythonParser
 @location_format "lineno=start_lineno + 1, col_offset=start_colno, end_lineno=end_lineno + 1, end_col_offset=end_colno"
@@ -55,10 +57,15 @@ EXPR_NAME_MAPPING = {
     ast.NamedExpr: "named expression",
 }
 
+# Before this is type-checked, the typing for parameter `py_version` was just `tuple`,
+# but changed because the fixtures were getting typed.
+# (Original: error: Missing type parameters for generic type "Tuple" [type-arg])
+# TODO: Store this into a shared module?
+PyVersion = Tuple[int, ...]
 
 def parse_file(
     path: str,
-    py_version: Optional[tuple] = None,
+    py_version: Optional[PyVersion] = None,
     token_stream_factory: Optional[Callable[
         [Callable[[], str]], Iterator[tokenize.TokenInfo]
     ]] = None,
@@ -78,14 +85,18 @@ def parse_file(
 def parse_string(
     source: str,
     mode: Union[Literal["eval"], Literal["exec"]],
-    py_version: Optional[tuple] = None,
+    py_version: Optional[PyVersion] = None,
     token_stream_factory: Optional[Callable[
         [Callable[[], str]], Iterator[tokenize.TokenInfo]
     ]] = None,
     verbose_tokenizer_stream: Optional[TextIO] = None,
     verbose_parser_stream: Optional[TextIO] = None,
-) -> Any:
-    """Parse a string."""
+) -> Union[ast.Module, ast.Expression]:
+    """Parse a string.
+
+    mode == "exec" -> ast.Module, uses rule "file"
+    mode == "eval" -> ast.Expression, uses rule "eval"
+    """
     # Check here because it's dynamically imported by tests which kills static typing (?)
     if mode not in {"eval", "exec"}:
         raise ValueError(f'mode must be one of "eval" and "exec" (got {mode!r})')
@@ -93,7 +104,7 @@ def parse_string(
                   else tokenize.generate_tokens(io.StringIO(source).readline))
     tokenizer = Tokenizer(tok_stream, verbose_stream=verbose_tokenizer_stream)
     parser = PythonParser(tokenizer, verbose_stream=verbose_parser_stream, py_version=py_version)
-    return parser.parse(mode if mode == "eval" else "file")
+    return parser.parse("file" if mode == "exec" else "eval")
 
 
 class Target(enum.Enum):
@@ -111,7 +122,7 @@ class Base(DefaultParser):
         tokenizer: Tokenizer, *,
         verbose_stream: Optional[TextIO] = None,
         filename: str = "<unknown>",
-        py_version: Optional[tuple] = None,
+        py_version: Optional[PyVersion] = None,
     ) -> None:
         super().__init__(tokenizer, verbose_stream=verbose_stream)
         self.filename = filename

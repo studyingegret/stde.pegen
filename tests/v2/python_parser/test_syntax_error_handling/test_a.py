@@ -5,8 +5,18 @@
 #TODO:Typing
 
 import sys, pytest
+from pytest import MarkDecorator
 from typing import Optional, Tuple, Type
 from .utils import Testcases
+
+def py_version(min_version, reason=None) -> MarkDecorator:
+    """Formats `reason` with `min_version` via `str.format`."""
+    return pytest.mark.skipif(
+        sys.version_info < min_version,
+        reason=reason.format("Python " + ".".join(map(str, min_version)) + "+")
+               if reason is not None
+               else f"Requires Python " + ".".join(map(str, min_version)) + "+")
+
 
 # Each tuple in list contains the following fields in order ("=" means default value if missing):
 # source, message, start, end, exc_cls=SyntaxError, min_python_version=(3, 10)
@@ -28,8 +38,7 @@ from .utils import Testcases
 # See conftest.py for the exact algorithm.
 
 test_syntax_error_in_str = Testcases.with_marks([
-    pytest.mark.skipif(
-        sys.version_info < (3, 9), reason="Python 3.8 diagnostic is subpar in this case.")
+    py_version((3, 9), reason="Python 3.8 diagnostic is subpar in this case.")
 ]).create([
     (
         "f'a = {}'",
@@ -625,7 +634,7 @@ test_invalid_import_from_as_names = Testcases([
         "'from ... import ...'",
         (1, 1),
         (1, 16),
-        marks=pytest.mark.skipif(sys.version_info < (3, 12), reason="Requires Python 3.12+"),
+        marks=py_version((3, 12)),
     ),
 ])
 test_invalid_with_stmt = Testcases.with_args(exc_cls=None).create([
@@ -643,9 +652,7 @@ test_invalid_with_stmt = Testcases.with_args(exc_cls=None).create([
         "expected an indented block after 'with' statement on line 2",
         (3, 1),
         (3, 5),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 9), reason="Unsupported syntax on Python 3.8"
-        ),
+        marks=py_version((3, 9)),
     ),
     (
         "with open(a) as f, b as d\npass",
@@ -715,9 +722,7 @@ test_invalid_except_stmt = Testcases.with_args(exc_cls=None).create([
         "expected an indented block after 'except*' statement on line 3",
         (4, 1),
         (4, 5),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 11), reason="Syntax only permitted on 3.11+"
-        ),
+        marks=py_version((3, 11)),
     ),
     (
         "try:\n\tpass\nexcept ValueError, IndexError as e:",
@@ -732,9 +737,7 @@ test_invalid_except_stmt = Testcases.with_args(exc_cls=None).create([
         "multiple exception types must be parenthesized",
         (3, 9),
         (3, 36),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 11), reason="Syntax unsupported before 3.11+"
-        ),
+        marks=py_version((3, 11)),
     ),
     (
         "try:\n\tpass\nexcept ValueError, IndexError:",
@@ -784,9 +787,7 @@ test_invalid_except_stmt = Testcases.with_args(exc_cls=None).create([
         "expected one or more exception types",
         (3, 8),
         (3, 9),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 11), reason="Syntax unsupported before 3.11+"
-        ),
+        marks=py_version((3, 11)),
     ),
     pytest.param(
         "try:\n\tpass\nexcept* ValueError as e:\n\tpass\nexcept:\n\tpass",
@@ -794,9 +795,7 @@ test_invalid_except_stmt = Testcases.with_args(exc_cls=None).create([
         "cannot have both 'except' and 'except*'",
         (5, 1),
         (5, 7),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 11), reason="Syntax unsupported before 3.11+"
-        ),
+        marks=py_version((3, 11)),
     ),
     pytest.param(
         "try:\n\tpass\nexcept ValueError as e:\n\tpass\nexcept* TypeError:\n\tpass",
@@ -804,9 +803,7 @@ test_invalid_except_stmt = Testcases.with_args(exc_cls=None).create([
         "cannot have both 'except' and 'except*'",
         (5, 1),
         (5, 8),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 11), reason="Syntax unsupported before 3.11+"
-        ),
+        marks=py_version((3, 11)),
     ),
 ])
 test_invalid_finally_stmt = Testcases.with_args(exc_cls=None).create([
@@ -826,7 +823,7 @@ test_invalid_finally_stmt = Testcases.with_args(exc_cls=None).create([
     ),
 ])
 test_invalid_match_stmt = Testcases.with_args(exc_cls=None).with_marks([
-    pytest.mark.skipif(sys.version_info < (3, 10), reason="Valid only in Python 3.10+")
+    py_version((3, 10))
 ]).create([
     (
         "match a\n\tpass",
@@ -844,7 +841,7 @@ test_invalid_match_stmt = Testcases.with_args(exc_cls=None).with_marks([
     ),
 ])
 test_invalid_case_stmt = Testcases.with_args(exc_cls=None).with_marks([
-    pytest.mark.skipif(sys.version_info < (3, 10), reason="Valid only in Python 3.10+")
+    py_version((3, 10))
 ]).create([
     (
         "match a:\n\tcase 1\n\t\tpass",
@@ -862,7 +859,7 @@ test_invalid_case_stmt = Testcases.with_args(exc_cls=None).with_marks([
     ),
 ])
 test_invalid_case_pattern = Testcases.with_args(exc_cls=None).with_marks([
-    pytest.mark.skipif(sys.version_info < (3, 10), reason="Valid only in Python 3.10+")
+    py_version((3, 10))
 ]).create([
     # As pattern
     (
@@ -1046,9 +1043,7 @@ test_invalid_def_stmt = Testcases.with_args(exc_cls=None).create([
         "expected an indented block after function definition on line 1",
         (2, 1),
         (2, 5),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 12), reason="Syntax only permitted on 3.12+"
-        ),
+        marks=py_version((3, 12)),
     ),
     (
         "def f() -> None:\npass",
@@ -1100,9 +1095,7 @@ test_invalid_class_stmt = Testcases.with_args(exc_cls=None).create([
         "expected an indented block after class definition on line 1",
         (2, 1),
         (2, 5),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 12), reason="Syntax only permitted on 3.12+"
-        ),
+        marks=py_version((3, 12)),
     ),
     pytest.param(
         "class A[T](object):\npass",
@@ -1110,9 +1103,7 @@ test_invalid_class_stmt = Testcases.with_args(exc_cls=None).create([
         "expected an indented block after class definition on line 1",
         (2, 1),
         (2, 5),
-        marks=pytest.mark.skipif(
-            sys.version_info < (3, 12), reason="Syntax only permitted on 3.12+"
-        ),
+        marks=py_version((3, 12)),
     ),
 ])
 test_invalid_dict_key_value = Testcases.with_args(exc_cls=None).create([
@@ -1157,7 +1148,7 @@ test_invalid_dict_key_value = Testcases.with_args(exc_cls=None).create([
     ),
 ])
 test_syntax_error_in_type_params = Testcases.with_marks([
-    pytest.mark.skipif(sys.version_info < (3, 12), reason="Requires Python 3.12+")
+    py_version((3, 12))
 ]).create([
     (
         "def f[*T: (int, float)]():\n\tpass",

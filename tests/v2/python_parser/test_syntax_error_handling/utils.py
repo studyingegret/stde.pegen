@@ -1,12 +1,19 @@
 #TODO:Typing
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import dataclasses
-import sys, pytest
-from typing import TYPE_CHECKING, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, Union
-from pytest import Mark, MarkDecorator
+import sys
+#import pytest
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Self, Sequence, Tuple, Type, Union
+from pytest import Mark as _Mark, MarkDecorator
 
 from _pytest.mark import ParameterSet
+
+ExceptionType = Type[BaseException]
+# By default, tuple[A] expects a single item A
+Item = Tuple[Any, ...]
+Mark = Union[MarkDecorator, _Mark, Iterable[Union[MarkDecorator, _Mark]]]
+#Marks = List[Mark]
 
 @dataclass
 class Testcases:
@@ -14,44 +21,51 @@ class Testcases:
     # Silences "PytestCollectionWarning: cannot collect test class 'Testcases' because it has a __init__ constructor"
     __test__ = False
 
+    #XXX: ? (these are AI-generated)
+    #  Fields without default values must come first
+    # items: List[Item]
+    #  Fields with default values
+    # overrides: Dict[int, Any] = field(default_factory=dict)
+    # marks: MarkType = ()
+
     # Note: Actually unneccessary, I don't know why I want to keep it
     # Might be removed in the future?
     def __new__(cls,
-        items: List[Tuple],
+        items: List[Item],
         source: Optional[str] = None,
-        exc_cls: Optional[Type] = SyntaxError,
+        exc_cls: Optional[ExceptionType] = SyntaxError,
         message: Optional[str] = None,
         start: Optional[Tuple[int, int]] = None,
         end: Optional[Tuple[int, int]] = None,
         min_python_version: Optional[Tuple[int, int]] = (3, 10),
-        marks = ()
-    ):
+        marks: List[Mark] = []
+    ) -> "Testcases":
         return super().__new__(cls)
 
     @classmethod
-    def builder(cls):
+    def builder(cls) -> "_Builder":
         return _Builder()
 
     @classmethod
-    def with_marks(cls, marks: Union[MarkDecorator, Iterable[Union[MarkDecorator, Mark]]]) -> "_Builder":
+    def with_marks(cls, marks: List[Mark]) -> "_Builder":
         return _Builder().with_marks(marks)
 
     @classmethod
-    def with_args(cls, **kwargs) -> "_Builder":
+    def with_args(cls, **kwargs: Any) -> "_Builder":
         return _Builder().with_args(**kwargs)
 
     def __init__(self,
-        items: List[Tuple],
+        items: List[Item],
         source: Optional[str] = None,
-        exc_cls: Optional[Type] = SyntaxError,
+        exc_cls: Optional[ExceptionType] = SyntaxError,
         message: Optional[str] = None,
         start: Optional[Tuple[int, int]] = None,
         end: Optional[Tuple[int, int]] = None,
         min_python_version: Optional[Tuple[int, int]] = (3, 10),
-        marks = ()
-    ):
+        marks: List[Mark] = []
+    ) -> None:
         self.items = items
-        self.overrides = {}
+        self.overrides: Dict[int, Any] = {}
         self.marks = marks
         if source is not None:
             self.overrides[0] = source
@@ -66,33 +80,34 @@ class Testcases:
         if min_python_version is not None:
             self.overrides[5] = min_python_version
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Union[ParameterSet, Item]]:
         for item in self.items:
             if isinstance(item, ParameterSet):
                 yield item._replace(values=fill_overrides(item.values, self.overrides))
             else:
                 yield fill_overrides(item, self.overrides)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Testcases(items={self.items}, overrides={self.overrides}, marks={self.marks})"
 
 @dataclass
 class _Builder:
-    marks = ()
+    marks: List[Mark] = field(default_factory=list)
     source: Optional[str] = None
-    exc_cls: Optional[Type] = SyntaxError
+    exc_cls: Optional[ExceptionType] = SyntaxError
     message: Optional[str] = None
     start: Optional[Tuple[int, int]] = None
     end: Optional[Tuple[int, int]] = None
     min_python_version: Optional[Tuple[int, int]] = (3, 10)
 
-    def with_marks(self, marks):
+    def with_marks(self, marks: List[Mark]) -> Self:
         self.marks = marks
         return self
-    def with_args(self, **kwargs):
+    def with_args(self, **kwargs: Any) -> Self:
         #self.__dict__.update(kwargs) #...
         return dataclasses.replace(self, **kwargs)
-    def create(self, items):
+
+    def create(self, items: List[Item]) -> Testcases:
         return Testcases(
             items=items,
             source=self.source,
@@ -104,7 +119,7 @@ class _Builder:
             marks=self.marks,
         )
 
-def fill_overrides(x, overrides: Dict) -> Tuple:
+def fill_overrides(x: Sequence[Any], overrides: Dict[int, Any]) -> Tuple[Any, ...]:
     assert len(x) + len(overrides) == 6, "Total number of items mismatch"
     ret = list(x)
     ninserted = 0

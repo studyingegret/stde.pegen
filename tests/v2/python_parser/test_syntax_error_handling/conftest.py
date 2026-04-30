@@ -6,7 +6,7 @@ import sys
 import pytest
 import re
 from types import SimpleNamespace
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Callable, Dict, List, Tuple, Type
 from .utils import Testcases
 from _pytest.mark import ParameterSet
 
@@ -19,8 +19,8 @@ def pytest_pycollect_makemodule(module_path: pathlib.Path, parent: pytest.Collec
     module.stash[def_linenos_k] = read_def_linenos(module_path)
     return module
 
-def read_def_linenos(path):
-    linenos = {}
+def read_def_linenos(path: pathlib.Path) -> Dict[str, int]:
+    linenos: Dict[str, int] = {}
     with open(path, encoding="utf-8") as f:
         for lineno, line in enumerate(f, 1):
             if m := re.match(r"\s*(test_[\w\d]+)\s*=", line):
@@ -54,10 +54,10 @@ def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str
         # instead of the lineno of definition of run_data (in run_data_factory)
         if name not in collector.stash[def_linenos_k]:
             print(f"Warning: lineno of {name} not collected for {collector.path} ({collector=!r})")
-        fn = run_data_factory(firstlineno=collector.stash[def_linenos_k][name])
+        fn = run_data_factory(firstlineno=collector.stash[def_linenos_k][name])  #type:ignore
         fn = parameterize(fn)
         for mark in reversed(obj.marks):
-            fn = mark(fn)
+            fn = mark(fn) #type:ignore #XXX: pytest.Mark not callable?
 
         # This reach-in is necessary to get the right object passed to pytest.Function
         # We'll not use `with`, because if this code fails, we don't want to
@@ -81,14 +81,14 @@ def _expects_syntax_error(x):
 # pytest complains `duplicate parametrization of 'source'` even with copy.deepcopy.
 # It seems that even after copy.deepcopy the function is still the same instance.
 # So a factory is neccessary.
-def run_data_factory(firstlineno=1):
-    # Note that `pytest.Function` wants to check the signature.
+def run_data_factory(firstlineno: int = 1) -> Callable[..., None]:
+    # Note that `pytest.Function` wants to check the argument names in the signature.
     def run_data(
         python_parse_file,
         python_parse_str,
         tmp_path,
         source: str,
-        exc_cls: Type,
+        exc_cls: Type[BaseException],
         message: str,
         start: Tuple[int, int],
         end: Tuple[int, int],
