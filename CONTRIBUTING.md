@@ -270,6 +270,16 @@ To run black from the command line, use `make format` to format and write to the
 
 </details>
 
+Doc formatting
+--------------
+### Headings
+Use the following characters for headings from high-level to low-level:
+- `=`
+- `-`
+- `~`
+- `*`
+- (lower levels aren't used yet, so no style rule for them yet)
+
 If one day you find this project dusted
 ---------------------------------------
 

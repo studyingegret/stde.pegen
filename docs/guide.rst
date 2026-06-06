@@ -2,6 +2,8 @@ stde.pegen guide
 ================
 
 
+.. This feels like needing revenation some time later.
+
 .. Code examples are tested in tests/v2/doc_tests/test_guide.py.
 
 Parsing a simple arithmetic expression
@@ -570,7 +572,9 @@ An example of ``@base`` is described below.
 
 [TODO: Feel very weak writing this]
 
-``@locations_format``
+.. _location_format:
+
+``@location_format``
 ~~~~~~~~~~~~~~~~~~~~~
 [TODO]
 

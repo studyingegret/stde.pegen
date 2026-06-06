@@ -1,3 +1,5 @@
+# TODO: Break into smaller files?
+
 import sys
 from pathlib import Path
 from textwrap import dedent
@@ -28,42 +30,38 @@ def test_locations() -> None:
     @base "CharBasedParser"
     @location_format "(start, end)"
 
-    start: items=sep.item+ sep? $ { (items, LOCATIONS) }
+    start: lines=line+ { (lines, LOCATIONS) }
+    line: e1=e a=item e2=e b=item e3=e newline { (e1, a, e2, b, e3, newline, LOCATIONS) }
     item: "a" { LOCATIONS }
-    sep: (" "|"\n")* "," (" "|"\n")*
+    e: { LOCATIONS }
+    newline: "\n" { LOCATIONS }
     """)
     parser = generate_parser_from_grammar(grammar).parser_class
-    assert parser.from_text("a,   a  ,a,", verbose_stream=sys.stdout).start() == ([
-        # End position is "one character after".
-        ((0, 0), (0, 1)),
-        ((0, 5), (0, 6)),
-        ((0, 9), (0, 10)),
-    ], ((0, 0), (0, 11)))
-    #XXX: Should port this check to DefaultParser test?
-    assert parser.from_text("a,\na,\n  a,a,\n", verbose_stream=sys.stdout).start() == (
-        [
-            ((0, 0), (0, 1)),
-            ((1, 0), (1, 1)),
-            ((2, 2), (2, 3)),
-            ((2, 4), (2, 5)),
+    assert parser.from_text("aa\naa\n", verbose_stream=sys.stdout).start() == (
+        [ # lines (= line+)
+            (
+                ((0, 0), (0, 0)), # e1
+                ((0, 0), (0, 1)), # a
+                ((0, 1), (0, 1)), # e2
+                ((0, 1), (0, 2)), # b
+                ((0, 2), (0, 2)), # e3
+                ((0, 2), (1, 0)), # newline
+                                  # (see "`CharBasedParser`'s design
+                                  # of match locations behavior of `\n`"
+                                  # in miscellanous.rst)
+                ((0, 0), (1, 0)), # line
+            ),
+            (
+                ((1, 0), (1, 0)), # e1
+                ((1, 0), (1, 1)), # a
+                ((1, 1), (1, 1)), # e2
+                ((1, 1), (1, 2)), # b
+                ((1, 2), (1, 2)), # e3
+                ((1, 2), (2, 0)), # newline
+                ((1, 0), (2, 0)), # line
+            ),
         ],
-        # Note: Ending with a "\n" pushes the end position onto the next line.
-        # It is easier this way to process later (for example, move all locations/elements
-        # 3 characters to the right). (XXX: on second thoughts, is it really so?
-        # But it does reflect the source more accurately(?))
-        # (This is different from DefaultParser;
-        # see also the comment in tests.v2.test_parsing.test_locations)
-        ((0, 0), (3, 0))
-        # On second thoughts it might be better to let \n
-        # be the last character on a line
-        # instead of jumping to the next line within itself
-        #
-        # The only advantage I can think (guess) of for the current behavior
-        # is that it proves that tokens are "consecutive"
-        # (next token's start is this token's end)
-        # But I can't remember where this property is taken advanage of
-        #
-        # (TODO)
+        ((0, 0), (2, 0)) # start
     )
 
 def test_null_locations() -> None:

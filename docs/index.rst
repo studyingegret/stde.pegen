@@ -4,7 +4,6 @@
    contain the root `toctree` directive.
 
 .. TODO: Update project links
-.. TODO: "_v2 -> v2."
 
 .. image:: _static/logo.svg
    :width: 600
@@ -82,6 +81,7 @@ Indices and tables
    peg_parsers
    reference
    grammar
+   miscellaneous
 
 * :ref:`genindex`
 * :ref:`modindex`
