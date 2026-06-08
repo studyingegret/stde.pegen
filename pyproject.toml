@@ -9,7 +9,7 @@ authors = [
     {name = "Guido van Rossum"},
     {name = "Pablo Galindo", email = "pablogsal@gmail.com"},
     {name = "Lysandros Nikolaou", email = "lisandrosnik@gmail.com"},
-    {name = "studyingegret", email = "a3times7@outlook.com"}
+    {name = "studyingegret", email = "drizzly-gravel-gap@duck.com"}
 ]
 maintainers = []
 classifiers = [
