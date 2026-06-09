@@ -93,7 +93,7 @@ Use `make -C docs clean` to clean previously built files.
 Generating the grammar parser from metagrammar
 ----------------------------------------------
 Since the generated file will become broken if generation breaks halfway
-(e.g. the grammar parser itself has a bug),
+(e.g. the grammar parser itself crashes due to exception, leaving generated file half generated),
 we now have a utility script that automatically backs up the existing parser
 before generation and restores it if generation fails.
 
@@ -103,8 +103,9 @@ are required to make sure the metagrammar & grammar generator are working
 The utility script does two generations by default
 and the exact number can be changed with `--generations`.
 
-### Generating parsers with the utility script
+The grammar parser (`grammar_parser.py`) is self-generated from `metagrammar.gram`.
 
+### Generating parsers with the utility script
 Use the `generate_parser.py` script for legacy and v2 parser generation:
 
 ```
@@ -131,14 +132,11 @@ The script will:
 3. Restore the backup if any generation fails
 
 ### Manual generation (deprecated)
-
-Pegen's grammar parser (`grammar_parser.py`) is self-generated from `metagrammar.gram`.
-
-Add `-v` flag for verbose output and full traceback on errors.
-
 Legacy grammar parser: `make legacy-grammar-parser`
 
 v2 grammar parser: `make v2-grammar-parser`
+
+Add `-v` flag for verbose output and full traceback on errors.
 
 Test
 ----
@@ -151,6 +149,15 @@ make check  # More verbose
 ```
 
 New code should ideally have tests and not break existing tests.
+
+### v2 Python parser tests `tests/v2/python_parser`
+Enable parsing verbose output with `--v2-python-parser-verbose-parser`. Useful for debugging tests.
+
+```
+pytest tests --v2-python-parser-verbose-parser
+```
+
+(Previously, parsing verbose output was enabled by default (turn off with `--v2-python-parser-no-verbose-parser`), but it increases the test time by a few seconds so is now off by default.)
 
 Test with coverage report
 -------------------------
@@ -278,13 +285,8 @@ Use the following characters for headings from high-level to low-level:
 - `*`
 - (lower levels aren't used yet, so no style rule for them yet)
 
-Benchmark notes
----------------
-Use the `--v2-python-parser-no-verbose-parser` flag when benchmarking tests.
-
 If one day you find this project dusted
 ---------------------------------------
-
 Abandoned projects can be forked but forks may not get the same attention.
 If this project's last commit time is >6 months ago, feel free to
 open an issue to point to an alternative project/fork.

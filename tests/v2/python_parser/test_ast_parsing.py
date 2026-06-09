@@ -36,7 +36,7 @@ def require_py_version(item: Any, version: Tuple[int, ...], *, reason: str) -> A
     "no_newline_at_end_of_file.py",
     "no_newline_at_end_of_file_with_comment.py",
     require_py_version(
-        "pattern_matching.py", (3, 10), reason="Valid only in {}"),
+        "pattern_matching.py", (3, 10), reason="Valid only in {}"), # Note: 20KB, expect to take longer
     "simple_decorators.py",
     "statements.py",
     require_py_version(

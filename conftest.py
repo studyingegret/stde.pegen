@@ -19,10 +19,9 @@ def pytest_addoption(parser):
                      default=False,
                      dest="v2_python_parser_verbose_tokenizer",
                      help="Enable verbose tokenizer output during v2 Python parser tests")
-    # NOTE: Use this flag when benchmarking.
-    parser.addoption("--v2-python-parser-no-verbose-parser",
-                     action="store_false",
-                     default=True,
+    parser.addoption("--v2-python-parser-verbose-parser",
+                     action="store_true",
+                     default=False,
                      dest="v2_python_parser_verbose_parser",
                      help="Disable verbose parser output during v2 Python parser tests")
     parser.addoption("--v2-python-parser-diff-ncontext",
@@ -30,3 +29,9 @@ def pytest_addoption(parser):
                      default=3,
                      dest="v2_python_parser_diff_ncontext",
                      help="Number of context lines to show in unified diff when v2 Python parser tests fail (default 3)")
+    # Currently unused but may be used in the future?
+    parser.addoption("--v2-python-parser-verbose",
+                     action="store_true",
+                     default=False,
+                     dest="v2_python_parser_verbose",
+                     help="Show more verbose output helpful for debugging")

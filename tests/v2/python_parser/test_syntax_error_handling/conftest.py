@@ -150,8 +150,7 @@ def parse_invalid_syntax(
                          verbose_tokenizer_stream=verbose_tokenizer_stream,
                          verbose_parser_stream=verbose_parser_stream)
 
-    print(str(e.exconly()))
-    assert message in str(e.exconly())
+    assert_exc_has_message(message, e)
 
     test_file = tmp_path / "test.py"
     with open(test_file, "w") as f:
@@ -168,8 +167,7 @@ def parse_invalid_syntax(
         # worth it
         assert message in py_exc.args[0]
 
-    print(str(e.exconly()))
-    assert message in str(e.exconly())
+    assert_exc_has_message(message, e)
 
     if start is None:
         return
@@ -204,3 +202,8 @@ def parse_invalid_syntax(
                     f"Expected locations of {start}, but got "
                     f"{(exc.lineno, exc.offset)} from {parser}"
                 )
+
+def assert_exc_has_message(message, exc_info):
+    if message not in (exc_str := str(exc_info.exconly())):
+        print(exc_str)
+    assert message in exc_str

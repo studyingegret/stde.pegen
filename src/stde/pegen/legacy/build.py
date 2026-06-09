@@ -69,7 +69,8 @@ Edition = str
 DEFAULT_SOURCE_NAME_FALLBACK = "<unknown>"
 
 
-def _grammar_file_name_fallback(
+# TODO: Deduplicate between legcy & v2
+def grammar_file_name_fallback(
     grammar_file_name: Optional[str], grammar_file: File, fallback: str = DEFAULT_SOURCE_NAME_FALLBACK
 ) -> str:
     """Should only be used in _from_file functions.
@@ -117,7 +118,7 @@ def load_grammar_from_file(
     *, edition: Edition = "1", grammar_file_name: Optional[str] = None
 ) -> GrammarFromFileProducts:
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
-    grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
+    grammar_file_name = grammar_file_name_fallback(grammar_file_name, grammar_file)
     if edition == "1":
         with open_file(grammar_file) as file:
             tokenizer = Tokenizer.from_stream(file, verbose_stream=tokenizer_verbose_stream)
@@ -203,7 +204,7 @@ def generate_code_from_file(
     edition: Edition = "1",
     grammar_file_name: Optional[str] = None,
 ) -> CodeFromFileProducts:
-    grammar_file_name = _grammar_file_name_fallback(grammar_file_name, grammar_file)
+    grammar_file_name = grammar_file_name_fallback(grammar_file_name, grammar_file)
     p = load_grammar_from_file(grammar_file, tokenizer_verbose_stream, parser_verbose_stream,
                                edition=edition)
     p2 = generate_code_from_grammar(p.grammar, grammar_file_name, output_file,

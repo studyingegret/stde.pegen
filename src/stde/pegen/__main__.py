@@ -91,6 +91,9 @@ def main() -> None:
 
     products2 = md.generate_code_from_grammar(
         products.grammar,
+        #TODO: There might be a better way? e.g. retain filename from cmd line
+        # (However this method is consistent with non-__main__ generations)
+        grammar_file_name=md.grammar_file_name_fallback(None, args.grammar_file),
         output_file=md.Flags.RETURN if args.output is OutputOption.DISABLE else args.output, #type:ignore
         skip_actions=args.skip_actions)
 
