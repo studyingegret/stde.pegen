@@ -1814,7 +1814,7 @@ kwarg_or_starred:
 
 kwarg_or_double_starred:
     | invalid_kwarg
-    | a=NAME '=' b=expression { ast.keyword(arg=a.string, value=b, LOCATIONS) }   # XXX Not reached by tests?
+    | a=NAME '=' b=expression { ast.keyword(arg=a.string, value=b, LOCATIONS) }
     | '**' a=expression { ast.keyword(arg=None, value=a, LOCATIONS) }
 
 # ASSIGNMENT TARGETS
