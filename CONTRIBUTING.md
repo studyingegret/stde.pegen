@@ -41,9 +41,7 @@ and your VS Code will be equipped with tasks.
 
 AI policy
 ---------
-Using AI without noting AI-generated parts is permitted. This is because 1) many people already do so, 2) noting the names of some AI models may be subject to geopolitical abuse since it's a heated international compete, 3) not using AI models as open source coders cannot really effectively fight against AI companies' infringements (AI companies are earning a lot of money not only from stocks and code, but also in medicine, legal, customer service bots, search engines, government projects and many more aspects), 4) I don't have the time and energy to employ some tools that check for AI-assisted copyright infringements (if you believe your code is infringed, you should pursuit the infringer yourself) and 5) describing AI code assistance can be disturbing, no one really cares(??) unless there is a code quality problem.
-
-I want to make people feel safe to commit AI-assisted contributions to this repo.
+AI contributions are allowed provided that you understand the AI output and there is always a human in the loop. Contributions completely consisting of AI output without human review or being adjusted as needed, or that you cannot explain why AI wrote X and not Y (and why it should (not) be X/Y), are discouraged and may result in a ban. A notice that AI is used is okay but not neccessary; please note so in PR comments instead of in code. (Only big directions are stated here, since this project has yet to see contributions to learn from and refine these rules)
 
 Known possibly broken aspects
 -----------------------------
