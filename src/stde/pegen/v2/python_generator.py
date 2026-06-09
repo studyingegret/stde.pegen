@@ -292,8 +292,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             raise ValidationError("Grammar is not adapted for this parser generator "
                                   f"(it requires {grammar.metas["require"]!r})")
         check_unreachable_rules(grammar)
-        preset = grammar.metas.get("preset", "python")
-        if preset not in {"python", "char_based"}:
+        if (preset := grammar.metas.get("preset", "python")) not in {"python", "char_based"}:
             raise ValidationError(f"Unknown grammar preset {preset}")
 
     #XXX Method be called more than once?

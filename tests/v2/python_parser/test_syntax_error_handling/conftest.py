@@ -203,7 +203,7 @@ def parse_invalid_syntax(
                     f"{(exc.lineno, exc.offset)} from {parser}"
                 )
 
-def assert_exc_has_message(message, exc_info):
+def assert_exc_has_message(message, exc_info) -> None:
     if message not in (exc_str := str(exc_info.exconly())):
         print(exc_str)
     assert message in exc_str

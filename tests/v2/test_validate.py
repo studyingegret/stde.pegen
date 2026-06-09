@@ -80,3 +80,22 @@ def test_invalid_hanging_alts() -> None:
         | "2" | "3"
     """)
     assert isinstance(GrammarParser.from_text(grammar).start(), ParseFailure)
+
+
+# Note: Stopped at Grammar creation time
+def test_extern_decl_and_rule_name_clash() -> None:
+    # start: $
+    # a: NAME
+    # extern a
+    from stde.pegen.v2.grammar import Rule, Rhs, Alt, TopLevelItem, NameLeaf, ExternDecl
+    with pytest.raises(ValidationError, match="Duplicate name a"):
+        Grammar.validate(
+            [
+                Rule('start', None, Rhs([Alt([TopLevelItem(None, NameLeaf('ENDMARKER'))])])),
+                Rule('a', None, Rhs([Alt([TopLevelItem(None, NameLeaf('NAME'))])])),
+            ],
+            [
+                ExternDecl('a', None)
+            ],
+            {}
+        )

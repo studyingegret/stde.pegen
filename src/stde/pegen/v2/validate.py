@@ -23,9 +23,11 @@ class _UnreachableRuleChecker(GrammarVisitor):
     def check_intersection(self, first_alt: Alt, second_alt: Alt) -> None:
         if str(second_alt).startswith(str(first_alt)):
             raise ValidationError(
-                f"In rule {self.rulename}: The branch \n    {second_alt}\nwill "
-                f"never be visited because\n    "
-                f"{first_alt}\nwill match before it is tried"
+                f"In rule {self.rulename}: The branch\n"
+                f"    {second_alt}\n"
+                 "will never be visited because\n"
+                f"    {first_alt}\n"
+                 "will match before it is tried"
             )
 
 
@@ -72,8 +74,7 @@ class _CheckingVisitor(GrammarVisitor):
 
     def visit_ExternDecl(self, node: TopLevelItem) -> None:
         if node.name and node.name.startswith("_"):
-            raise ValidationError(f"Extern declaration {node.name}: "
-                                  "Name cannot start with underscore")
+            raise ValidationError(f"Extern declaration {node.name}: Name cannot start with underscore")
 
 def basic_check(grammar: Grammar, extra_names: Set[str]) -> None:
     checker = _CheckingVisitor(grammar.items, extra_names or set())

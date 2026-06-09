@@ -73,14 +73,22 @@ def _check_duplicate_names(names: Iterable[str]) -> None:
 
 
 class Grammar:
-    #def __init__(self, rules: Iterable[Rule], metas: Iterable[Tuple[str, Optional[str]]]):
-    def __init__(self, rules: Iterable[Rule], extern_decls: Iterable[ExternDecl], metas: Any): #?
-        rules = list(rules)
-        extern_decls = list(extern_decls)
+    def __new__(cls, rules: Iterable[Rule], extern_decls: Iterable[ExternDecl], metas: Any) -> Grammar:
+        cls.validate(rules, extern_decls, metas)
+        return super().__new__(cls)
+
+    # Rationale: Should be able to validate without creating an instance.
+    @classmethod
+    def validate(cls, rules: Iterable[Rule], extern_decls: Iterable[ExternDecl], metas: Any) -> None:
         _check_duplicate_names(itertools.chain(
             (rule.name for rule in rules),
             (extern_decl.name for extern_decl in extern_decls)
         ))
+
+    #def __init__(self, rules: Iterable[Rule], metas: Iterable[Tuple[str, Optional[str]]]):
+    def __init__(self, rules: Iterable[Rule], extern_decls: Iterable[ExternDecl], metas: Any): #?
+        rules = list(rules)
+        extern_decls = list(extern_decls)
         self.rules = {rule.name: rule for rule in rules}
         self.extern_decls = {extern_decl.name: extern_decl for extern_decl in extern_decls}
         self.metas = dict(metas) #TODO: Dedupe? List?
