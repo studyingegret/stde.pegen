@@ -18,6 +18,10 @@ Currently I would appreciate contributions in the following aspects:
 
 If you have a question about using the library, please ask in the Discussions area.
 
+*This branch*
+-------------
+Trying to fix the performance regression between legacy and v2 parser for test_ast_parsing[pattern_matching.py]. See folder benchmark1
+
 How this library is different from original Pegen
 -------------------------------------------------
 - Bug fixes

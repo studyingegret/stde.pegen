@@ -1,0 +1,2 @@
+python -m cProfile -m pytest tests -k "test_ast_parsing and pattern_matching and not v2" > t\benchmark1\legacy.txt
+python -m cProfile -m pytest tests -k "test_ast_parsing and pattern_matching and v2" > t\benchmark1\v2.txt

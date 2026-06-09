@@ -150,3 +150,7 @@ src/stde/pegen/legacy/grammar_parser.py.bak
 src/stde/pegen/legacy/grammar_parser.bad.py
 src/stde/pegen/v2/grammar_parser.py.bak
 src/stde/pegen/v2/grammar_parser.bad.py
+
+#
+benchmark1/legacy.txt
+benchmark1/v2.txt
