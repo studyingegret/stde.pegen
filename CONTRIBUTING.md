@@ -278,6 +278,10 @@ Use the following characters for headings from high-level to low-level:
 - `*`
 - (lower levels aren't used yet, so no style rule for them yet)
 
+Benchmark notes
+---------------
+Use the `--v2-python-parser-no-verbose-parser` flag when benchmarking tests.
+
 If one day you find this project dusted
 ---------------------------------------
 

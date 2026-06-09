@@ -1,2 +1,2 @@
-python -m cProfile -m pytest tests -k "test_ast_parsing and pattern_matching and not v2" > t\benchmark1\legacy.txt
-python -m cProfile -m pytest tests -k "test_ast_parsing and pattern_matching and v2" > t\benchmark1\v2.txt
+python -m cProfile -s time -m pytest tests -k "test_ast_parsing and pattern_matching and v2" --v2-python-parser-no-verbose-parser > benchmark1\v2.txt
+python -m cProfile -s time -m pytest tests -k "test_ast_parsing and pattern_matching and not v2" > benchmark1\legacy.txt
