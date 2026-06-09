@@ -19,6 +19,7 @@ def pytest_addoption(parser):
                      default=False,
                      dest="v2_python_parser_verbose_tokenizer",
                      help="Enable verbose tokenizer output during v2 Python parser tests")
+    # NOTE: Use this flag when benchmarking.
     parser.addoption("--v2-python-parser-no-verbose-parser",
                      action="store_false",
                      default=True,
