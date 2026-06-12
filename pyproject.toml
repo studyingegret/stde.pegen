@@ -19,6 +19,7 @@ classifiers = [
     "Topic :: Text Processing",
     "Topic :: Software Development :: Code Generators", #?
     "Operating System :: OS Independent",
+    # TODO: Version support needs updating
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
