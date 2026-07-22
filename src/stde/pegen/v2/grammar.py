@@ -18,6 +18,7 @@ from typing import (
     Union,
     cast,
 )
+from enum import Enum
 from stde.pegen.common import ValidationError # Also re-export
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class GrammarVisitor(Generic[VisitReturnType]):
     Supports specializing visiting a `node` by its `node.__class__.__name__`
     (see implementation for how to do it).
 
-    Note: The default visitor, generic_visit, flattens items of 
+    Note: The default visitor, generic_visit, flattens items of
     iterable nodes that are `list`s.
     """
     def visit(self, node: Any, *args: Any, **kwargs: Any) -> VisitReturnType:
@@ -119,6 +120,11 @@ class Grammar:
 SIMPLE_STR = True
 
 
+class RuleCompileType(Enum):
+    PLAIN = 1
+    LOOP = 2
+
+
 class Rule:
     def __init__(self, name: str, type: Optional[str], rhs: Rhs, memo: Optional[object] = None):
         self.name = name
@@ -135,9 +141,13 @@ class Rule:
     def is_loop(self) -> bool:
         return self.name.startswith("_loop")
 
-    # Note: Rules named _gather_xxx are treated specially for legacy reasons (will remove in refactor)
+    # Note: This method doesn't serve practical purpose any more
     def is_gather(self) -> bool:
         return self.name.startswith("_gather")
+
+    def compile_type(self) -> RuleCompileType:
+        return (RuleCompileType.LOOP if self.name.startswith("_loop")
+                else RuleCompileType.PLAIN)
 
     def __str__(self) -> str:
         if SIMPLE_STR or self.type is None:
