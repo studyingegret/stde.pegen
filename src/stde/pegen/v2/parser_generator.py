@@ -133,15 +133,17 @@ class ParserGenerator:
         return name
 
     def artificial_rule_from_gather(self, g: Gather) -> str:
-        extra_function_name = f"_loop0_{self.count()}"
+        helper_name = f"_loop0_{self.count()}"
         name = f"_gather_{self.count()}"
-        # extra_function_name: {g.separator} elem={g.node} => elem
-        self.todo[extra_function_name] = Rule(extra_function_name, None, Rhs([Alt(
+        # helper_name: {g.separator} elem={g.node} => elem
+        # Note: has special _loop0_xxx compilation
+        # Effectively: helper_name: ({g.separator} elem={g.node})* => list of `elem`s
+        self.todo[helper_name] = Rule(helper_name, None, Rhs([Alt(
             [TopLevelItem(None, g.separator), TopLevelItem("elem", g.node)],
             Action("elem"))]))
-        # name: elem={g.node} seq=extra_function_name => [elem] + seq
+        # name: elem={g.node} seq=helper_name => [elem] + seq
         self.todo[name] = Rule(name, None, Rhs([Alt(
-            [TopLevelItem("elem", g.node), TopLevelItem("seq", NameLeaf(extra_function_name))],
+            [TopLevelItem("elem", g.node), TopLevelItem("seq", NameLeaf(helper_name))],
             Action("[elem] + seq"))]))
         return name
 
