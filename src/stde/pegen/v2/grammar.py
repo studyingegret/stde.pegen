@@ -130,9 +130,12 @@ class Rule:
         self.left_recursive = False
         self.leader = False
 
+    # Note: Rules named _loop0_xxx and _loop1_xxx with rhs `x`
+    # have their generated code being a loop returning `x*` or `x+` respectively
     def is_loop(self) -> bool:
         return self.name.startswith("_loop")
 
+    # Note: Rules named _gather_xxx are treated specially for legacy reasons (will remove in refactor)
     def is_gather(self) -> bool:
         return self.name.startswith("_gather")
 
@@ -256,24 +259,28 @@ class Rhs:
 
 
 class Alt:
-    #XXX: icut currently unused? (Not even in metagrammar.gram)
-    #XXX: Purpose of icut?
-    def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
+    # Note: There was a parameter and field called icut,
+    # but I removed it (along with code that checks it)
+    # because it was unused and there isn't a hint about its purpose.
+    def __init__(self, items: List[TopLevelItem], action: Optional[Action] = None):
         self.items = items
-        self.icut = icut
         self.action = action
 
+    # Rant, the __str__ and __repr__ code feels like annoyance when refactoring
+    #
+    # But do you have a solution?
+    #
+    # Throw it away? No good probably.
+
     def __str__(self) -> str:
-        core = " ".join(str(item) for item in self.items)
+        items = " ".join(str(item) for item in self.items)
         if not SIMPLE_STR and self.action:
-            return f"{core} {{ {self.action} }}"
+            return f"{items} {{ {self.action} }}"
         else:
-            return core
+            return items
 
     def __repr__(self) -> str:
         args = [repr(self.items)]
-        if self.icut >= 0:
-            args.append(f"icut={self.icut}")
         if self.action is not None:
             args.append(f"action={self.action!r}")
         return f"Alt({', '.join(args)})"
@@ -495,16 +502,17 @@ class Cut:
 
 
 class Action:
-    def __init__(self, code: str, has_return_stmt: bool = False):
+    def __init__(self, code: str, is_stmts: bool = False):
         self.code = code
-        self.has_return_stmt = has_return_stmt
+        self.is_stmts = is_stmts
 
+    #TODO: ...
     def __str__(self) -> str:
-        return "{ " + self.code + " }" #XXX:?
+        return repr(self)
 
     def __repr__(self) -> str:
-        return (f"Action({self.code!r})" if not self.has_return_stmt
-                else f"Action({self.code!r}, has_return_stmt=True)")
+        return (f"Action({self.code!r})" if not self.is_stmts
+                else f"Action({self.code!r}, is_stmts=True)")
 
 
 Plain = Union[Leaf, Group]

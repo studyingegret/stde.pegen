@@ -5,6 +5,7 @@ from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Self, Set, 
 from stde.pegen.sccutils import find_cycles_in_scc, strongly_connected_components
 from stde.pegen.common import ValidationError
 from stde.pegen.v2.grammar import (
+    Action,
     Alt,
     Cut,
     ExternDecl,
@@ -62,11 +63,15 @@ class ParserGenerator:
         self.first_graph, self.first_sccs = mark_left_recursives(self.grammar.rules)
         # Rules to generate
         self.todo = self.grammar.rules.copy()
-        # For name_rule()/name_loop()
+        # Naming counter to ensure unique names
         self.counter = 0
         # Rules + temporal rules
         self.all_rules: Dict[str, Rule] = {}
         self._local_variable_stack: List[List[str]] = []
+
+    def count(self) -> int:
+        self.counter += 1
+        return self.counter
 
     @contextmanager
     def local_variable_context(self) -> Iterator[None]:
@@ -117,43 +122,30 @@ class ParserGenerator:
             done = set(alltodo)
 
     def artificial_rule_from_rhs(self, rhs: Rhs) -> str:
-        self.counter += 1
-        name = f"_tmp_{self.counter}"  # TODO: Pick a nicer name.
+        name = f"_tmp_{self.count()}"  # TODO: Pick a nicer name.
         self.todo[name] = Rule(name, None, rhs)
         return name
 
     def artificial_rule_from_repeat(self, node: Plain, is_repeat1: bool) -> str:
-        self.counter += 1
-        if is_repeat1:
-            prefix = "_loop1_"
-        else:
-            prefix = "_loop0_"
-        name = f"{prefix}{self.counter}"  # TODO: It's ugly to signal via the name.
+        prefix = "_loop1_" if is_repeat1 else "_loop0_"
+        name = f"{prefix}{self.count()}"  # TODO: It's ugly to signal via the name.
         self.todo[name] = Rule(name, None, Rhs([Alt([TopLevelItem(None, node)])]))
         return name
 
-    def artificial_rule_from_gather(self, node: Gather) -> str:
-        self.counter += 1
-        name = f"_gather_{self.counter}"
-        self.counter += 1
-        extra_function_name = f"_loop0_{self.counter}"
-        extra_function_alt = Alt(
-            [TopLevelItem(None, node.separator), TopLevelItem("elem", node.node)],
-            action="elem",
-        )
-        self.todo[extra_function_name] = Rule(
-            extra_function_name,
-            None,
-            Rhs([extra_function_alt]),
-        )
-        alt = Alt(
-            [TopLevelItem("elem", node.node), TopLevelItem("seq", NameLeaf(extra_function_name))],
-        )
-        self.todo[name] = Rule(
-            name,
-            None,
-            Rhs([alt]),
-        )
+    def artificial_rule_from_gather(self, g: Gather) -> str:
+        name = f"_gather_{self.count()}"
+        extra_function_name = f"_loop0_{self.count()}"
+        self.todo[extra_function_name] = Rule(extra_function_name, None, Rhs([Alt(
+            # {g.separator} elem={g.node} => elem
+            [TopLevelItem(None, g.separator), TopLevelItem("elem", g.node)],
+            Action("elem"))])) #new
+            #action="elem")])) #old
+        # TODO: Make this function responsible for the action
+        # instead of print_action
+        # (See also note in python_generator.py:print_action)
+        self.todo[name] = Rule(name, None, Rhs([Alt(
+            # elem={g.node} seq={extra_function_name} => [elem, seq]
+            [TopLevelItem("elem", g.node), TopLevelItem("seq", NameLeaf(extra_function_name))])]))
         return name
 
     def dedupe_and_add_var(self, name: str) -> str:

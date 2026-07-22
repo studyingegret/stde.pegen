@@ -10,7 +10,7 @@ FAILURE = ResultFlag.FAILURE
 
 from stde.pegen.v2.grammar import (
     Alt,
-    #Action,
+    Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -56,11 +56,11 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
 
 class Base(DefaultParser):
     @memoize #XXX:?
-    def action_contents(self) -> RuleResult[str]:
+    def action_contents(self) -> RuleResult[Action]:
         """Note: The result should be parsable by ast.parse."""
         m = self.mark()
         level = 1
-        has_return_stmt = False
+        is_stmts = False
         tokens = []
         prevmark = m
         while True:
@@ -77,14 +77,14 @@ class Base(DefaultParser):
             if t.string == "{":
                 level += 1
             elif t.string == "return":
-                has_return_stmt = True
+                is_stmts = True
             prevmark = self.mark()
         self.reset(prevmark) # Don't consume the last right brace
         tokens = _normalize_linecol(tokens)
         s = tokenize.untokenize(tokens)
         if self._verbose: #XXX: ...
             print("  " * self._level + "## Parsed code:", repr(s))
-        return s
+        return Action(s, is_stmts)
 
     # Temporary trick (plan to make it built-in)
     @logger
@@ -179,7 +179,7 @@ atom[Plain]:
 # Mini-grammar for the actions and annotations
 
 #action[str]: "{" ~ target_atoms "}" { target_atoms }
-action[str]: "{" ~ action_contents "}" { action_contents }
+action[Action]: "{" ~ action_contents "}" { action_contents }
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
 #annotation[str]: "[" ~ text("]") "]" { target_atoms }
 #annotation[str]: "->" ~ target_atoms !":" { target_atoms }
@@ -207,5 +207,5 @@ target_fstring_middle[str]:
     | target_atom { target_atom }
 
 #annotation[str]: "[" ~ target_atoms "]" { target_atoms }
-extern action_contents[str]
+extern action_contents[Action]
 extern empty[None]

@@ -431,6 +431,7 @@ class DefaultParser(BaseParser):
     def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> Self:
         return cls(Tokenizer.from_stream(stream), *args, **kwargs)
 
+    # XXX: Standardize verbose_stream to BaseParser?
     def __init__(self, tokenizer: Tokenizer, *, verbose_stream: Optional[TextIO] = None):
         super().__init__(verbose_stream=verbose_stream)
         self._tokenizer = tokenizer

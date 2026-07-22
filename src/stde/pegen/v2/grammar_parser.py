@@ -16,7 +16,7 @@ FAILURE = ResultFlag.FAILURE
 
 from stde.pegen.v2.grammar import (
     Alt,
-    #Action,
+    Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -62,11 +62,11 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
 
 class Base(DefaultParser):
     @memoize #XXX:?
-    def action_contents(self) -> RuleResult[str]:
+    def action_contents(self) -> RuleResult[Action]:
         """Note: The result should be parsable by ast.parse."""
         m = self.mark()
         level = 1
-        has_return_stmt = False
+        is_stmts = False
         tokens = []
         prevmark = m
         while True:
@@ -83,14 +83,14 @@ class Base(DefaultParser):
             if t.string == "{":
                 level += 1
             elif t.string == "return":
-                has_return_stmt = True
+                is_stmts = True
             prevmark = self.mark()
         self.reset(prevmark) # Don't consume the last right brace
         tokens = _normalize_linecol(tokens)
         s = tokenize.untokenize(tokens)
         if self._verbose: #XXX: ...
             print("  " * self._level + "## Parsed code:", repr(s))
-        return s
+        return Action(s, is_stmts)
 
     # Temporary trick (plan to make it built-in)
     @logger
@@ -513,7 +513,7 @@ class GeneratedParser(Base):
         return FAILURE
 
     @memoize
-    def r_action(self) -> RuleResult[str]:
+    def r_action(self) -> RuleResult[Action]:
         # action: "{" ~ action_contents "}"
         mark = self.mark()
         __cut = False
@@ -930,7 +930,7 @@ class GeneratedParser(Base):
         except ParseError as e:
             return ParseFailure(parse_exc=e)
 
-    def action(self) -> Union[str, ParseFailure]:
+    def action(self) -> Union[Action, ParseFailure]:
         try:
             value = self.r_action()
             return ParseFailure() if value is FAILURE else value

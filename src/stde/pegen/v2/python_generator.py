@@ -115,7 +115,7 @@ class _InvalidNodeVisitor(GrammarVisitor[bool]): #?
 # TODO?
 class _PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
     """Translates grammar items to a 2-tuple of
-    - Capture variable name (None for no capture variable name) (`str | None`)
+    - Default capture variable name (None for no capture variable name) (`str | None`)
     - Matching code (`str`)
 
     Tuple[str | None, str] is the return type of all visitors.
@@ -337,7 +337,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     def alts_uses_locations(self, alts: Sequence[Alt]) -> bool:
         for alt in alts:
-            if alt.action and "LOCATIONS" in alt.action:
+            if alt.action and "LOCATIONS" in alt.action.code:
                 return True
             for item in map(lambda node: node.item, alt.items):
                 if isinstance(item, Group) and self.alts_uses_locations(item.rhs.alts):
@@ -383,14 +383,12 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if is_loop:
                 self.print("children = []")
             self.visit(rhs, is_loop=is_loop, is_gather=is_gather)
-            if rule.name.startswith("_loop0_"):
+            self.add_return(
                 # This feels okay, x* returning an empty list is not treated as failure,
                 # which is perfectly valid as signaling matching no repetitions
-                self.add_return("children")
-            elif rule.name.startswith("_loop1_"):
-                self.add_return("children or ResultFlag.FAILURE")
-            else:
-                self.add_return("FAILURE")
+                "children" if rule.name.startswith("_loop0_")
+                else "children or ResultFlag.FAILURE" if rule.name.startswith("_loop1_")
+                else "FAILURE")
 
         if rule.name.endswith("without_invalid"):
             self.return_cleanup_stmts.pop()
@@ -432,28 +430,38 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     def print_action(
         self,
-        action: Optional[str],
+        action_code: Optional[str],
+        is_stmts: Optional[bool],
         locations: bool,
         unreachable: bool,
         is_gather: bool,
         is_loop: bool,
         has_invalid: bool,
     ) -> None:
-        if not action:
+        if not action_code:
+            # TODO: Can lazily evaluate `names` to reduce computation
             names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
             if is_gather:
+                #XXX: ?
+                # Note: According to artificial_rule_from_gather in parser_generator.py,
+                # the effective action code is always "[elem] + seq"
+                # (we're now in a generated helper _gather_xxx rule. BTW such a rule
+                # has only one alt, which is current one)
+                # TODO: Simplify this code in later refactor (guards put on for sureness)
                 assert len(names) == 2
-                action = f"[{names[0]}] + {names[1]}"
+                action_code = f"[{names[0]}] + {names[1]}"
+                assert action_code == "[elem] + seq"
+                action_code = "[elem] + seq"
             else:
                 if has_invalid:
                     assert unreachable
-                    if TYPE_CHECKING: assert isinstance(action, str)
+                    action_code = ""
                 else:
                     #...
                     if len(names) == 1:
-                        action = f"{names[0]}"
+                        action_code = f"{names[0]}"
                     else:
-                        action = f"[{', '.join(names)}]"
+                        action_code = f"[{', '.join(names)}]"
 
         if locations:
             self.print("end_lineno, end_colno = self.end_of_rule_pos()")
@@ -464,22 +472,33 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print(stmt)
 
         if is_loop:
-            self.print(f"children.append({action})")
+            self.print(f"children.append({action_code})")
             self.print("mark = self.mark()")
         else:
-            self.add_return(f"{action}")
+            self.add_return(action_code)
 
     def visit_Alt(self, alt: Alt, is_loop: bool, is_gather: bool) -> None:
         has_cut = any(isinstance(item.item, Cut) for item in alt.items)
         has_invalid = self.has_invalid(alt)
 
-        action_code = None if self.skip_actions else alt.action
-        if action_code is None and not is_gather and has_invalid:
+        action_code = (None if self.skip_actions or not alt.action
+                       else alt.action.code)
+        is_stmts = alt.action.is_stmts if alt.action else None
+        # Note about `not is_gather`:
+        # According to artificial_rule_from_gather in parser_generator.py,
+        # the effective action code is always "[elem] + seq"
+        # (we're now in a generated helper _gather_xxx rule. BTW such a rule
+        # has only one alt, which is current one)
+        # However, artificial_rule_from_gather always sets action=None
+        # for the generated gather_xxx rule, so it's a legacy
+        # and will be cleaned in later refactor.
+        # See also similar note in `print_action`
+        if action_code is None and (not is_gather) and has_invalid:
             action_code = "UNREACHABLE" #...
 
         locations = False
         unreachable = False
-        used = None
+        used = None # When None, means no action, so no code "pulling" binding of match results
         if action_code:
             # Replace magic name in the action_code rule
             if "LOCATIONS" in action_code:
@@ -522,7 +541,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(action_code, locations, unreachable,
+                self.print_action(action_code, is_stmts, locations, unreachable,
                                   is_gather, is_loop, has_invalid)
 
             self.print("self.reset(mark)")
@@ -532,8 +551,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 with self.indent():
                     self.add_return("FAILURE")
 
-    def has_invalid(self, node: Any) -> bool:
-        return self._invalidvisitor.visit(node)
+    def has_invalid(self, alt: Alt) -> bool:
+        return self._invalidvisitor.visit(alt)
 
     #...
     def actually_used_names_in_action(self, action: str) -> Set[str]:
