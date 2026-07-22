@@ -133,19 +133,16 @@ class ParserGenerator:
         return name
 
     def artificial_rule_from_gather(self, g: Gather) -> str:
-        name = f"_gather_{self.count()}"
         extra_function_name = f"_loop0_{self.count()}"
+        name = f"_gather_{self.count()}"
         self.todo[extra_function_name] = Rule(extra_function_name, None, Rhs([Alt(
             # {g.separator} elem={g.node} => elem
             [TopLevelItem(None, g.separator), TopLevelItem("elem", g.node)],
-            Action("elem"))])) #new
-            #action="elem")])) #old
-        # TODO: Make this function responsible for the action
-        # instead of print_action
-        # (See also note in python_generator.py:print_action)
+            Action("elem"))]))
         self.todo[name] = Rule(name, None, Rhs([Alt(
             # elem={g.node} seq={extra_function_name} => [elem, seq]
-            [TopLevelItem("elem", g.node), TopLevelItem("seq", NameLeaf(extra_function_name))])]))
+            [TopLevelItem("elem", g.node), TopLevelItem("seq", NameLeaf(extra_function_name))],
+            Action("[elem] + seq"))]))
         return name
 
     def dedupe_and_add_var(self, name: str) -> str:

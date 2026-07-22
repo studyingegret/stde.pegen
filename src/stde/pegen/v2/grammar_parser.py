@@ -291,7 +291,7 @@ class GeneratedParser(Base):
         # alts: "|".alt+
         mark = self.mark()
         if (
-            (alts := (self._gather_5())) is not FAILURE
+            (alts := (self._gather_6())) is not FAILURE
         ):
             return Rhs(alts)
         self.reset(mark)
@@ -735,8 +735,8 @@ class GeneratedParser(Base):
         return FAILURE
 
     @memoize
-    def _loop0_6(self) -> RuleResult[Any]:
-        # _loop0_6: "|" alt
+    def _loop0_5(self) -> RuleResult[Any]:
+        # _loop0_5: "|" alt
         mark = self.mark()
         children = []
         while (
@@ -750,14 +750,14 @@ class GeneratedParser(Base):
         return children
 
     @memoize
-    def _gather_5(self) -> RuleResult[Any]:
-        # _gather_5: alt _loop0_6
+    def _gather_6(self) -> RuleResult[Any]:
+        # _gather_6: alt _loop0_5
         mark = self.mark()
         if (
             (elem := (self.r_alt())) is not FAILURE
             is not None
             and
-            (seq := (self._loop0_6())) is not FAILURE
+            (seq := (self._loop0_5())) is not FAILURE
             is not None
         ):
             return [elem] + seq

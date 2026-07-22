@@ -434,34 +434,16 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         is_stmts: Optional[bool],
         locations: bool,
         unreachable: bool,
-        is_gather: bool,
         is_loop: bool,
         has_invalid: bool,
     ) -> None:
         if not action_code:
-            # TODO: Can lazily evaluate `names` to reduce computation
-            names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
-            if is_gather:
-                #XXX: ?
-                # Note: According to artificial_rule_from_gather in parser_generator.py,
-                # the effective action code is always "[elem] + seq"
-                # (we're now in a generated helper _gather_xxx rule. BTW such a rule
-                # has only one alt, which is current one)
-                # TODO: Simplify this code in later refactor (guards put on for sureness)
-                assert len(names) == 2
-                action_code = f"[{names[0]}] + {names[1]}"
-                assert action_code == "[elem] + seq"
-                action_code = "[elem] + seq"
+            if has_invalid:
+                assert unreachable
+                action_code = ""
             else:
-                if has_invalid:
-                    assert unreachable
-                    action_code = ""
-                else:
-                    #...
-                    if len(names) == 1:
-                        action_code = f"{names[0]}"
-                    else:
-                        action_code = f"[{', '.join(names)}]"
+                names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
+                action_code = f"{names[0]}" if len(names) == 1 else f"[{', '.join(names)}]"
 
         if locations:
             self.print("end_lineno, end_colno = self.end_of_rule_pos()")
@@ -484,16 +466,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         action_code = (None if self.skip_actions or not alt.action
                        else alt.action.code)
         is_stmts = alt.action.is_stmts if alt.action else None
-        # Note about `not is_gather`:
-        # According to artificial_rule_from_gather in parser_generator.py,
-        # the effective action code is always "[elem] + seq"
-        # (we're now in a generated helper _gather_xxx rule. BTW such a rule
-        # has only one alt, which is current one)
-        # However, artificial_rule_from_gather always sets action=None
-        # for the generated gather_xxx rule, so it's a legacy
-        # and will be cleaned in later refactor.
-        # See also similar note in `print_action`
-        if action_code is None and (not is_gather) and has_invalid:
+        if action_code is None and has_invalid:
             action_code = "UNREACHABLE" #...
 
         locations = False
@@ -520,10 +493,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             else:
                 if has_cut:
                     self.print("__cut = False")
-                if is_loop:
-                    self.print("while (")
-                else:
-                    self.print("if (")
+                self.print("while (" if is_loop else "if (")
                 with self.indent():
                     first = True
                     if has_invalid:
@@ -535,14 +505,14 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                         else:
                             self.print("and")
                         self.visit(item, used=used, unreachable=unreachable)
-                        if is_gather:
+                        if is_gather: #?
                             self.print("is not None")
                 self.print("):")
 
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
                 self.print_action(action_code, is_stmts, locations, unreachable,
-                                  is_gather, is_loop, has_invalid)
+                                  is_loop, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.
