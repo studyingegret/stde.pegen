@@ -1,8 +1,9 @@
 import ast
+from contextlib import contextmanager
 from keyword import iskeyword
 import re
 import token
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Self, Sequence, Set, Text, TextIO, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Self, Sequence, Set, Text, TextIO, Tuple, cast
 #from io import TextIOBase
 
 from stde.pegen.common import ValidationError
@@ -28,6 +29,7 @@ from stde.pegen.v2.grammar import (
     Rule,
     StringLeaf,
     Grammar,
+    RuleCompileType,
 )
 from stde.pegen.v2.parser_generator import ParserGenerator
 
@@ -281,6 +283,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.action_ignore_variables: Set[str] = set()
         self.skip_actions = skip_actions
         self._rulename_to_methname: Dict[str, str] = {}
+        self._current_rule_compile_type: Optional[RuleCompileType] = None
 
     #TODO: Tests
     @classmethod
@@ -349,9 +352,21 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print(stmt)
         self.print(f"return {ret_val}")
 
+    @contextmanager
+    def set_current_rule_compile_type(self, compile_type: RuleCompileType) -> Iterator[None]:
+        assert self._current_rule_compile_type is None, "Nested `Rule`s shouldn't happen"
+        self._current_rule_compile_type = compile_type
+        try:
+            yield
+        finally:
+            self._current_rule_compile_type = None
+
+    @property
+    def current_rule_compile_type(self):
+        return self._current_rule_compile_type
+
     def visit_Rule(self, rule: Rule) -> None:
-        is_loop = rule.is_loop()
-        is_gather = rule.is_gather()
+        compile_type = rule.compile_type()
         rhs = rule.flatten()
         if rule.left_recursive:
             if rule.leader:
@@ -380,9 +395,10 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if self.alts_uses_locations(rule.rhs.alts):
                 self.print("start_lineno, start_colno = self.start_of_rule_pos()")
                 self.print("")
-            if is_loop:
+            if compile_type == RuleCompileType.LOOP:
                 self.print("children = []")
-            self.visit(rhs, is_loop=is_loop, is_gather=is_gather)
+            with self.set_current_rule_compile_type(compile_type):
+                self.visit(rhs)
             self.add_return(
                 # This feels okay, x* returning an empty list is not treated as failure,
                 # which is perfectly valid as signaling matching no repetitions
@@ -422,11 +438,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 #self.pre_action_stmts.append(f"{name} = {name}")
                 #self.action_ignore_variables.add(name)
 
-    def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
-        if is_loop:
+    def visit_Rhs(self, rhs: Rhs) -> None:
+        if self.current_rule_compile_type == RuleCompileType.LOOP:
             assert len(rhs.alts) == 1
         for alt in rhs.alts:
-            self.visit(alt, is_loop=is_loop, is_gather=is_gather)
+            self.visit(alt)
 
     def print_action(
         self,
@@ -434,7 +450,6 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         is_stmts: Optional[bool],
         locations: bool,
         unreachable: bool,
-        is_loop: bool,
         has_invalid: bool,
     ) -> None:
         if not action_code:
@@ -453,13 +468,13 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         for stmt in self.pre_action_stmts:
             self.print(stmt)
 
-        if is_loop:
+        if self.current_rule_compile_type == RuleCompileType.LOOP:
             self.print(f"children.append({action_code})")
             self.print("mark = self.mark()")
         else:
             self.add_return(action_code)
 
-    def visit_Alt(self, alt: Alt, is_loop: bool, is_gather: bool) -> None:
+    def visit_Alt(self, alt: Alt) -> None:
         has_cut = any(isinstance(item.item, Cut) for item in alt.items)
         has_invalid = self.has_invalid(alt)
 
@@ -493,7 +508,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             else:
                 if has_cut:
                     self.print("__cut = False")
-                self.print("while (" if is_loop else "if (")
+                self.print(
+                    "while (" if self.current_rule_compile_type == RuleCompileType.LOOP else "if (")
                 with self.indent():
                     first = True
                     if has_invalid:
@@ -505,14 +521,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                         else:
                             self.print("and")
                         self.visit(item, used=used, unreachable=unreachable)
-                        if is_gather: #?
-                            self.print("is not None")
                 self.print("):")
 
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(action_code, is_stmts, locations, unreachable,
-                                  is_loop, has_invalid)
+                self.print_action(action_code, is_stmts, locations, unreachable, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.

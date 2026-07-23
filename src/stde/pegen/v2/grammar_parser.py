@@ -755,10 +755,8 @@ class GeneratedParser(Base):
         mark = self.mark()
         if (
             (elem := (self.r_alt())) is not FAILURE
-            is not None
             and
             (seq := (self._loop0_5())) is not FAILURE
-            is not None
         ):
             return [elem] + seq
         self.reset(mark)
