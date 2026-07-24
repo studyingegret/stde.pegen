@@ -1,9 +1,12 @@
-@header '''\
+# Note: Having a `\` in the result file near the top is expected, it's the first character of the @header raw string :)
+@header r'''\
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
-from typing import List, Union, Iterable
+import ast
+from typing import List, Union, Iterable, TextIO, Any, Self, Tuple
 import token
 import tokenize
+import textwrap
 from tokenize import TokenInfo
 
 FAILURE = ResultFlag.FAILURE
@@ -36,7 +39,6 @@ from stde.pegen.v2.grammar import (
     StringLeaf,
 )
 
-#TODO: Blocks (having its own return) vs. expressions
 def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     if not tokens:
         return []
@@ -54,7 +56,62 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     return list(map(replace, tokens))
 
 
+def _slice_line_col2(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
+    """Slice text from start to end (line/column, 1-based line, 0-based column)."""
+    return _slice_line_col(text, (start[0] - 1, start[1]), (end[0] - 1, end[1]))
+
+def _slice_line_col(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
+    """Slice text from start to end (line/column, 0-based line, 0-based column)."""
+    line_span = end[0] - start[0]
+    i = 0
+    left_limit = 0
+    counter = start[0]
+    while counter:
+        i = text.find("\n", left_limit)
+        assert i != -1
+        counter -= 1
+        left_limit = i + 1
+    st = i + 1 + start[1] # Not i + start[1], i is position of newline
+    counter = line_span
+    left_limit = st # Note: It's possible that a newline occurs at index `st`
+    while counter:
+        i = text.find("\n", left_limit)
+        assert i != -1
+        counter -= 1
+        left_limit = i + 1
+    ed = i + 1 + end[1]
+    return text[st:ed]
+
 class Base(DefaultParser):
+    # In action_contents it's difficult to dedent the text correctly without knowing the source,
+    # so we modify the constructors to do that.
+    #
+    # It's theoretically possible to retrieve the source text by piecing together the token.line's.
+    # But I'll just skip that effort.
+    # Furthermore `tokenize` parses the whole PEG grammar
+    # and the PEG grammar is not valid Python
+    # so if we depend on token.line we're experiencing more said (in docs)
+    # "undefined behavior" ... haha
+    #
+    # (And, we can't drop support for parsing grammar with a stream -- yet,
+    # it's arguably esoteric but the python_parser used for testing depends on it)
+
+    _text: str
+
+    @classmethod
+    def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> Self:
+        text = stream.read()
+        stream.seek(0)
+        instance = super().from_stream(stream, *args, **kwargs)
+        instance._text = text
+        return instance
+
+    @classmethod
+    def from_text(cls, text: str, *args: Any, **kwargs: Any) -> Self:
+        instance = super().from_text(text, *args, **kwargs)
+        instance._text = text
+        return instance
+
     @memoize #XXX:?
     def action_contents(self) -> RuleResult[Action]:
         """Note: The result should be parsable by ast.parse."""
@@ -80,13 +137,100 @@ class Base(DefaultParser):
                 is_stmts = True
             prevmark = self.mark()
         self.reset(prevmark) # Don't consume the last right brace
-        tokens = _normalize_linecol(tokens)
-        s = tokenize.untokenize(tokens)
+        if not tokens:
+            return FAILURE # Don't accept empty actions
         if self._verbose: #XXX: ...
+            import pickle
+            print(pickle.dumps(tokens))
+        if is_stmts:
+            assert tokens
+
+            # Simply dedent the whole block of text
+            #
+            # TODO: In case of error, see if start token's on same line as `{`
+            # and if not, give a helpful error message
+            # ```
+            #  rule: a { x = 1
+            # :          ^^^^^ When writing statements as action, first line must not be on the same line as `{`
+            #     return x
+            # :   ^^^^^^ Action is parsed as statements (rather than expression) because of presence of `return`
+            #  }
+            # ```
+
+            # XXX: ...?
+            s = textwrap.dedent(
+                " " * tokens[0].start[1] + _slice_line_col2(self._text, tokens[0].start, tokens[-1].end))
+        else:
+            # Transform back to original code.
+            #
+            # The reason we're not doing this:
+            #
+            #     s = _slice_line_col2(self._text, tokens[0].start, tokens[-1].end)
+            #
+            # is to keep compatible with (probably existing somewhere)
+            # code like this, seen in python_v2.gram:
+            #
+            #     slice:
+            #         # ...
+            #         | a=named_expression {
+            #             a
+            #             if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else
+            #             ast.Index(
+            #                 value=a,
+            #                 lineno=a.lineno,
+            #                 col_offset=a.col_offset,
+            #                 end_lineno=a.end_lineno,
+            #                 end_col_offset=a.end_col_offset
+            #             )
+            #         }
+            #
+            # Note the action spans several lines.
+            # - It is illegal to type it out in the REPL without adding brackets.
+            # - Joining token texts with space `" ".join(map(lambda x: x.string, tokens))`
+            #   is the legacy behavior.
+            #   It *works* but looks *bad*, especially in this case,
+            #   9 lines will become all on 1 line, it's harder to map an error location
+            #   back to the original location.
+            # - Adding brackets f"({THE_CODE})": Makes this invalid action
+            #   get parsed as a generator expressionunexpectedly valid.
+            #
+            #       rule: a { x for x in a }
+            #
+            #   We could validate the action code with ast.parse, but it's problematic
+            #   with respect to actions like `ast.Expr(..., LOCATIONS)`
+            #   where the unsubstituted `LOCATIONS` causes the code to be invalid.
+            #   Furthermore, I'd avoid the performance cost if possible.
+            #   (but it's a possible future feature)
+            # - _slice_line_col2 + .replace("\n", "\\\n"): Fails with triple strings.
+            #   You'll have to manually parse tokens.
+            # - _normalize_linecol + tokenize.untokenize fixes this issue by adding `\`:
+            #
+            #       return a\
+            #       if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else\
+            #       ast.Index(\
+            #           value=a,\
+            #           lineno=a.lineno,\
+            #           col_offset=a.col_offset,\
+            #           end_lineno=a.end_lineno,\
+            #           end_col_offset=a.end_col_offset\
+            #       )
+            #
+            # Not ideal, but works best.
+
+            tokens = _normalize_linecol(tokens)
+            s = tokenize.untokenize(tokens)
+            #s = _slice_line_col2(self._text, tokens[0].start, tokens[-1].end)
+        if self._verbose: #XXX: ...
+            import pickle
+            print(pickle.dumps(tokens))
             print("  " * self._level + "## Parsed code:", repr(s))
+        # TODO: Add a debug flag and clean debug printing around here
+        #if "LOCATIONS" not in s and "UNREACHABLE" not in s and not is_stmts:
+        #    ast.parse(s)
         return Action(s, is_stmts)
 
     # Temporary trick (plan to make it built-in)
+    # TODO: Remove
     @logger
     def empty(self) -> RuleResult[None]:
         return None
@@ -176,10 +320,10 @@ atom[Plain]:
     | NAME {NameLeaf(name.string) }
     | STRING {StringLeaf(string.string)}
 
-# Mini-grammar for the actions and annotations
-
-#action[str]: "{" ~ target_atoms "}" { target_atoms }
 action[Action]: "{" ~ action_contents "}" { action_contents }
+
+# Mini-grammar for annotations
+
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
 #annotation[str]: "[" ~ text("]") "]" { target_atoms }
 #annotation[str]: "->" ~ target_atoms !":" { target_atoms }

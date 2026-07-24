@@ -452,14 +452,6 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         unreachable: bool,
         has_invalid: bool,
     ) -> None:
-        if not action_code:
-            if has_invalid:
-                assert unreachable
-                action_code = ""
-            else:
-                names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
-                action_code = f"{names[0]}" if len(names) == 1 else f"[{', '.join(names)}]"
-
         if locations:
             self.print("end_lineno, end_colno = self.end_of_rule_pos()")
             self.print("start = (start_lineno, start_colno)")
@@ -468,11 +460,24 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         for stmt in self.pre_action_stmts:
             self.print(stmt)
 
+        if not action_code:
+            assert not is_stmts
+            if has_invalid:
+                assert unreachable
+                action_code = ""
+            else:
+                names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
+                action_code = f"{names[0]}" if len(names) == 1 else f"[{', '.join(names)}]"
+
         if self.current_rule_compile_type == RuleCompileType.LOOP:
+            assert not is_stmts, "LOOP compile type rules always have include-everything default action"
             self.print(f"children.append({action_code})")
             self.print("mark = self.mark()")
         else:
-            self.add_return(action_code)
+            if is_stmts:
+                self.printblock(action_code)
+            else:
+                self.add_return(action_code)
 
     def visit_Alt(self, alt: Alt) -> None:
         has_cut = any(isinstance(item.item, Cut) for item in alt.items)

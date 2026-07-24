@@ -96,12 +96,11 @@ class ParserGenerator:
         finally:
             self.level -= 1
 
-    def print(self, *args: object) -> None:
-        if not args:
+    def print(self, s: Optional[str] = None) -> None:
+        if s is None:
             print(file=self.file)
         else:
-            print("    " * self.level, end="", file=self.file)
-            print(*args, file=self.file)
+            print("    "*self.level + s, file=self.file)
 
     def printblock(self, lines: str) -> None:
         for line in lines.splitlines():
@@ -136,8 +135,8 @@ class ParserGenerator:
         helper_name = f"_loop0_{self.count()}"
         name = f"_gather_{self.count()}"
         # helper_name: {g.separator} elem={g.node} => elem
-        # Note: has special _loop0_xxx compilation
-        # Effectively: helper_name: ({g.separator} elem={g.node})* => list of `elem`s
+        #  Note: has special _loop0_xxx compilation
+        #  Effectively: helper_name: ({g.separator} elem={g.node})* => list of `elem`s
         self.todo[helper_name] = Rule(helper_name, None, Rhs([Alt(
             [TopLevelItem(None, g.separator), TopLevelItem("elem", g.node)],
             Action("elem"))]))
