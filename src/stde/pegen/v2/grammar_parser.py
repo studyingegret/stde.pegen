@@ -149,10 +149,52 @@ class Base(DefaultParser):
             import pickle
             print(pickle.dumps(tokens))
         if is_stmts:
-            assert tokens
-
-            # Simply dedent the whole block of text
+            # Just remove common indent; further processing in python_generator.py,
+            # where only the first line is then indented only as much as needed to fit in the generated if clause:
             #
+            # ```
+            # rule: wow_this_alt_is_very_very_long { the_answer = let_me_think(); return the_answer("""
+            #     to the Ultimate Question of Life,
+            #     the Universe
+            # """) and everything }
+            # rule2: a {
+            # the_answer = let_me_think(); return the_answer("""
+            # to the Ultimate Question of Life,
+            # the Universe
+            # """) and everything }
+            # ```
+            # =>
+            # ```
+            # # Irrelevant details omitted
+            # def r_rule():
+            #      if (
+            #          ...
+            #      ):
+            #                                        the_answer = let_me_think(); return the_answer("""
+            #     to the Ultimate Question of Life,
+            #     the Universe
+            # """) and everything }
+            # def r_rule2():
+            #      if (
+            #          ...
+            #      ):
+            #          # Arguably indenting by just 1 space is enough, but... just demonstrating
+            #          the_answer = let_me_think(); return the_answer("""
+            # to the Ultimate Question of Life,
+            # the Universe
+            # """) and everything
+            # ```
+            #
+            # (as you can see, changing the indent of lines other than the first
+            # would affect the triple-string contents)
+            #
+            # This is not a problem (for now) because we don't insert additional statements
+            # at the same indent level of the action.
+
+
+            s = textwrap.dedent(
+                " " * tokens[0].start[1] + _slice_line_col2(self._text, tokens[0].start, tokens[-1].end))
+
             # TODO: In case of error, see if start token's on same line as `{`
             # and if not, give a helpful error message
             # ```
@@ -162,10 +204,6 @@ class Base(DefaultParser):
             # :   ^^^^^^ Action is parsed as statements (rather than expression) because of presence of `return`
             #  }
             # ```
-
-            # XXX: ...?
-            s = textwrap.dedent(
-                " " * tokens[0].start[1] + _slice_line_col2(self._text, tokens[0].start, tokens[-1].end))
         else:
             # Transform back to original code.
             #
@@ -221,7 +259,7 @@ class Base(DefaultParser):
             #           end_col_offset=a.end_col_offset\
             #       )
             #
-            # Not ideal, but works best.
+            #   Not ideal, but works best.
 
             tokens = _normalize_linecol(tokens)
             s = tokenize.untokenize(tokens)

@@ -33,6 +33,14 @@ from stde.pegen.v2.grammar import (
 )
 from stde.pegen.v2.parser_generator import ParserGenerator
 
+class ASTParseError(Exception):
+    """Raised when parsing the action code into an AST fails."""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+    def __str__(self) -> Text:
+        return "Failed to parse action string into AST"
+
 
 #XXX: Should we change the shebang?
 MODULE_PREFIX = """\
@@ -475,6 +483,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("mark = self.mark()")
         else:
             if is_stmts:
+                # ...
                 self.printblock(action_code)
             else:
                 self.add_return(action_code)
@@ -544,4 +553,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     #...
     def actually_used_names_in_action(self, action: str) -> Set[str]:
-        return self._usednamesvisitor.visit(ast.parse(action))
+        # Walking an AST instead of just checking the tokens has an advantage that
+        # it deals with soft keywords like "match" and figures out
+        # whether they're keywords or identifiers
+        try:
+            a = ast.parse(action)
+        except Exception as e:
+            raise ASTParseError from e #pyright:ignore # XXX: Pyright bug?
+        return self._usednamesvisitor.visit(a)

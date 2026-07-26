@@ -88,6 +88,7 @@ class ParserGenerator:
         """generate() of subclasses of ParserGenerator must call the generate() of ParserGenerator."""
         self.file = file
 
+    # TODO: Move to PythonGenerator
     @contextmanager
     def indent(self) -> Iterator[None]:
         self.level += 1

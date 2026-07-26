@@ -360,6 +360,7 @@ class Forced:
 
 
 class Lookahead:
+    """Shared base class for &node and !node."""
     def __init__(self, node: Plain, sign: str):
         self.node = node
         self.sign = sign
