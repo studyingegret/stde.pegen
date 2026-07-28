@@ -113,7 +113,7 @@ to put it in the error::
         parser = parser_class.from_text(expr)
         res = parser.start()
         if res is None:
-            raise parser.make_syntax_error("Cannot parse expression.", "<evaluate_expression input>")
+            raise parser.make_syntax_error("Cannot parse expression.", "<something passed to evaluate_expression>")
         return int(res[0].string) + int(res[2].string)
 
     print(evaluate_expression("1 + 2"))
@@ -127,8 +127,8 @@ to put it in the error::
         print(evaluate_expression("1 + a"))
               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
       File "file.py", line 13, in evaluate_expression
-        raise parser.make_syntax_error("Cannot parse expression.", "<evaluate_expression input>")
-      File "<evaluate_expression input>", line 1
+        raise parser.make_syntax_error("Cannot parse expression.", "<something passed to evaluate_expression>")
+      File "<something passed to evaluate_expression>", line 1
         1 + a
             ^
     SyntaxError: Cannot parse expression.

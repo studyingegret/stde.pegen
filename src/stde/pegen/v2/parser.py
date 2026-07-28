@@ -29,6 +29,7 @@ T = TypeVar("T")
 #T2 = TypeVar("T2", default=Any, covariant=True) #?
 T2 = TypeVar("T2", default=Any)
 F = TypeVar("F", bound=Callable[..., Any])
+E = TypeVar("E", bound=Exception)
 
 ## Tokens added in Python 3.12
 #FSTRING_START = getattr(token, "FSTRING_START", None)
@@ -36,6 +37,26 @@ F = TypeVar("F", bound=Callable[..., Any])
 #FSTRING_END = getattr(token, "FSTRING_END", None)
 
 class ParseError(SyntaxError):
+    """Failed to parse.
+
+    Action code can raise this exception to skip all backtracking
+    and fail the parsing early, similar to the force operator `&&x`.
+
+    Creating an instance:
+
+    ```
+    ParseError()
+    ParseError("message")
+    ParseError("message", (filename, lineno, offset, text))
+    ParseError("message", (filename, lineno, offset, text, end_lineno, end_offset))
+    ```
+
+    where
+    - `filename: str`, `text: str`, all others int
+    - `lineno, offset, end_lineno, end_offset` are all 1-based
+    - `text` refers to the line where the problem is
+    """
+    # XXX: Figure out how to supply multiple lines for end_lineno, end_offset
     pass
 
 class ResultFlag(Enum):
@@ -54,8 +75,54 @@ class ResultFlag(Enum):
         return f"{self._name_}"
 
 class ParseFailure(NamedTuple):
-    """Return value of a parse function upon parse failure."""
-    parse_exc: Optional[ParseError] = None
+    """Returned by a parse function (e.g. start()) if parsing fails.
+    Contains error information about the failure.
+
+    - `diagnosis_pos: Optional[Tuple[int, int, str]]`
+      The position of parse error, if available.
+    - `parse_exc: Optional[ParseError]`
+      If happened, an exception raised by parsing code (potentially stopping the parse early).
+      Force `&&x` is an example that does that.
+    """
+
+    diagnosis_pos: Optional[Tuple[int, int, str]]
+    parse_exc: Optional[ParseError]
+
+    @classmethod
+    def from_general_failure(cls, diagnosis_pos: Tuple[int, int, str],
+                             parse_exc: Optional[ParseError] = None) -> "ParseFailure":
+        return cls(diagnosis_pos=diagnosis_pos, parse_exc=parse_exc)
+
+    @classmethod
+    def from_raised_failure(cls, parse_exc: ParseError) -> "ParseFailure":
+        return cls(diagnosis_pos=None if parse_exc.lineno is None
+                                 else cast(Tuple[int, int, str],
+                                           (parse_exc.lineno, parse_exc.offset, parse_exc.text)),
+                   parse_exc=parse_exc)
+
+    def make_syntax_error(self, message: str, filename: str = "<unknown>",
+                          add_cause: bool = True) -> SyntaxError:
+        """If `add_cause` is True, set `self.parse_exc` as the `__cause__` of the exception.
+        Raising it `raise e` will be equivalent to `raise e from self.parse_exc`.
+        """
+        return self._make_exc(message, filename, add_cause, SyntaxError)
+
+    def make_parse_error(self, message: str, filename: str = "<unknown>",
+                         add_cause: bool = True) -> ParseError:
+        """If `add_cause` is True, set `self.parse_exc` as the `__cause__` of the exception.
+        Raising it `raise e` will be equivalent to `raise e from self.parse_exc`.
+        """
+        return self._make_exc(message, filename, add_cause, ParseError)
+
+    def _make_exc(self, message: str, filename: str, add_cause: bool, exc_class: Type[E]) -> E:
+        if self.diagnosis_pos is None:
+            e = exc_class(message)
+        else:
+            line, col, line_text = self.diagnosis_pos
+            e = exc_class(message, (filename, line, col, line_text))
+        if add_cause:
+            e.__cause__ = self.parse_exc
+        return e
 
 
 RuleResult = Union[T2, Literal[ResultFlag.FAILURE]]
@@ -367,8 +434,9 @@ class BaseParser(ABC):
     def diagnose(self) -> Tuple[int, int, str]:
         """Return
         - First two items: farthest matched position (line, col) (both indcies 1-based).
-        - Third item: farthest matched line, i.e. the text of the line
-          whose lineno is the first item (used in error messages).
+        - Third item: text of the farthest matched line (not containing newline),
+          i.e. the `lineno`-th line, where `lineno` is the first item of the returned tuple.
+          It's used in error messages.
         """
 
     @memoize

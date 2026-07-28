@@ -94,6 +94,10 @@ from typing import Iterable
 import pytest
 from textwrap import dedent
 
+from stde.pegen.v2.python_generator import ASTParseError
+
+from stde.pegen.v2.parser import ParseError
+
 from stde.pegen.v2.grammar import Grammar
 from stde.pegen.v2.build import generate_code_from_grammar, generate_parser_from_grammar, load_grammar_from_string
 
@@ -138,9 +142,9 @@ def test_return_stmt_simple() -> None:
                 return 24}
     """),
 ])
-def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(grammar) -> None:
-    with pytest.raises(Exception): # TODO: Make an exception type
-        load_grammar_from_string(grammar)
+def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(grammar: str) -> None:
+    with pytest.raises(ParseError, match=".*cannot start on the same line as the left brace.*"): # TODO: Make an exception type
+        load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
 
 @pytest.mark.parametrize("grammar", [
     dedent("""
@@ -164,9 +168,9 @@ def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(gram
     }
     """),
 ])
-def test_invalid_effective_indent_fails_at_code_generation_phase(grammar) -> None: # non-common indent = effective indent
+def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -> None: # non-common indent = effective indent
     p = load_grammar_from_string(grammar)
-    with pytest.raises(Exception): # TODO: Make an exception type
+    with pytest.raises(ASTParseError): # TODO: Make an exception type
         generate_code_from_grammar(p.grammar)
 
 @pytest.mark.parametrize("grammar", [
@@ -179,7 +183,7 @@ def test_invalid_effective_indent_fails_at_code_generation_phase(grammar) -> Non
     }
     """),
     dedent("""
-    start: {
+    start: NAME {
     if name.string == "it":
        return 10
     else:
@@ -187,7 +191,7 @@ def test_invalid_effective_indent_fails_at_code_generation_phase(grammar) -> Non
     }
     """),
 ])
-def test_non_mixed_common_indent_doesnt_matter(grammar) -> None:
+def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("it").start() == 10
     assert parser_class.from_text("not_it").start() == 20
@@ -207,9 +211,9 @@ def test_non_mixed_common_indent_doesnt_matter(grammar) -> None:
     }
     """),
 ])
-def test_mixed_common_indent_fails_code_generation_phase(grammar) -> None:
+def test_mixed_common_indent_fails_code_generation_phase(grammar: str) -> None:
     p = load_grammar_from_string(grammar)
-    with pytest.raises(Exception): # TODO: Make an exception type
+    with pytest.raises(ASTParseError): # TODO: Make an exception type
         generate_code_from_grammar(p.grammar)
 
 @pytest.mark.parametrize("grammar", [
@@ -218,6 +222,6 @@ def test_mixed_common_indent_fails_code_generation_phase(grammar) -> None:
         return 10}
     """)
 ])
-def test_brace_immediately_after_action_is_ok(grammar) -> None:
+def test_brace_immediately_after_action_is_ok(grammar: str) -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("").start() == 10

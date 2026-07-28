@@ -33,12 +33,11 @@ from stde.pegen.v2.grammar import (
 )
 from stde.pegen.v2.parser_generator import ParserGenerator
 
+
 class ASTParseError(Exception):
     """Raised when parsing the action code into an AST fails."""
-    def __init__(self, message: str):
-        super().__init__(message)
 
-    def __str__(self) -> Text:
+    def __str__(self) -> str:
         return "Failed to parse action string into AST"
 
 
@@ -333,10 +332,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                     self.print("try:")
                     with self.indent():
                         self.print(f"value = self.{self._rulename_to_methname[rulename]}()")
-                        self.print("return ParseFailure() if value is FAILURE else value")
+                        self.print("return ParseFailure.from_general_failure(self.diagnose(), None) "
+                                   "if value is FAILURE else value")
                     self.print("except ParseError as e:")
                     with self.indent():
-                        self.print("return ParseFailure(parse_exc=e)")
+                        self.print("return ParseFailure.from_raised_failure(e)")
 
             self.print()
             self.print(f"KEYWORDS = {tuple(sorted(self.callmakervisitor.keywords))}")
@@ -377,12 +377,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         compile_type = rule.compile_type()
         rhs = rule.flatten()
         if rule.left_recursive:
-            if rule.leader:
-                self.print("@memoize_left_rec")
-            else:
-                # Non-leader rules in a cycle are not memoized,
-                # but they must still be logged.
-                self.print("@logger")
+            # Non-leader rules in a cycle are not memoized, but they must still be logged.
+            self.print("@memoize_left_rec" if rule.leader else "@logger")
         else:
             self.print("@memoize")
         node_type = rule.type or "Any"
@@ -483,7 +479,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print("mark = self.mark()")
         else:
             if is_stmts:
-                # ...
+                # TODO
                 self.printblock(action_code)
             else:
                 self.add_return(action_code)

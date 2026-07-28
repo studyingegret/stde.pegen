@@ -14,6 +14,7 @@ import token
 import tokenize
 import textwrap
 from tokenize import TokenInfo
+from stde.pegen.v2.parser import ParseError
 
 FAILURE = ResultFlag.FAILURE
 
@@ -44,6 +45,8 @@ from stde.pegen.v2.grammar import (
     Grammar,
     StringLeaf,
 )
+
+# XXX: Is there a way to get the mark of the previous token?
 
 def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     if not tokens:
@@ -89,6 +92,9 @@ def _slice_line_col(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> 
     return text[st:ed]
 
 class Base(DefaultParser):
+    """Note: Do not create an instance by calling __init__.
+    Instead, use class methods from_stream and from_text.
+    """
     # In action_contents it's difficult to dedent the text correctly without knowing the source,
     # so we modify the constructors to do that.
     #
@@ -99,33 +105,43 @@ class Base(DefaultParser):
     # so if we depend on token.line we're experiencing more said (in docs)
     # "undefined behavior" ... haha
     #
-    # (And, we can't drop support for parsing grammar with a stream -- yet,
+    # (And, we can't drop support for parsing grammar with a stream -- yes,
     # it's arguably esoteric but the python_parser used for testing depends on it)
 
     _text: str
+    _grammar_file_name: Optional[str]
+    completely_propogate_parse_error: bool
 
     @classmethod
-    def from_stream(cls, stream: TextIO, *args: Any, **kwargs: Any) -> Self:
+    def from_stream(cls, stream: TextIO, *args: Any, grammar_file_name: Optional[str] = None, **kwargs: Any) -> Self:
         text = stream.read()
         stream.seek(0)
         instance = super().from_stream(stream, *args, **kwargs)
         instance._text = text
+        instance._grammar_file_name = grammar_file_name
+        instance.completely_propogate_parse_error = False
         return instance
 
     @classmethod
-    def from_text(cls, text: str, *args: Any, **kwargs: Any) -> Self:
+    def from_text(cls, text: str, *args: Any, grammar_file_name: Optional[str] = None, **kwargs: Any) -> Self:
         instance = super().from_text(text, *args, **kwargs)
         instance._text = text
+        instance._grammar_file_name = grammar_file_name
+        instance.completely_propogate_parse_error = False
         return instance
 
     @memoize #XXX:?
-    def action_contents(self) -> RuleResult[Action]:
+    def action(self) -> RuleResult[Action]:
         """Note: The result should be parsable by ast.parse."""
+        # XXX: Validate with ast.parse at grammar parse time?
         m = self.mark()
+        if (starting_brace := self.match_string("{")) is FAILURE:
+            # XXX: Can hard-fail here to skip backtracking?
+            self.reset(m)
+            return FAILURE
         level = 1
         is_stmts = False
         tokens = []
-        prevmark = m
         while True:
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
@@ -141,26 +157,34 @@ class Base(DefaultParser):
                 level += 1
             elif t.string == "return":
                 is_stmts = True
-            prevmark = self.mark()
-        self.reset(prevmark) # Don't consume the last right brace
         if not tokens:
+            # XXX: This self.reset is missed in previous versions. We need to
+            # keep an eye on what breaks
+            self.reset(m)
             return FAILURE # Don't accept empty actions
         if self._verbose: #XXX: ...
             import pickle
-            print(pickle.dumps(tokens))
+            print("  " * self._level + "## Unnormalized:", pickle.dumps(tokens))
         if is_stmts:
+            if tokens[0].line == starting_brace.line:
+                #line, col, line_text = self.diagnose()
+                e = ParseError(
+                    "If the action is statements, it cannot start on the same line as the left brace.",
+                    (
+                        "<grammar file>" if self._grammar_file_name is None else self._grammar_file_name,
+                        tokens[0].start[0],
+                        tokens[0].start[1] + 1, # Oddly tokenize's colnos are 0-based
+                        tokens[0].line,
+                        tokens[0].end[0],
+                        tokens[0].end[1] + 1
+                    )
+                )
+                e.add_note("An action is statements if it contains the keyword 'return'.")
+                self.completely_propogate_parse_error = True
+                raise e
+
             s = textwrap.dedent(
                 " " * tokens[0].start[1] + _slice_line_col2(self._text, tokens[0].start, tokens[-1].end))
-
-            # TODO: In case of error, see if start token's on same line as `{`
-            # and if not, give a helpful error message
-            # ```
-            #  rule: a { x = 1
-            # :          ^^^^^ When writing statements as action, first line must not be on the same line as `{`
-            #     return x
-            # :   ^^^^^^ Action is parsed as statements (rather than expression) because of presence of `return`
-            #  }
-            # ```
         else:
             # Transform back to original code.
             #
@@ -220,10 +244,10 @@ class Base(DefaultParser):
 
             tokens = _normalize_linecol(tokens)
             s = tokenize.untokenize(tokens)
-            #s = _slice_line_col2(self._text, tokens[0].start, tokens[-1].end)
-        if self._verbose: #XXX: ...
-            import pickle
-            print(pickle.dumps(tokens))
+            if self._verbose: #XXX: ...
+                import pickle
+                print("  " * self._level + "## Normalized:", pickle.dumps(tokens))
+        if self._verbose:
             print("  " * self._level + "## Parsed code:", repr(s))
         # TODO: Add a debug flag and clean debug printing around here
         #if "LOCATIONS" not in s and "UNREACHABLE" not in s and not is_stmts:
@@ -379,7 +403,7 @@ class GeneratedParser(Base):
             return Rhs((alts.alts if alts else []) + (m[1].alts if m else []))
         self.reset(mark)
         if (
-            (action := (self.r_action())) is not FAILURE
+            (action := (self.action())) is not FAILURE
             and
             (self.newline()) is not FAILURE
         ):
@@ -390,7 +414,7 @@ class GeneratedParser(Base):
             and
             (self.indent()) is not FAILURE
             and
-            (action := (self.r_action())) is not FAILURE
+            (action := (self.action())) is not FAILURE
             and
             (self.newline()) is not FAILURE
             and
@@ -456,14 +480,14 @@ class GeneratedParser(Base):
             and
             (e := (_temp if (_temp := (self.match_string('$'))) is not FAILURE else NO_MATCH)) is not FAILURE
             and
-            (action := (_temp_1 if (_temp_1 := (self.r_action())) is not FAILURE else NO_MATCH)) is not FAILURE
+            (action := (_temp_1 if (_temp_1 := (self.action())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
             return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action or None)
         self.reset(mark)
         if (
             (self.match_string('$')) is not FAILURE
             and
-            (action := (_temp if (_temp := (self.r_action())) is not FAILURE else NO_MATCH)) is not FAILURE
+            (action := (_temp if (_temp := (self.action())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
             return Alt([TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action or None)
         self.reset(mark)
@@ -649,26 +673,6 @@ class GeneratedParser(Base):
         ):
             return StringLeaf(string.string)
         self.reset(mark)
-        return FAILURE
-
-    @memoize
-    def r_action(self) -> RuleResult[Action]:
-        # action: "{" ~ action_contents "}"
-        mark = self.mark()
-        __cut = False
-        if (
-            (self.match_string("{")) is not FAILURE
-            and
-            (__cut := (None) is not FAILURE)
-            and
-            (action_contents := (self.action_contents())) is not FAILURE
-            and
-            (self.match_string("}")) is not FAILURE
-        ):
-            return action_contents
-        self.reset(mark)
-        if __cut:
-            return FAILURE
         return FAILURE
 
     @memoize
@@ -958,149 +962,142 @@ class GeneratedParser(Base):
     def start(self) -> Union[Grammar, ParseFailure]:
         try:
             value = self.r_start()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def grammar(self) -> Union[Grammar, ParseFailure]:
         try:
             value = self.r_grammar()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def meta(self) -> Union[MetaTuple, ParseFailure]:
         try:
             value = self.r_meta()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def rule(self) -> Union[Rule, ParseFailure]:
         try:
             value = self.r_rule()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def extern_decl(self) -> Union[ExternDecl, ParseFailure]:
         try:
             value = self.r_extern_decl()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def rulename(self) -> Union[RuleName, ParseFailure]:
         try:
             value = self.r_rulename()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def rule_rhs(self) -> Union[Rhs, ParseFailure]:
         try:
             value = self.r_rule_rhs()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def a(self) -> Union[None, ParseFailure]:
         try:
             value = self.r_a()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def memoflag(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_memoflag()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def alts(self) -> Union[Rhs, ParseFailure]:
         try:
             value = self.r_alts()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def more_alts(self) -> Union[Rhs, ParseFailure]:
         try:
             value = self.r_more_alts()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def alt(self) -> Union[Alt, ParseFailure]:
         try:
             value = self.r_alt()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def top_level_item(self) -> Union[TopLevelItem, ParseFailure]:
         try:
             value = self.r_top_level_item()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def top_level_others(self) -> Union[LookaheadOrCut, ParseFailure]:
         try:
             value = self.r_top_level_others()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def item(self) -> Union[Item, ParseFailure]:
         try:
             value = self.r_item()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def atom(self) -> Union[Plain, ParseFailure]:
         try:
             value = self.r_atom()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
-
-    def action(self) -> Union[Action, ParseFailure]:
-        try:
-            value = self.r_action()
-            return ParseFailure() if value is FAILURE else value
-        except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def annotation(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_annotation()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def target_atoms(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_target_atoms()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def target_atom(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_target_atom()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def target_fstring_middle(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_target_fstring_middle()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     KEYWORDS = ()
     SOFT_KEYWORDS = ('extern', 'memo')
