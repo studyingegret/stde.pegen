@@ -66,30 +66,46 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
 
 
 def _slice_line_col2(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
-    """Slice text from start to end (line/column, 1-based line, 0-based column)."""
+    """Slice text from start to end ((line, column) tuples, 1-based line, 0-based column)."""
     return _slice_line_col(text, (start[0] - 1, start[1]), (end[0] - 1, end[1]))
 
 def _slice_line_col(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
-    """Slice text from start to end (line/column, 0-based line, 0-based column)."""
-    line_span = end[0] - start[0]
-    i = 0
-    left_limit = 0
-    counter = start[0]
-    while counter:
-        i = text.find("\n", left_limit)
-        assert i != -1
-        counter -= 1
-        left_limit = i + 1
-    st = i + 1 + start[1] # Not i + start[1], i is position of newline
-    counter = line_span
-    left_limit = st # Note: It's possible that a newline occurs at index `st`
-    while counter:
-        i = text.find("\n", left_limit)
-        assert i != -1
-        counter -= 1
-        left_limit = i + 1
-    ed = i + 1 + end[1]
+    """Slice text from start to end ((line, column) tuples, both 0-based)."""
+    st, ed = _start_end_line_col_to_index(text, start, end)
     return text[st:ed]
+
+def _start_end_line_col_to_index(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> Tuple[int, int]:
+    """Convert (line, col) (both 0-based) to indexes."""
+    # XXX: I think the assumptions of the assertions here still hold
+    # because it's only used from _slice_line_col2
+    # and ultimately `start` and `end` are positions that exist in original text
+    # so return None case won't happen
+    assert (i := _forward_lines(text, 0, start[0], 0)) is not None
+    st = i + 1 + start[1] # Not i + start[1], i is position of newline
+    # Note: It's possible that a newline occurs at index `st`, so `left_limit` is `st`
+    # By the way, replacing `st` with `i + 1` will also work, but I'm not doing that
+    assert (i := _forward_lines(text, st, end[0] - start[0], i)) is not None
+    return (st, i + 1 + end[1])
+
+def _forward_lines(text: str, left_limit: int, n: int, zero_default: int) -> Optional[int]:
+    """Returns the position of the `n`-th newline after `left_limit` in `text`.
+
+    If `text[left_limit]` is `"\n"`, it's included in the count, in the sense that
+    `_forward_lines(text, left_limit, 1, zero_default)` will be `left_limit`.
+
+    If `n` is 0, returns `zero_default`.
+
+    If there are less than `n` newlines after (including) `left_limit`, returns `None`.
+    """
+    if not n:
+        return zero_default
+    while n:
+        i = text.find("\n", left_limit)
+        if i == -1:
+            return None
+        n -= 1
+        left_limit = i + 1
+    return i
 
 class Base(DefaultParser):
     """Note: Do not create an instance by calling __init__.
@@ -150,6 +166,7 @@ class Base(DefaultParser):
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
+                closing_brace = t
                 if level == 0:
                     break
             tokens.append(t)
@@ -183,8 +200,64 @@ class Base(DefaultParser):
                 self.completely_propogate_parse_error = True
                 raise e
 
-            s = textwrap.dedent(
-                " " * tokens[0].start[1] + _slice_line_col2(self._text, tokens[0].start, tokens[-1].end))
+            #slice = _slice_line_col2(self._text, tokens[0].start, tokens[-1].end)
+            #afioasdjniodsfho[hndf']
+            #s = _dedent(slice)
+            #s = textwrap.dedent(
+            #    " " * tokens[0].start[1] + _slice_line_col2(self._text, tokens[0].start, tokens[-1].end))
+
+            start_pos = (tokens[0].start[0] - 1, 0)
+            #end_pos = tokens[-1].end #?
+            end_pos = (closing_brace.start[0] - 1, closing_brace.start[1])
+            st, ed = _start_end_line_col_to_index(self._text, start_pos, end_pos)
+            text = self._text[st:ed]
+
+            # The first line must be unindented to be valid Python
+            # Find first non-empty line (assert must exist) to analyze its indent
+            # If it contains mixed tab/space indent, it's an error
+            i = 0 # Now relative to `text`
+            while True:
+                j = _forward_lines(text, i, 1, 0)
+                if j is None:
+                    # Note: Besides when all lines are blank, `j is None` may also happen when
+                    # there is just no newline in sliced text:
+                    #
+                    #    rule: {
+                    #        return 1}
+                    #
+                    # sliced text: "return 1"
+                    if i == 0:
+                        assert not text[i:j].isspace()
+                        # Using j as result var anyway
+                        j = ed - st
+                        break
+                    else:
+                        assert False, "no non-empty line found in statements-type action code??"
+                if not text[i:j].isspace():
+                    # First line is text[i:j]
+                    break
+                i = j + 1
+            first_line = text[i:j]
+
+            k = 0
+            type = " " if first_line[i] == " " else "\t" if first_line[i] == "\t" else None
+            stripped_first_line = first_line.lstrip(type)
+            assert stripped_first_line
+            if stripped_first_line[0] == ("\t" if type == " " else " "):
+                pass #TODO: Error: mixed indent
+            dedent_chars = len(first_line) - len(stripped_first_line)
+
+            # I think now we can comfortably use splitlines, can we? :rotf:
+            lines = text.splitlines()
+            for i in range(len(lines)):
+                if not lines[i].lstrip():
+                    continue
+                assert len(lines[i]) >= dedent_chars, \
+                    "line is shorter than detected minimum common indent (`dedent_chars`)??"
+                lines[i] = lines[i][dedent_chars:]
+            s = "\n".join(lines)
+
+            # ...
         else:
             # Transform back to original code.
             #
@@ -217,7 +290,7 @@ class Base(DefaultParser):
             #   9 lines will become all on 1 line, it's harder to map an error location
             #   back to the original location.
             # - Adding brackets f"({THE_CODE})": Makes this invalid action
-            #   get parsed as a generator expressionunexpectedly valid.
+            #   get parsed as a generator expression, unexpectedly valid.
             #
             #       rule: a { x for x in a }
             #
@@ -241,13 +314,21 @@ class Base(DefaultParser):
             #       )
             #
             #   Not ideal, but works best.
+            #
+            #   (Technically it's undefined behavior, but pegen has been using
+            #   tokenize.tokenize all the time, so 🤷)
+            #   (Avoiding the undefined behavior as said in the docs
+            #   would require me to build my own tokenizer
+            #   and that feels like a lot of effort
+            #   and will be a breaking change)
+            #   (Though I'm still at v0.x, breaking changes are okay? 😂)
 
             tokens = _normalize_linecol(tokens)
             s = tokenize.untokenize(tokens)
             if self._verbose: #XXX: ...
                 import pickle
                 print("  " * self._level + "## Normalized:", pickle.dumps(tokens))
-        if self._verbose:
+        if self._verbose and is_stmts:
             print("  " * self._level + "## Parsed code:", repr(s))
         # TODO: Add a debug flag and clean debug printing around here
         #if "LOCATIONS" not in s and "UNREACHABLE" not in s and not is_stmts:

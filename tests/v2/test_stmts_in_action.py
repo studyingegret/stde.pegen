@@ -120,7 +120,7 @@ def test_return_stmt_simple() -> None:
     }
     a: NAME { name.string }
     """)
-    grammar = load_grammar_from_string(grammar_).grammar
+    grammar = load_grammar_from_string(grammar_, parser_verbose_stream=sys.stdout).grammar
     print(repr(grammar))
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("a").start() == "Welcome back, a!"
@@ -169,7 +169,7 @@ def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(gram
     """),
 ])
 def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -> None: # non-common indent = effective indent
-    p = load_grammar_from_string(grammar)
+    p = load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
     with pytest.raises(ASTParseError): # TODO: Make an exception type
         generate_code_from_grammar(p.grammar)
 
@@ -192,7 +192,7 @@ def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -
     """),
 ])
 def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
-    parser_class = generate_parser_from_grammar(grammar).parser_class
+    parser_class = generate_parser_from_grammar(grammar, parser_verbose_stream=sys.stdout).parser_class
     assert parser_class.from_text("it").start() == 10
     assert parser_class.from_text("not_it").start() == 20
 
@@ -212,7 +212,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
     """),
 ])
 def test_mixed_common_indent_fails_code_generation_phase(grammar: str) -> None:
-    p = load_grammar_from_string(grammar)
+    p = load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
     with pytest.raises(ASTParseError): # TODO: Make an exception type
         generate_code_from_grammar(p.grammar)
 
