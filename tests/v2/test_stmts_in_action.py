@@ -210,6 +210,24 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
      \t   return 20
     }
     """),
+    dedent("""
+    start: {
+      return (42 if True
+    \t\telse 24)
+    }
+    """),
+    dedent("""
+    start: {
+       return (42 if True
+    \t        else 24)
+    }
+    """),
+    dedent("""
+    start: {
+    \t\treturn (42 if True
+    \t        else 24)
+    }
+    """),
 ])
 def test_mixed_common_indent_fails_code_generation_phase(grammar: str) -> None:
     p = load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)

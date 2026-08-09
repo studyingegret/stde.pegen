@@ -177,6 +177,7 @@ class Base(DefaultParser):
             import pickle
             print("  " * self._level + "## Unnormalized:", pickle.dumps(tokens))
         if is_stmts:
+            # TODO: Harden tests once rewritten with exec_ns
             if tokens[0].line == starting_brace.line:
                 #line, col, line_text = self.diagnose()
                 e = ParseError(
