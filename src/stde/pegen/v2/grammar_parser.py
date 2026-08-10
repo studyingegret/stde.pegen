@@ -183,6 +183,7 @@ class Base(DefaultParser):
             import pickle
             print("  " * self._level + "## Unnormalized:", pickle.dumps(tokens))
         if is_stmts:
+            # TODO: Harden tests once rewritten with exec_ns
             if tokens[0].line == starting_brace.line:
                 #line, col, line_text = self.diagnose()
                 e = ParseError(
@@ -244,20 +245,29 @@ class Base(DefaultParser):
             stripped_first_line = first_line.lstrip(type)
             assert stripped_first_line
             if stripped_first_line[0] == ("\t" if type == " " else " "):
-                pass #TODO: Error: mixed indent
+                raise ParseError("mixed space/tab indent on first line") #TODO: enrich error
             dedent_chars = len(first_line) - len(stripped_first_line)
 
             # I think now we can comfortably use splitlines, can we? :rotf:
             lines = text.splitlines()
-            for i in range(len(lines)):
-                if not lines[i].lstrip():
-                    continue
-                assert len(lines[i]) >= dedent_chars, \
+            for i, line in enumerate(lines):
+                if not line.lstrip(): continue
+                assert len(line) >= dedent_chars, \
                     "line is shorter than detected minimum common indent (`dedent_chars`)??"
-                lines[i] = lines[i][dedent_chars:]
+                if type is not None:
+                    other_type = "\t" if type == " " else " "
+                    for j in range(dedent_chars):
+                        if line[j] == type:
+                            continue
+                        type_name = "spaces" if type == " " else "tabs"
+                        if line[j] == other_type:
+                            other_type_name = "spaces" if other_type == " " else "tabs"
+                            raise ParseError(f"mixed indent: expected {type_name}, got {other_type_name}") #TODO: enrich error
+                        else:
+                            raise ParseError(f"indent not enough: expected common indent of {dedent_chars} {type_name}, "
+                                             f"got {line[:dedent_chars]!r}") #TODO: enrich error
+                lines[i] = line[dedent_chars:] #XXX: No reference alias problem?
             s = "\n".join(lines)
-
-            # ...
         else:
             # Transform back to original code.
             #

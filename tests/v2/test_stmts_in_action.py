@@ -43,7 +43,26 @@ Not valid:
       # Parses as action "  a = '''The answer to the\nUltimate Question of Life,\n   the Universe and everything'''\n  return a"
       # Fails at code generation phase
 
-- mixing tabs and spaces in the common indent
+- mixing tabs and spaces in the common indent / invalid common indent
+
+  Note: Indent of first line now counts as common indent, since a valid Python snippet
+  must start unindented.
+
+  Note: Python allows code like this:
+
+      if a:
+          b(
+      [\t]    [\t]1+2+3
+          )
+
+  but we will treat it as error. However,
+
+      if a:
+          b(
+          [\t]1+2+3
+          )
+
+  will work.
 
       # "[\t]" = tab " " = space
       rule: { ...
@@ -149,24 +168,19 @@ def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(gram
 @pytest.mark.parametrize("grammar", [
     dedent("""
     start: {
-            a = 1
-        return a
-    }
-    """),
-    dedent("""
-    start: {
     a = 1
         return a
     }
     """),
-    dedent("""
-    start: NAME {
-        if name.string == "it":
-            return 10
-        else:
-        \treturn 20
-    }
-    """),
+    # This is actually accepted by Python and so won't fail
+    #dedent("""
+    #start: NAME {
+    #    if name.string == "it":
+    #        return 10
+    #    else:
+    #    \treturn 20
+    #}
+    #"""),
 ])
 def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -> None: # non-common indent = effective indent
     p = load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
@@ -199,6 +213,12 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
 @pytest.mark.parametrize("grammar", [
     dedent("""
     start: {
+            a = 1
+        return a
+    }
+    """),
+    dedent("""
+    start: {
     \t return 1
     }
     """),
@@ -228,11 +248,16 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
     \t        else 24)
     }
     """),
+    dedent("""
+    start: {
+    \t\treturn (42 if True
+         \t   else 24)
+    }
+    """),
 ])
-def test_mixed_common_indent_fails_code_generation_phase(grammar: str) -> None:
-    p = load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
-    with pytest.raises(ASTParseError): # TODO: Make an exception type
-        generate_code_from_grammar(p.grammar)
+def test_invalid_common_indent_fails_grammar_parsing_phase(grammar: str) -> None:
+    with pytest.raises(ParseError): # TODO: refine error message
+        load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
 
 @pytest.mark.parametrize("grammar", [
     dedent("""
