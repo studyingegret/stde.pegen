@@ -108,8 +108,10 @@ So might be useful to allow stmts action start on line of left brace?
 (And we can give a warning for the previous case, that triple-strings are problematic)
 """
 
+# Note: Error location highlighting isn't tested now, might expect in the future
+
 import sys
-from typing import Iterable
+from typing import Iterable, Optional
 import pytest
 from textwrap import dedent
 
@@ -139,7 +141,7 @@ def test_return_stmt_simple() -> None:
     }
     a: NAME { name.string }
     """)
-    grammar = load_grammar_from_string(grammar_, parser_verbose_stream=sys.stdout).grammar
+    grammar = load_grammar_from_string(grammar_).grammar
     print(repr(grammar))
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("a").start() == "Welcome back, a!"
@@ -163,7 +165,7 @@ def test_return_stmt_simple() -> None:
 ])
 def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(grammar: str) -> None:
     with pytest.raises(ParseError, match=".*cannot start on the same line as the left brace.*"): # TODO: Make an exception type
-        load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
+        load_grammar_from_string(grammar)
 
 @pytest.mark.parametrize("grammar", [
     dedent("""
@@ -183,7 +185,7 @@ def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(gram
     #"""),
 ])
 def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -> None: # non-common indent = effective indent
-    p = load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
+    p = load_grammar_from_string(grammar)
     with pytest.raises(ASTParseError): # TODO: Make an exception type
         generate_code_from_grammar(p.grammar)
 
@@ -206,58 +208,81 @@ def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -
     """),
 ])
 def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
-    parser_class = generate_parser_from_grammar(grammar, parser_verbose_stream=sys.stdout).parser_class
+    parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("it").start() == 10
     assert parser_class.from_text("not_it").start() == 20
 
-@pytest.mark.parametrize("grammar", [
-    dedent("""
-    start: {
-            a = 1
-        return a
-    }
-    """),
-    dedent("""
-    start: {
-    \t return 1
-    }
-    """),
-    dedent("""
-    start: {
-     \tif name.string == "it":
-     \t   return 10
-     \telse:
-     \t   return 20
-    }
-    """),
-    dedent("""
-    start: {
-      return (42 if True
-    \t\telse 24)
-    }
-    """),
-    dedent("""
-    start: {
-       return (42 if True
-    \t        else 24)
-    }
-    """),
-    dedent("""
-    start: {
-    \t\treturn (42 if True
-    \t        else 24)
-    }
-    """),
-    dedent("""
-    start: {
-    \t\treturn (42 if True
-         \t   else 24)
-    }
-    """),
+@pytest.mark.parametrize("grammar, message", [
+    (
+        dedent("""
+        start: {
+                a = 1
+            return a
+        }
+        """),
+        None, #TODO
+    ),
+    (
+        dedent("""
+        start: {
+        \t return 1
+        }
+        """),
+        "Mixed space/tab indent on first line.",
+    ),
+    (
+        dedent("""
+        start: {
+         \tif name.string == "it":
+         \t   return 10
+         \telse:
+         \t   return 20
+        }
+        """),
+        "Mixed space/tab indent on first line.",
+    ),
+    (
+        dedent("""
+        start: {
+          return (42 if True
+        \t\telse 24)
+        }
+        """),
+        None, # TODO
+    ),
+    (
+        dedent("""
+        start: {
+           return (42 if True
+        \t        else 24)
+        }
+        """),
+        None, # TODO
+    ),
+    (
+        dedent("""
+        start: {
+        \t\treturn (42 if True
+        \t        else 24)
+        }
+        """),
+        None, # TODO
+    ),
+    (
+        dedent("""
+        start: {
+        \t\treturn (42 if True
+             \t   else 24)
+        }
+        """),
+        None, # TODO
+    ),
 ])
-def test_invalid_common_indent_fails_grammar_parsing_phase(grammar: str) -> None:
-    with pytest.raises(ParseError): # TODO: refine error message
-        load_grammar_from_string(grammar, parser_verbose_stream=sys.stdout)
+def test_invalid_common_indent_fails_grammar_parsing_phase(grammar: str, message: Optional[str]) -> None:
+    with pytest.raises(ParseError) as e:
+        load_grammar_from_string(grammar)
+    if message is not None:
+        assert str(e.value).startswith(message)
 
 @pytest.mark.parametrize("grammar", [
     dedent("""
