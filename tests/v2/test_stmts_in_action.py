@@ -186,7 +186,7 @@ def test_starting_at_same_line_as_left_brace_fails_at_grammar_parsing_phase(gram
 ])
 def test_invalid_effective_indent_fails_at_code_generation_phase(grammar: str) -> None: # non-common indent = effective indent
     p = load_grammar_from_string(grammar)
-    with pytest.raises(ASTParseError): # TODO: Make an exception type
+    with pytest.raises(ASTParseError):
         generate_code_from_grammar(p.grammar)
 
 @pytest.mark.parametrize("grammar", [
@@ -220,7 +220,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
             return a
         }
         """),
-        None, #TODO
+        f"Indent not enough: expected common indent of 8 spaces, got 4 spaces", #TODO
     ),
     (
         dedent("""
@@ -248,7 +248,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t\telse 24)
         }
         """),
-        None, # TODO
+        "Mixed indent: expected indent made of spaces, found tab(s)",
     ),
     (
         dedent("""
@@ -257,7 +257,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t        else 24)
         }
         """),
-        None, # TODO
+        "Mixed indent: expected indent made of spaces, found tab(s)",
     ),
     (
         dedent("""
@@ -266,7 +266,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t        else 24)
         }
         """),
-        None, # TODO
+        "Mixed indent: expected indent made of tabs, found space(s)",
     ),
     (
         dedent("""
@@ -275,7 +275,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
              \t   else 24)
         }
         """),
-        None, # TODO
+        "Mixed indent: expected indent made of tabs, found space(s)",
     ),
 ])
 def test_invalid_common_indent_fails_grammar_parsing_phase(grammar: str, message: Optional[str]) -> None:
@@ -293,3 +293,4 @@ def test_invalid_common_indent_fails_grammar_parsing_phase(grammar: str, message
 def test_brace_immediately_after_action_is_ok(grammar: str) -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("").start() == 10
+

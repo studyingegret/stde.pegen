@@ -273,13 +273,38 @@ class Base(DefaultParser):
                     for j in range(dedent_chars):
                         if line[j] == type:
                             continue
-                        type_name = "spaces" if type == " " else "tabs"
+                        correct_name = "spaces" if type == " " else "tabs"
                         if line[j] == other_type:
-                            other_type_name = "spaces" if other_type == " " else "tabs"
-                            raise ParseError(f"mixed indent: expected {type_name}, got {other_type_name}") #TODO: enrich error
+                            wrong_name = "space(s)" if other_type == " " else "tab(s)"
+                            e = ParseError(
+                                f"Mixed indent: expected indent made of {correct_name}, found {wrong_name}",
+                                (
+                                    self.effective_file_name,
+                                    start_pos[0] + i,
+                                    start_pos[1] + j + 1, # Again 0-based so we make it 1-based
+                                    line,
+                                    start_pos[0] + i,
+                                    start_pos[1] + j + 2
+                                )
+                            )
+                            self.completely_propogate_parse_error = True
+                            raise e
                         else:
-                            raise ParseError(f"indent not enough: expected common indent of {dedent_chars} {type_name}, "
-                                             f"got {line[:dedent_chars]!r}") #TODO: enrich error
+                            e = ParseError(
+                                f"Indent not enough: expected common indent of {dedent_chars} {correct_name}, "
+                                #f"got {line[:dedent_chars]!r}",
+                                f"got {j} {correct_name}",
+                                (
+                                    self.effective_file_name,
+                                    start_pos[0] + i,
+                                    start_pos[1] + 1, # Ditto
+                                    line,
+                                    start_pos[0] + i,
+                                    start_pos[1] + j + 1
+                                )
+                            )
+                            self.completely_propogate_parse_error = True
+                            raise e
                 lines[i] = line[dedent_chars:] #XXX: No reference alias problem?
             s = "\n".join(lines)
         else:
