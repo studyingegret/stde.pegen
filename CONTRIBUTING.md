@@ -97,33 +97,37 @@ Since the generated file will become broken if generation breaks halfway
 we now have a utility script that automatically backs up the existing parser
 before generation and restores it if generation fails.
 
-When changing the grammar generator or metagrammar, two generations of the grammar parser
+When changing the grammar generator or metagrammar, 2 generations of the grammar parser
 are required to make sure the metagrammar & grammar generator are working
 (because the generated parser is exercised starting from the second generation).
-The utility script does two generations by default
-and the exact number can be changed with `--generations`.
+The utility script does 2 generations by default
+and the exact number can be changed with `-g`/`--generations`.
+
+> **Note:** The default has changed to 3 generations because generating twice doesn't ensure the second generation is correct and I recently ran into such an issue.
 
 The grammar parser (`grammar_parser.py`) is self-generated from `metagrammar.gram`.
 
-### Generating parsers with the utility script
+### Utility script
 Use the `generate_parser.py` script for legacy and v2 parser generation:
 
 ```
-python scripts/generate_parser.py legacy [--verbose] [--generations N]
-python scripts/generate_parser.py v2 [--verbose] [--generations N]
+python scripts/generate_parser.py [legacy|v2] [-v] [-g N]
+python scripts/generate_parser.py [legacy|v2] [-v] [-g N] -- ARGUMENTS
 ```
 
 Options:
-- `--verbose`/`-v`: Increase verbosity (use `-v`, `-vv`, etc.)
-- `--generations`/`-g`: Number of generations to run (default: 2)
+- `legacy`/`v2`: Whether to generate the legacy parser or the v2 parser. Must provide.
+- `-v`/`--verbose`: Increase verbosity. Can be repeated: `-v`, `-vv`, etc. Passed to `stde.pegen.__main__`. For its exact effect see `python -m stde.pegen -h`
+- `-g`/`--generations`: Number of generations to run (default: 3)
+- `ARGUMENTS`: Extra arguments appended to the command that runs `stde.pegen.__main__`. See `python -m stde.pegen -h`
 
 Examples:
 ```
 # Generate legacy parser with default settings
-python scripts/generate_parser.py --version legacy
+python scripts/generate_parser.py legacy
 
-# Generate v2 parser with maximum verbosity and 2 generations
-python scripts/generate_parser.py --version v2 -vv -g 2
+# Generate v2 parser with maximum verbosity and only once
+python scripts/generate_parser.py v2 -vv -g 1
 ```
 
 The script will:
@@ -131,12 +135,11 @@ The script will:
 2. Run the specified number of generations
 3. Restore the backup if any generation fails
 
-### Manual generation (deprecated)
-Legacy grammar parser: `make legacy-grammar-parser`
+#### Make tasks
+- Legacy grammar parser: `make legacy-grammar-parser`
+- v2 grammar parser: `make v2-grammar-parser`
 
-v2 grammar parser: `make v2-grammar-parser`
-
-Add `-v` flag for verbose output and full traceback on errors.
+<!-- NOT VERIFIED IF STILL UP-TO-DATE: Add `-v` flag for verbose output and full traceback on errors. -->
 
 Test
 ----

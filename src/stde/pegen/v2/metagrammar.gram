@@ -1,16 +1,20 @@
-@header '''\
+# Note: Having a `\` in the result file near the top is expected, it's the first character of the @header raw string :)
+@header r'''\
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
-from typing import List, Union, Iterable
+import ast
+from typing import List, Union, Iterable, TextIO, Any, Self, Tuple
 import token
 import tokenize
+import textwrap
 from tokenize import TokenInfo
+from stde.pegen.v2.parser import ParseError
 
 FAILURE = ResultFlag.FAILURE
 
 from stde.pegen.v2.grammar import (
     Alt,
-    #Action,
+    Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -36,7 +40,8 @@ from stde.pegen.v2.grammar import (
     StringLeaf,
 )
 
-#TODO: Blocks (having its own return) vs. expressions
+# XXX: Is there a way to get the mark of the previous token?
+
 def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     if not tokens:
         return []
@@ -54,15 +59,103 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     return list(map(replace, tokens))
 
 
+def _slice_line_col2(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
+    """Slice text from start to end ((line, column) tuples, 1-based line, 0-based column)."""
+    return _slice_line_col(text, (start[0] - 1, start[1]), (end[0] - 1, end[1]))
+
+def _slice_line_col(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
+    """Slice text from start to end ((line, column) tuples, both 0-based)."""
+    st, ed = _start_end_line_col_to_index(text, start, end)
+    return text[st:ed]
+
+def _start_end_line_col_to_index(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> Tuple[int, int]:
+    """Convert (line, col) (both 0-based) to indexes."""
+    # XXX: I think the assumptions of the assertions here still hold
+    # because it's only used from _slice_line_col2
+    # and ultimately `start` and `end` are positions that exist in original text
+    # so return None case won't happen
+    assert (i := _forward_lines(text, 0, start[0], 0)) is not None
+    st = i + 1 + start[1] # Not i + start[1], i is position of newline
+    # Note: It's possible that a newline occurs at index `st`, so `left_limit` is `st`
+    # By the way, replacing `st` with `i + 1` will also work, but I'm not doing that
+    assert (i := _forward_lines(text, st, end[0] - start[0], i)) is not None
+    return (st, i + 1 + end[1])
+
+def _forward_lines(text: str, left_limit: int, n: int, zero_default: int) -> Optional[int]:
+    """Returns the position of the `n`-th newline after `left_limit` in `text`.
+
+    If `text[left_limit]` is `"\n"`, it's included in the count, in the sense that
+    `_forward_lines(text, left_limit, 1, zero_default)` will be `left_limit`.
+
+    If `n` is 0, returns `zero_default`.
+
+    If there are less than `n` newlines after (including) `left_limit`, returns `None`.
+    """
+    if not n:
+        return zero_default
+    while n:
+        i = text.find("\n", left_limit)
+        if i == -1:
+            return None
+        n -= 1
+        left_limit = i + 1
+    return i
+
 class Base(DefaultParser):
+    """Note: Do not create an instance by calling __init__.
+    Instead, use class methods from_stream and from_text.
+    """
+    # In action_contents it's difficult to dedent the text correctly without knowing the source,
+    # so we modify the constructors to do that.
+    #
+    # It's theoretically possible to retrieve the source text by piecing together the token.line's.
+    # But I'll just skip that effort.
+    # Furthermore `tokenize` parses the whole PEG grammar
+    # and the PEG grammar is not valid Python
+    # so if we depend on token.line we're experiencing more said (in docs)
+    # "undefined behavior" ... haha
+    #
+    # (And, we can't drop support for parsing grammar with a stream -- yes,
+    # it's arguably esoteric but the python_parser used for testing depends on it)
+
+    _text: str
+    _grammar_file_name: Optional[str]
+    completely_propogate_parse_error: bool
+
+    @classmethod
+    def from_stream(cls, stream: TextIO, *args: Any, grammar_file_name: Optional[str] = None, **kwargs: Any) -> Self:
+        text = stream.read()
+        stream.seek(0)
+        instance = super().from_stream(stream, *args, **kwargs)
+        instance._text = text
+        instance._grammar_file_name = grammar_file_name
+        instance.completely_propogate_parse_error = False
+        return instance
+
+    @classmethod
+    def from_text(cls, text: str, *args: Any, grammar_file_name: Optional[str] = None, **kwargs: Any) -> Self:
+        instance = super().from_text(text, *args, **kwargs)
+        instance._text = text
+        instance._grammar_file_name = grammar_file_name
+        instance.completely_propogate_parse_error = False
+        return instance
+
+    @property
+    def effective_file_name(self) -> str:
+        return "<grammar file>" if self._grammar_file_name is None else self._grammar_file_name
+
     @memoize #XXX:?
-    def action_contents(self) -> RuleResult[str]:
+    def action(self) -> RuleResult[Action]:
         """Note: The result should be parsable by ast.parse."""
+        # XXX: Validate with ast.parse at grammar parse time?
         m = self.mark()
+        if (starting_brace := self.match_string("{")) is FAILURE:
+            # XXX: Can hard-fail here to skip backtracking?
+            self.reset(m)
+            return FAILURE
         level = 1
-        has_return_stmt = False
+        is_stmts = False
         tokens = []
-        prevmark = m
         while True:
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
@@ -71,22 +164,222 @@ class Base(DefaultParser):
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
+                closing_brace = t
                 if level == 0:
                     break
             tokens.append(t)
             if t.string == "{":
                 level += 1
             elif t.string == "return":
-                has_return_stmt = True
-            prevmark = self.mark()
-        self.reset(prevmark) # Don't consume the last right brace
-        tokens = _normalize_linecol(tokens)
-        s = tokenize.untokenize(tokens)
+                is_stmts = True
+        if not tokens:
+            # XXX: This self.reset is missed in previous versions. We need to
+            # keep an eye on what breaks
+            self.reset(m)
+            return FAILURE # Don't accept empty actions
         if self._verbose: #XXX: ...
+            import pickle
+            print("  " * self._level + "## Unnormalized:", pickle.dumps(tokens))
+        if is_stmts:
+            # TODO: Harden tests once rewritten with exec_ns
+            if tokens[0].line == starting_brace.line:
+                #line, col, line_text = self.diagnose()
+                e = ParseError(
+                    "If the action is statements, it cannot start on the same line as the left brace.",
+                    (
+                        self.effective_file_name,
+                        tokens[0].start[0],
+                        tokens[0].start[1] + 1, # Oddly tokenize's colnos are 0-based
+                        tokens[0].line,
+                        tokens[0].end[0],
+                        tokens[0].end[1] + 1
+                    )
+                )
+                e.add_note("An action is statements if it contains the keyword 'return'.")
+                self.completely_propogate_parse_error = True
+                raise e
+
+            start_pos = (tokens[0].start[0] - 1, 0)
+            end_pos = (closing_brace.start[0] - 1, closing_brace.start[1])
+            st, ed = _start_end_line_col_to_index(self._text, start_pos, end_pos)
+            text = self._text[st:ed]
+
+            # The first line must be unindented to be valid Python
+            # Find first non-empty line (assert must exist) to analyze its indent
+            i = 0 # Now relative to `text`
+            # These numbers, after adding with `start_pos`, should be the position relative to whole file
+            ln = 0
+            # Note: Can probably rewrite loop with str.splitlines but don't have much motivation now
+            # (Letting the loop stay like this has the benefit of lower memory usage
+            # in the case that the action would fail with "Mixed space/tab indent on first line.")
+            while True:
+                j = _forward_lines(text, i, 1, 0)
+                if j is None:
+                    # Note: Besides when all lines are blank, `j is None` may also happen when
+                    # there is just no newline in sliced text:
+                    #
+                    #    rule: {
+                    #        return 1}
+                    #
+                    # sliced text: "return 1"
+                    if i == 0:
+                        assert not text[i:j].isspace()
+                        # Using j as result var anyway
+                        j = ed - st
+                        break
+                    else:
+                        assert False, "no non-empty line found in statements-type action code??"
+                if not text[i:j].isspace():
+                    # First line is text[i:j]
+                    break
+                i = j + 1
+                ln += 1
+            first_line = text[i:j]
+
+            # If it contains mixed tab/space indent, it's an error
+            type = " " if first_line[i] == " " else "\t" if first_line[i] == "\t" else None
+            stripped_first_line = first_line.lstrip(type)
+            assert stripped_first_line
+            if stripped_first_line[0] == ("\t" if type == " " else " "):
+                e = ParseError(
+                    "Mixed space/tab indent on first line.",
+                    (
+                        self.effective_file_name,
+                        start_pos[0] + ln,
+                        start_pos[1] + 1, # Our `start_pos`'s colno is 0-based too
+                        first_line,
+                        start_pos[0] + ln,
+                        start_pos[1] + (len(first_line) - len(first_line.lstrip())) + 1
+                    )
+                )
+                self.completely_propogate_parse_error = True
+                raise e
+            dedent_chars = len(first_line) - len(stripped_first_line)
+
+            # I think now we can comfortably use splitlines, can we? :rotf:
+            lines = text.splitlines()
+            for i, line in enumerate(lines):
+                if not line.lstrip(): continue
+                assert len(line) >= dedent_chars, \
+                    "line is shorter than detected minimum common indent (`dedent_chars`)??"
+                if type is not None:
+                    other_type = "\t" if type == " " else " "
+                    for j in range(dedent_chars):
+                        if line[j] == type:
+                            continue
+                        correct_name = "spaces" if type == " " else "tabs"
+                        if line[j] == other_type:
+                            wrong_name = "space(s)" if other_type == " " else "tab(s)"
+                            e = ParseError(
+                                f"Mixed indent: expected indent made of {correct_name}, found {wrong_name}",
+                                (
+                                    self.effective_file_name,
+                                    start_pos[0] + i,
+                                    start_pos[1] + j + 1, # Again 0-based so we make it 1-based
+                                    line,
+                                    start_pos[0] + i,
+                                    start_pos[1] + j + 2
+                                )
+                            )
+                            self.completely_propogate_parse_error = True
+                            raise e
+                        else:
+                            e = ParseError(
+                                f"Indent not enough: expected common indent of {dedent_chars} {correct_name}, "
+                                #f"got {line[:dedent_chars]!r}",
+                                f"got {j} {correct_name}",
+                                (
+                                    self.effective_file_name,
+                                    start_pos[0] + i,
+                                    start_pos[1] + 1, # Ditto
+                                    line,
+                                    start_pos[0] + i,
+                                    start_pos[1] + j + 1
+                                )
+                            )
+                            self.completely_propogate_parse_error = True
+                            raise e
+                lines[i] = line[dedent_chars:] #XXX: No reference alias problem?
+            s = "\n".join(lines)
+        else:
+            # Transform back to original code.
+            #
+            # The reason we're not doing this:
+            #
+            #     s = _slice_line_col2(self._text, tokens[0].start, tokens[-1].end)
+            #
+            # is to keep compatible with (probably existing somewhere)
+            # code like this, seen in python_v2.gram:
+            #
+            #     slice:
+            #         # ...
+            #         | a=named_expression {
+            #             a
+            #             if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else
+            #             ast.Index(
+            #                 value=a,
+            #                 lineno=a.lineno,
+            #                 col_offset=a.col_offset,
+            #                 end_lineno=a.end_lineno,
+            #                 end_col_offset=a.end_col_offset
+            #             )
+            #         }
+            #
+            # Note the action spans several lines.
+            # - It is illegal to type it out in the REPL without adding brackets.
+            # - Joining token texts with space `" ".join(map(lambda x: x.string, tokens))`
+            #   is the legacy behavior.
+            #   It *works* but looks *bad*, especially in this case,
+            #   9 lines will become all on 1 line, it's harder to map an error location
+            #   back to the original location.
+            # - Adding brackets f"({THE_CODE})": Makes this invalid action
+            #   get parsed as a generator expression, unexpectedly valid.
+            #
+            #       rule: a { x for x in a }
+            #
+            #   We could validate the action code with ast.parse, but it's problematic
+            #   with respect to actions like `ast.Expr(..., LOCATIONS)`
+            #   where the unsubstituted `LOCATIONS` causes the code to be invalid.
+            #   Furthermore, I'd avoid the performance cost if possible.
+            #   (but it's a possible future feature)
+            # - _slice_line_col2 + .replace("\n", "\\\n"): Fails with triple strings.
+            #   You'll have to manually parse tokens.
+            # - _normalize_linecol + tokenize.untokenize fixes this issue by adding `\`:
+            #
+            #       return a\
+            #       if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else\
+            #       ast.Index(\
+            #           value=a,\
+            #           lineno=a.lineno,\
+            #           col_offset=a.col_offset,\
+            #           end_lineno=a.end_lineno,\
+            #           end_col_offset=a.end_col_offset\
+            #       )
+            #
+            #   Not ideal, but works best.
+            #
+            #   (Technically it's undefined behavior, but pegen has been using
+            #   tokenize.tokenize all the time, so 🤷)
+            #   (Avoiding the undefined behavior as said in the docs
+            #   would require me to build my own tokenizer
+            #   and that feels like a lot of effort
+            #   and will be a breaking change)
+            #   (Though I'm still at v0.x, breaking changes are okay? 😂)
+
+            tokens = _normalize_linecol(tokens)
+            s = tokenize.untokenize(tokens)
+            if self._verbose: #XXX: ...
+                import pickle
+                print("  " * self._level + "## Normalized:", pickle.dumps(tokens))
+        if self._verbose and is_stmts:
             print("  " * self._level + "## Parsed code:", repr(s))
-        return s
+        # TODO: Add a debug flag and clean debug printing around here
+        #if "LOCATIONS" not in s and "UNREACHABLE" not in s and not is_stmts:
+        #    ast.parse(s)
+        return Action(s, is_stmts)
 
     # Temporary trick (plan to make it built-in)
+    # TODO: Remove
     @logger
     def empty(self) -> RuleResult[None]:
         return None
@@ -176,10 +469,10 @@ atom[Plain]:
     | NAME {NameLeaf(name.string) }
     | STRING {StringLeaf(string.string)}
 
-# Mini-grammar for the actions and annotations
+#action[Action]: "{" ~ action_contents "}" { action_contents }
 
-#action[str]: "{" ~ target_atoms "}" { target_atoms }
-action[str]: "{" ~ action_contents "}" { action_contents }
+# Mini-grammar for annotations
+
 annotation[str]: "[" ~ target_atoms "]" { target_atoms }
 #annotation[str]: "[" ~ text("]") "]" { target_atoms }
 #annotation[str]: "->" ~ target_atoms !":" { target_atoms }
@@ -207,5 +500,5 @@ target_fstring_middle[str]:
     | target_atom { target_atom }
 
 #annotation[str]: "[" ~ target_atoms "]" { target_atoms }
-extern action_contents[str]
-extern empty[None]
+#extern action_contents[Action]
+extern action[Action]

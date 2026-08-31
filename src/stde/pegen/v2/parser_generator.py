@@ -5,6 +5,7 @@ from typing import Any, AbstractSet, Dict, Iterator, List, Optional, Self, Set, 
 from stde.pegen.sccutils import find_cycles_in_scc, strongly_connected_components
 from stde.pegen.common import ValidationError
 from stde.pegen.v2.grammar import (
+    Action,
     Alt,
     Cut,
     ExternDecl,
@@ -62,11 +63,15 @@ class ParserGenerator:
         self.first_graph, self.first_sccs = mark_left_recursives(self.grammar.rules)
         # Rules to generate
         self.todo = self.grammar.rules.copy()
-        # For name_rule()/name_loop()
+        # Naming counter to ensure unique names
         self.counter = 0
         # Rules + temporal rules
         self.all_rules: Dict[str, Rule] = {}
         self._local_variable_stack: List[List[str]] = []
+
+    def count(self) -> int:
+        self.counter += 1
+        return self.counter
 
     @contextmanager
     def local_variable_context(self) -> Iterator[None]:
@@ -83,6 +88,7 @@ class ParserGenerator:
         """generate() of subclasses of ParserGenerator must call the generate() of ParserGenerator."""
         self.file = file
 
+    # TODO: Move to PythonGenerator
     @contextmanager
     def indent(self) -> Iterator[None]:
         self.level += 1
@@ -91,12 +97,11 @@ class ParserGenerator:
         finally:
             self.level -= 1
 
-    def print(self, *args: object) -> None:
-        if not args:
+    def print(self, s: Optional[str] = None) -> None:
+        if s is None:
             print(file=self.file)
         else:
-            print("    " * self.level, end="", file=self.file)
-            print(*args, file=self.file)
+            print("    "*self.level + s, file=self.file)
 
     def printblock(self, lines: str) -> None:
         for line in lines.splitlines():
@@ -117,43 +122,29 @@ class ParserGenerator:
             done = set(alltodo)
 
     def artificial_rule_from_rhs(self, rhs: Rhs) -> str:
-        self.counter += 1
-        name = f"_tmp_{self.counter}"  # TODO: Pick a nicer name.
+        name = f"_tmp_{self.count()}"  # TODO: Pick a nicer name.
         self.todo[name] = Rule(name, None, rhs)
         return name
 
     def artificial_rule_from_repeat(self, node: Plain, is_repeat1: bool) -> str:
-        self.counter += 1
-        if is_repeat1:
-            prefix = "_loop1_"
-        else:
-            prefix = "_loop0_"
-        name = f"{prefix}{self.counter}"  # TODO: It's ugly to signal via the name.
+        prefix = "_loop1_" if is_repeat1 else "_loop0_"
+        name = f"{prefix}{self.count()}"  # TODO: It's ugly to signal via the name.
         self.todo[name] = Rule(name, None, Rhs([Alt([TopLevelItem(None, node)])]))
         return name
 
-    def artificial_rule_from_gather(self, node: Gather) -> str:
-        self.counter += 1
-        name = f"_gather_{self.counter}"
-        self.counter += 1
-        extra_function_name = f"_loop0_{self.counter}"
-        extra_function_alt = Alt(
-            [TopLevelItem(None, node.separator), TopLevelItem("elem", node.node)],
-            action="elem",
-        )
-        self.todo[extra_function_name] = Rule(
-            extra_function_name,
-            None,
-            Rhs([extra_function_alt]),
-        )
-        alt = Alt(
-            [TopLevelItem("elem", node.node), TopLevelItem("seq", NameLeaf(extra_function_name))],
-        )
-        self.todo[name] = Rule(
-            name,
-            None,
-            Rhs([alt]),
-        )
+    def artificial_rule_from_gather(self, g: Gather) -> str:
+        helper_name = f"_loop0_{self.count()}"
+        name = f"_gather_{self.count()}"
+        # helper_name: {g.separator} elem={g.node} => elem
+        #  Note: has special _loop0_xxx compilation
+        #  Effectively: helper_name: ({g.separator} elem={g.node})* => list of `elem`s
+        self.todo[helper_name] = Rule(helper_name, None, Rhs([Alt(
+            [TopLevelItem(None, g.separator), TopLevelItem("elem", g.node)],
+            Action("elem"))]))
+        # name: elem={g.node} seq=helper_name => [elem] + seq
+        self.todo[name] = Rule(name, None, Rhs([Alt(
+            [TopLevelItem("elem", g.node), TopLevelItem("seq", NameLeaf(helper_name))],
+            Action("[elem] + seq"))]))
         return name
 
     def dedupe_and_add_var(self, name: str) -> str:
