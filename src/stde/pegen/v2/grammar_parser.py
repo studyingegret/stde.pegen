@@ -205,7 +205,9 @@ class Base(DefaultParser):
                 self.completely_propogate_parse_error = True
                 raise e
 
+            # TODO: Add a comment that explains this
             start_pos = (tokens[0].start[0] - 1, 0)
+            # TODO: Add a comment that explains this
             end_pos = (closing_brace.start[0] - 1, closing_brace.start[1])
             st, ed = _start_end_line_col_to_index(self._text, start_pos, end_pos)
             text = self._text[st:ed]
@@ -243,7 +245,9 @@ class Base(DefaultParser):
             first_line = text[i:j]
 
             # If it contains mixed tab/space indent, it's an error
+            # `type == None` means no indent
             type = " " if first_line[i] == " " else "\t" if first_line[i] == "\t" else None
+            # TODO: Can clean up here
             stripped_first_line = first_line.lstrip(type)
             assert stripped_first_line
             if stripped_first_line[0] == ("\t" if type == " " else " "):
@@ -261,20 +265,53 @@ class Base(DefaultParser):
                 self.completely_propogate_parse_error = True
                 raise e
             dedent_chars = len(first_line) - len(stripped_first_line)
+            if type is None:
+                assert dedent_chars == 0, f"type is None and dedent_chars != 0? ({dedent_chars})"
 
             # I think now we can comfortably use splitlines, can we? :rotf:
             lines = text.splitlines()
-            for i, line in enumerate(lines):
-                if not line.lstrip(): continue
-                assert len(line) >= dedent_chars, \
-                    "line is shorter than detected minimum common indent (`dedent_chars`)??"
-                if type is not None:
-                    other_type = "\t" if type == " " else " "
+            if type is not None:
+                other_type = "\t" if type == " " else " "
+
+                for i, line in enumerate(lines):
+                    if not line.lstrip(): # Line is whitespace-only.
+                        # Blank/whitespace-only lines are required to comply with
+                        # space/tab consistency rule (for the common-indent part)
+                        # but are allowed to have less (or no) indent
+                        # than the common indent requires
+                        # (in which case they become empty lines,
+                        # the same as when they consist of the common-indent)
+                        # TODO: sync this to docstring at the top of the test file
+
+                        # Unlike many other parts of the code, it is okay here
+                        # if the line has less then `dedent_chars` characters
+                        common_indent_part = line[:dedent_chars]
+                        its_length = len(common_indent_part)
+                        if common_indent_part.count(type) != its_length:
+                            if (other_type in common_indent_part
+                            and common_indent_part.count(type) + common_indent_part.count(other_type)
+                                == its_length):
+                                message = "Mixed space/tab indent in common indent of whitespace-only line."
+                            else:
+                                message = "Mixed whitespace in common indent of whitespace-only line."
+                            e = ParseError(message, (
+                                self.effective_file_name,
+                                start_pos[0] + i,
+                                start_pos[1] + 1, # Again 0-based so we make it 1-based
+                                line,
+                                start_pos[0] + i,
+                                start_pos[1] + dedent_chars
+                            ))
+                            self.completely_propogate_parse_error = True
+                            raise e
+                        continue
+
                     for j in range(dedent_chars):
-                        if line[j] == type:
+                        char = line[j]
+                        if char == type:
                             continue
                         correct_name = "spaces" if type == " " else "tabs"
-                        if line[j] == other_type:
+                        if char == other_type:
                             wrong_name = "space(s)" if other_type == " " else "tab(s)"
                             e = ParseError(
                                 f"Mixed indent: expected indent made of {correct_name}, found {wrong_name}",
@@ -305,7 +342,8 @@ class Base(DefaultParser):
                             )
                             self.completely_propogate_parse_error = True
                             raise e
-                lines[i] = line[dedent_chars:] #XXX: No reference alias problem?
+                    lines[i] = line[dedent_chars:] #XXX: No reference alias problem?
+
             s = "\n".join(lines)
         else:
             # Transform back to original code.

@@ -1,3 +1,4 @@
+# -*- show-trailing-whitespace: true; -*-
 r"""Statements in actions: Write statements, not confined to a single expression
 
 Valid:
@@ -294,3 +295,51 @@ def test_brace_immediately_after_action_is_ok(grammar: str) -> None:
     parser_class = generate_parser_from_grammar(grammar).parser_class
     assert parser_class.from_text("").start() == 10
 
+
+# The strings here contain traling whitespace. To view it easier,
+# enable highlighting trailing whitespace in your editor
+@pytest.mark.parametrize("grammar", [
+# Note: dedent() turns whitespace-only lines to empty lines
+# so avoiding it until we write a version of dedent ourselves
+r"""
+start: {
+    return '''\
+
+    
+    a
+    
+        
+            
+
+            
+        
+    
+    a
+    
+
+    '''
+}
+"""
+])
+def test_whitespace_only_lines(grammar) -> None:
+    parser_class = (p := generate_parser_from_grammar(grammar, parser_verbose_stream=sys.stdout)).parser_class
+    # print(p.parser_code)
+    result = parser_class.from_text("").start()
+    import pprint
+    pprint.pprint(result)
+    assert result == (
+        "\n"
+        "\n"
+        "a\n"
+        "\n"
+        "    \n"
+        "        \n"
+        "\n"
+        "        \n"
+        "    \n"
+        "\n"
+        "a\n"
+        "\n"
+        "\n"
+        ""
+    )
