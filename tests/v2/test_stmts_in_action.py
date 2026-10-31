@@ -299,7 +299,7 @@ def test_brace_immediately_after_action_is_ok(grammar: str) -> None:
 # The strings here contain traling whitespace. To view it easier,
 # enable highlighting trailing whitespace in your editor
 @pytest.mark.parametrize("grammar", [
-# Note: dedent() turns whitespace-only lines to empty lines
+# Note: textwrap.dedent turns whitespace-only lines to empty lines
 # so avoiding it until we write a version of dedent ourselves
 r"""
 start: {
