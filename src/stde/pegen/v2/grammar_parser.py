@@ -9,7 +9,7 @@ from stde.pegen.v2.parser import (
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
 import ast
-from typing import List, Union, Iterable, TextIO, Any, Self, Tuple
+from typing import List, Union, Iterable, TextIO, Any, Self, Tuple, Protocol
 import token
 import tokenize
 import textwrap
@@ -107,22 +107,33 @@ def _forward_lines(text: str, left_limit: int, n: int, zero_default: int) -> Opt
         left_limit = i + 1
     return i
 
-def _make_parse_error_factory(filename: str, start_pos: Tuple[int, int]):
+
+class _ParseErrorFactory(Protocol):
+    def __call__(self, message: str, lineno: int, offset: int,
+                 text: str, end_lineno: int, end_offset: int,
+                 *, notes: Iterable[str] = ()) -> ParseError: ...
+
+
+def _make_parse_error_factory(filename: str, start_pos: Tuple[int, int]) -> _ParseErrorFactory:
     """Convenience factory function to create `ParseError`s with the same file name
     and the same `start_pos` position offsetting
     (convert positions relative to the sliced text to be relative to the whole grammar file).
     The returned function makes a ParseError, positions relative to `text`, all 0-based.
+
+    Note: `start_pos` is 0-based line/column. To use a TokenInfo position,
+    subtract its lineno by 1.
     """
     def ret(message: str, lineno: int, offset: int,
             text: str, end_lineno: int, end_offset: int,
-            *, notes: Iterable[str] = ()):
+            *, notes: Iterable[str] = ()) -> ParseError:
+        # ParseError (SyntaxError underneath) requires 1-based line/column
         e = ParseError(message, (
             filename,
-            start_pos[0] + lineno,
-            start_pos[1] + 1 + offset, # `TokenInfo`'s colno is 0-based, +1 to compensate for it
+            start_pos[0] + 1 + lineno,
+            start_pos[1] + 1 + offset,
             text,
-            start_pos[0] + end_lineno,
-            start_pos[1] + 1 + end_offset # `TokenInfo`'s colno is 0-based, +1 to compensate for it
+            start_pos[0] + 1 + end_lineno,
+            start_pos[1] + 1 + end_offset
         ))
         for note in notes:
             e.add_note(note)
@@ -167,8 +178,8 @@ class Base(DefaultParser):
         cls.__setup(instance, text, grammar_file_name)
         return instance
 
-    @staticmethod
-    def __setup(self, text: str, grammar_file_name: Optional[str]) -> None:
+    @classmethod
+    def __setup(cls, self: Self, text: str, grammar_file_name: Optional[str]) -> None:
         self._text = text
         self._grammar_file_name = grammar_file_name
         self.completely_propogate_parse_error = False
@@ -197,8 +208,8 @@ class Base(DefaultParser):
             self._tokenizer.getnext()
             if t.string == "}":
                 level -= 1
-                closing_brace = t
                 if level == 0:
+                    closing_brace = t
                     break
             tokens.append(t)
             if t.string == "{":
@@ -216,9 +227,10 @@ class Base(DefaultParser):
         if is_stmts:
             if tokens[0].line == starting_brace.line:
                 self.completely_propogate_parse_error = True
-                # (0, 0) to skip the position correction
-                # (but we still want the +1 correction for 0-based `tokenize` colnos)
-                raise _make_parse_error_factory(self.effective_file_name, (0, 0))(
+                # (-1, 0) to skip the position correction
+                # (we still want the +1 correction for 0-based `tokenize` colnos)
+                # (`-1` because TokenInfo lineno is already 1-based, offset the +1 correction)
+                raise _make_parse_error_factory(self.effective_file_name, (-1, 0))(
                     "If the action is statements, it cannot start on the same line as the left brace.",
                     tokens[0].start[0], tokens[0].start[1], tokens[0].line,
                     tokens[0].end[0], tokens[0].end[1],
@@ -246,6 +258,8 @@ class Base(DefaultParser):
             #  thus no rough ast dump or naive join-all-tokens etc if you get me)
             # will only be added to the start of each logical line
             # (e.g. instead of inside a triple-string, which would affect the behavior)
+            # Note: (TODO) Let's also call the common indent "stripped indent" in error messages
+            # (makes a lot of sense since it's just stripped)
 
             # Find the first line (don't forget diagnostic info)
             if "\n" not in text:
@@ -256,11 +270,11 @@ class Base(DefaultParser):
                 i = 0 # Now relative to `text`
                 # Note: Can probably rewrite loop with str.splitlines but don't have much motivation now
                 # (Letting the loop stay like this has the benefit of lower memory usage
-                # in the case that the action would fail with "Mixed space/tab indent on first line.")
+                # in the case that we would fail with "Mixed space/tab indent on first line.")
                 while True:
                     if (j := _forward_lines(text, i, 1, 0)) is None:
-                        #assert i != 0, "previously found a newline in text"
-                        assert False, "no non-empty line found in statements-type action code??"
+                        assert False, ("no non-empty line found in statements-type action code "
+                                       "with non-empty token list??")
                     if not text[i:j].isspace():
                         break
                     i = j + 1
@@ -282,74 +296,61 @@ class Base(DefaultParser):
                 # If there is indent, how much is there?
                 # Also check for mixed tab/space indent
                 line_without_indent = first_maybe_indented_line.lstrip(type)
-                assert line_without_indent, f"line is supposed to be non-empty {line_without_indent!r}"
+                assert line_without_indent, f"line is supposed to be non-empty, non-whitespace-only {line_without_indent!r}"
                 dedent_chars = len(first_maybe_indented_line) - len(line_without_indent)
                 if line_without_indent[0].isspace():
                     self.completely_propogate_parse_error = True
                     raise make_parse_error(
-                        ("Mixed space/tab indent on first line."
+                        ("Mixed space/tab indent on first line: "
+                        f"Unexpected {'tab' if type == ' ' else 'space'}."
                         if line_without_indent[0] == other_type
-                        else "Mixed whiespace indent on first line. "
-                            f"(Unsupported whitespace char {line_without_indent[0]!r}"),
+                        else "Mixed whitespace indent on first line. "
+                            f"(Found unsupported whitespace char {line_without_indent[0]!r}"),
                         # Point at the offending character
                         first_maybe_indented_lineno, dedent_chars - 1,
                         first_maybe_indented_line,
                         first_maybe_indented_lineno, dedent_chars - 1)
-                if type is None:
-                    assert dedent_chars == 0, f"type is None and dedent_chars != 0? ({dedent_chars})"
-            else:
-                type = other_type = None # no indent
-
-            # I think splitlines is strongly justifiable here :)
-            lines = text.splitlines()
-            if type is not None:
-
-                for i, line in enumerate(lines):
-                    if not line:
-                        continue
-
-                    if not line.lstrip(): # Line is whitespace-only.
-                        # Whitespace-only lines can have shorter than the common indent length
-                        # but are still required to comply with space/tab consistency rule
-                        # (if it's longer than the common indent length,
-                        # only the first common_indent_length chars are checked)
-                        # TODO: sync this to docstring at the top of the test file
-
-                        # Unlike many other parts of the code, it is okay here
-                        # for the line has less then `dedent_chars` characters
-                        common_indent_part = line[:dedent_chars]
-                        its_length = len(common_indent_part)
-                        if common_indent_part.count(type) != its_length:
-                            if (other_type in common_indent_part
-                            and common_indent_part.count(type) + common_indent_part.count(other_type)
-                                == its_length):
-                                message = "Mixed space/tab indent in common indent of whitespace-only line."
-                            else:
-                                message = "Mixed whitespace in common indent of whitespace-only line."
-                            self.completely_propogate_parse_error = True
-                            raise make_parse_error(message, i, 0, line, i, dedent_chars - 1)
-                        continue
-
-                    for j in range(dedent_chars):
-                        char = line[j]
+                
+                # (I think splitlines is strongly justifiable here :) )
+                lines = text.splitlines()
+                for lineno, line in enumerate(lines):
+                    # Unlike many other parts of the code, it is okay here
+                    # for the line to have less then `dedent_chars` characters
+                    for colno, char in enumerate(line[:dedent_chars]):
                         if char == type:
                             continue
-                        correct_name = "spaces" if type == " " else "tabs"
-                        if char == other_type:
-                            self.completely_propogate_parse_error = True
-                            raise make_parse_error(
-                                (f"Mixed indent: expected indent made of {correct_name}, "
-                                 f"found {'space(s)' if other_type == ' ' else 'tab(s)'}"),
-                                i, j, line, i, j + 1)
+                        if not char.isspace():
+                            plural = "spaces" if type == " " else "tabs"
+                            message = (f"Indent not enough: Expected common indent of {dedent_chars} {plural}, "
+                                       f"got {colno} {plural}.")
+                        elif char == other_type:
+                            name_plural, wrong_name = ("spaces", "tab") if type == " " else ("tabs", "space")
+                            message = f"Mixed indent: Expected indent made of {name_plural}, found {wrong_name}."
                         else:
-                            self.completely_propogate_parse_error = True
-                            raise make_parse_error(
-                                (f"Indent not enough: expected common indent of {dedent_chars} {correct_name}, "
-                                 f"got {j} {correct_name}"),
-                                i, 0, line, i, j)
-                    lines[i] = line[dedent_chars:] #XXX: No reference alias problem?
+                            message = f"Mixed indent: Unexpected unsupported indent character {line[colno]!r}."
+                        # If some mixed whitespace in common indent is on a whitespace-only line,
+                        # it might not be obvious from the error message
+                        # Note: "Indent not enough" message cannot trigger when line is whitespace-only
+                        notes = (["This line is whitespace-only, but must also have "
+                                  "consistent tab/space for the common indent part "
+                                  f"(here it's first {dedent_chars} chars)."]
+                                 if not line.lstrip() else [])
 
-            s = "\n".join(lines)
+                        self.completely_propogate_parse_error = True
+                        raise make_parse_error(
+                            message, lineno, colno, line, lineno, colno, notes=notes)
+
+                    lines[lineno] = line[dedent_chars:]
+                
+                code = "\n".join(lines)
+                
+            else:
+                code = text
+
+            # TODO: Put `code` into a Python tokenizer
+            # and split at NEWLINE tokens as strings.
+            #s = ...
+            s = code # for now
         else:
             # Transform back to original code.
             #

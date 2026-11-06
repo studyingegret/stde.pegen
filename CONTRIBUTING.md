@@ -8,7 +8,6 @@ If there is any doubt in how to fix a bug etc., feel free to open an issue to di
 
 Getting started
 ---------------
-
 To ensure your workflow:
 
 - You need mypy, pytest and rtoml.
@@ -287,6 +286,14 @@ Use the following characters for headings from high-level to low-level:
 - `~`
 - `*`
 - (lower levels aren't used yet, so no style rule for them yet)
+
+Error messages
+--------------
+Capitalize the first word after a colon. E.g. `f"Rule {rule.name}: Name cannot start with underscore"`, not `f"Rule {rule.name}: name cannot start with underscore"`
+
+Error messages should end with a period (old ones that don't have a period will be cleaned up later.)
+
+(May change in the future, just writing this down so I don't fight against myself over this (??
 
 If one day you find this project dusted
 ---------------------------------------

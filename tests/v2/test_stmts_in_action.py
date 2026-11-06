@@ -109,7 +109,7 @@ So might be useful to allow stmts action start on line of left brace?
 (And we can give a warning for the previous case, that triple-strings are problematic)
 """
 
-# Note: Error location highlighting isn't tested now, might expect in the future
+# Note: Error location (line,col) isn't tested now, might expect in the future
 
 import sys
 from typing import Iterable, Optional
@@ -221,7 +221,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
             return a
         }
         """),
-        f"Indent not enough: expected common indent of 8 spaces, got 4 spaces", #TODO
+        f"Indent not enough: Expected common indent of 8 spaces, got 4 spaces.", #TODO
     ),
     (
         dedent("""
@@ -229,7 +229,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t return 1
         }
         """),
-        "Mixed space/tab indent on first line.",
+        "Mixed space/tab indent on first line: Unexpected space.",
     ),
     (
         dedent("""
@@ -240,7 +240,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
          \t   return 20
         }
         """),
-        "Mixed space/tab indent on first line.",
+        "Mixed space/tab indent on first line: Unexpected tab.",
     ),
     (
         dedent("""
@@ -249,7 +249,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t\telse 24)
         }
         """),
-        "Mixed indent: expected indent made of spaces, found tab(s)",
+        "Mixed indent: Expected indent made of spaces, found tab.",
     ),
     (
         dedent("""
@@ -258,7 +258,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t        else 24)
         }
         """),
-        "Mixed indent: expected indent made of spaces, found tab(s)",
+        "Mixed indent: Expected indent made of spaces, found tab.",
     ),
     (
         dedent("""
@@ -267,7 +267,7 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
         \t        else 24)
         }
         """),
-        "Mixed indent: expected indent made of tabs, found space(s)",
+        "Mixed indent: Expected indent made of tabs, found space.",
     ),
     (
         dedent("""
@@ -276,13 +276,17 @@ def test_non_mixed_common_indent_doesnt_matter(grammar: str) -> None:
              \t   else 24)
         }
         """),
-        "Mixed indent: expected indent made of tabs, found space(s)",
+        "Mixed indent: Expected indent made of tabs, found space.",
     ),
+    # TODO: Add a test case with an offending whitespace-only line
 ])
 def test_invalid_common_indent_fails_grammar_parsing_phase(grammar: str, message: Optional[str]) -> None:
     with pytest.raises(ParseError) as e:
         load_grammar_from_string(grammar)
     if message is not None:
+        # pytest auto-variable-print is crappy here, would rather print-debug
+        #print(e.value)
+        #print(message)
         assert str(e.value).startswith(message)
 
 @pytest.mark.parametrize("grammar", [
@@ -321,7 +325,7 @@ start: {
 }
 """
 ])
-def test_whitespace_only_lines(grammar) -> None:
+def test_whitespace_only_lines(grammar: str) -> None:
     parser_class = (p := generate_parser_from_grammar(grammar, parser_verbose_stream=sys.stdout)).parser_class
     # print(p.parser_code)
     result = parser_class.from_text("").start()
