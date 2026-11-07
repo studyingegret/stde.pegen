@@ -65,8 +65,8 @@ g.add_argument("-h", "--help", action="help",
                help="Show this help message and exit")
 g.add_argument("-v", "--verbose", action="count", default=0,
                help="Verbosity level (use -v, -vv, etc.)")
-g.add_argument("-g", "--generations", type=int, default=2,
-               help="Number of generations to run (default: 2, see CONTRIBUTING.md for why)")
+g.add_argument("-g", "--generations", type=int, default=3,
+               help="Number of generations to run (default: 3, see CONTRIBUTING.md for why)")
 g.add_argument("--color", choices=["on", "auto", "off"], default="auto",
                help="Whether to use colored output. "
                     "'auto' means only use colored output when both stdout and stderr are tty.")

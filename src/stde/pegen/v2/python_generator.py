@@ -1,8 +1,9 @@
 import ast
+from contextlib import contextmanager
 from keyword import iskeyword
 import re
 import token
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Self, Sequence, Set, Text, TextIO, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Self, Sequence, Set, Text, TextIO, Tuple, cast
 #from io import TextIOBase
 
 from stde.pegen.common import ValidationError
@@ -28,8 +29,16 @@ from stde.pegen.v2.grammar import (
     Rule,
     StringLeaf,
     Grammar,
+    RuleCompileType,
 )
 from stde.pegen.v2.parser_generator import ParserGenerator
+
+
+class ASTParseError(Exception):
+    """Raised when parsing the action code into an AST fails."""
+
+    def __str__(self) -> str:
+        return "Failed to parse action string into AST"
 
 
 #XXX: Should we change the shebang?
@@ -115,7 +124,7 @@ class _InvalidNodeVisitor(GrammarVisitor[bool]): #?
 # TODO?
 class _PythonCallMakerVisitor(GrammarVisitor[Tuple[Optional[str], str]]):
     """Translates grammar items to a 2-tuple of
-    - Capture variable name (None for no capture variable name) (`str | None`)
+    - Default capture variable name (None for no capture variable name) (`str | None`)
     - Matching code (`str`)
 
     Tuple[str | None, str] is the return type of all visitors.
@@ -281,6 +290,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         self.action_ignore_variables: Set[str] = set()
         self.skip_actions = skip_actions
         self._rulename_to_methname: Dict[str, str] = {}
+        self._current_rule_compile_type: Optional[RuleCompileType] = None
 
     #TODO: Tests
     @classmethod
@@ -322,10 +332,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                     self.print("try:")
                     with self.indent():
                         self.print(f"value = self.{self._rulename_to_methname[rulename]}()")
-                        self.print("return ParseFailure() if value is FAILURE else value")
+                        self.print("return ParseFailure.from_general_failure(self.diagnose(), None) "
+                                   "if value is FAILURE else value")
                     self.print("except ParseError as e:")
                     with self.indent():
-                        self.print("return ParseFailure(parse_exc=e)")
+                        self.print("return ParseFailure.from_raised_failure(e)")
 
             self.print()
             self.print(f"KEYWORDS = {tuple(sorted(self.callmakervisitor.keywords))}")
@@ -337,7 +348,7 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
 
     def alts_uses_locations(self, alts: Sequence[Alt]) -> bool:
         for alt in alts:
-            if alt.action and "LOCATIONS" in alt.action:
+            if alt.action and "LOCATIONS" in alt.action.code:
                 return True
             for item in map(lambda node: node.item, alt.items):
                 if isinstance(item, Group) and self.alts_uses_locations(item.rhs.alts):
@@ -349,17 +360,25 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             self.print(stmt)
         self.print(f"return {ret_val}")
 
+    @contextmanager
+    def set_current_rule_compile_type(self, compile_type: RuleCompileType) -> Iterator[None]:
+        assert self._current_rule_compile_type is None, "Nested `Rule`s shouldn't happen"
+        self._current_rule_compile_type = compile_type
+        try:
+            yield
+        finally:
+            self._current_rule_compile_type = None
+
+    @property
+    def current_rule_compile_type(self):
+        return self._current_rule_compile_type
+
     def visit_Rule(self, rule: Rule) -> None:
-        is_loop = rule.is_loop()
-        is_gather = rule.is_gather()
+        compile_type = rule.compile_type()
         rhs = rule.flatten()
         if rule.left_recursive:
-            if rule.leader:
-                self.print("@memoize_left_rec")
-            else:
-                # Non-leader rules in a cycle are not memoized,
-                # but they must still be logged.
-                self.print("@logger")
+            # Non-leader rules in a cycle are not memoized, but they must still be logged.
+            self.print("@memoize_left_rec" if rule.leader else "@logger")
         else:
             self.print("@memoize")
         node_type = rule.type or "Any"
@@ -380,17 +399,16 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             if self.alts_uses_locations(rule.rhs.alts):
                 self.print("start_lineno, start_colno = self.start_of_rule_pos()")
                 self.print("")
-            if is_loop:
+            if compile_type == RuleCompileType.LOOP:
                 self.print("children = []")
-            self.visit(rhs, is_loop=is_loop, is_gather=is_gather)
-            if rule.name.startswith("_loop0_"):
+            with self.set_current_rule_compile_type(compile_type):
+                self.visit(rhs)
+            self.add_return(
                 # This feels okay, x* returning an empty list is not treated as failure,
                 # which is perfectly valid as signaling matching no repetitions
-                self.add_return("children")
-            elif rule.name.startswith("_loop1_"):
-                self.add_return("children or ResultFlag.FAILURE")
-            else:
-                self.add_return("FAILURE")
+                "children" if rule.name.startswith("_loop0_")
+                else "children or ResultFlag.FAILURE" if rule.name.startswith("_loop1_")
+                else "FAILURE")
 
         if rule.name.endswith("without_invalid"):
             self.return_cleanup_stmts.pop()
@@ -424,37 +442,20 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 #self.pre_action_stmts.append(f"{name} = {name}")
                 #self.action_ignore_variables.add(name)
 
-    def visit_Rhs(self, rhs: Rhs, is_loop: bool = False, is_gather: bool = False) -> None:
-        if is_loop:
+    def visit_Rhs(self, rhs: Rhs) -> None:
+        if self.current_rule_compile_type == RuleCompileType.LOOP:
             assert len(rhs.alts) == 1
         for alt in rhs.alts:
-            self.visit(alt, is_loop=is_loop, is_gather=is_gather)
+            self.visit(alt)
 
     def print_action(
         self,
-        action: Optional[str],
+        action_code: Optional[str],
+        is_stmts: Optional[bool],
         locations: bool,
         unreachable: bool,
-        is_gather: bool,
-        is_loop: bool,
         has_invalid: bool,
     ) -> None:
-        if not action:
-            names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
-            if is_gather:
-                assert len(names) == 2
-                action = f"[{names[0]}] + {names[1]}"
-            else:
-                if has_invalid:
-                    assert unreachable
-                    if TYPE_CHECKING: assert isinstance(action, str)
-                else:
-                    #...
-                    if len(names) == 1:
-                        action = f"{names[0]}"
-                    else:
-                        action = f"[{', '.join(names)}]"
-
         if locations:
             self.print("end_lineno, end_colno = self.end_of_rule_pos()")
             self.print("start = (start_lineno, start_colno)")
@@ -463,23 +464,39 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
         for stmt in self.pre_action_stmts:
             self.print(stmt)
 
-        if is_loop:
-            self.print(f"children.append({action})")
+        if not action_code:
+            assert not is_stmts
+            if has_invalid:
+                assert unreachable
+                action_code = ""
+            else:
+                names = [name for name in self.local_variable_names if name not in self.action_ignore_variables]
+                action_code = f"{names[0]}" if len(names) == 1 else f"[{', '.join(names)}]"
+
+        if self.current_rule_compile_type == RuleCompileType.LOOP:
+            assert not is_stmts, "LOOP compile type rules always have include-everything default action"
+            self.print(f"children.append({action_code})")
             self.print("mark = self.mark()")
         else:
-            self.add_return(f"{action}")
+            if is_stmts:
+                # TODO
+                self.printblock(action_code)
+            else:
+                self.add_return(action_code)
 
-    def visit_Alt(self, alt: Alt, is_loop: bool, is_gather: bool) -> None:
+    def visit_Alt(self, alt: Alt) -> None:
         has_cut = any(isinstance(item.item, Cut) for item in alt.items)
         has_invalid = self.has_invalid(alt)
 
-        action_code = None if self.skip_actions else alt.action
-        if action_code is None and not is_gather and has_invalid:
+        action_code = (None if self.skip_actions or not alt.action
+                       else alt.action.code)
+        is_stmts = alt.action.is_stmts if alt.action else None
+        if action_code is None and has_invalid:
             action_code = "UNREACHABLE" #...
 
         locations = False
         unreachable = False
-        used = None
+        used = None # When None, means no action, so no code "pulling" binding of match results
         if action_code:
             # Replace magic name in the action_code rule
             if "LOCATIONS" in action_code:
@@ -501,10 +518,8 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
             else:
                 if has_cut:
                     self.print("__cut = False")
-                if is_loop:
-                    self.print("while (")
-                else:
-                    self.print("if (")
+                self.print(
+                    "while (" if self.current_rule_compile_type == RuleCompileType.LOOP else "if (")
                 with self.indent():
                     first = True
                     if has_invalid:
@@ -516,14 +531,11 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                         else:
                             self.print("and")
                         self.visit(item, used=used, unreachable=unreachable)
-                        if is_gather:
-                            self.print("is not None")
                 self.print("):")
 
             with self.indent():
                 # flake8 complains that visit_Alt is too complicated, so here we are :P
-                self.print_action(action_code, locations, unreachable,
-                                  is_gather, is_loop, has_invalid)
+                self.print_action(action_code, is_stmts, locations, unreachable, has_invalid)
 
             self.print("self.reset(mark)")
             # Skip remaining alternatives if a cut was reached.
@@ -532,9 +544,16 @@ class PythonParserGenerator(ParserGenerator, GrammarVisitor):
                 with self.indent():
                     self.add_return("FAILURE")
 
-    def has_invalid(self, node: Any) -> bool:
-        return self._invalidvisitor.visit(node)
+    def has_invalid(self, alt: Alt) -> bool:
+        return self._invalidvisitor.visit(alt)
 
     #...
     def actually_used_names_in_action(self, action: str) -> Set[str]:
-        return self._usednamesvisitor.visit(ast.parse(action))
+        # Walking an AST instead of just checking the tokens has an advantage that
+        # it deals with soft keywords like "match" and figures out
+        # whether they're keywords or identifiers
+        try:
+            a = ast.parse(action)
+        except Exception as e:
+            raise ASTParseError from e #pyright:ignore # XXX: Pyright bug?
+        return self._usednamesvisitor.visit(a)

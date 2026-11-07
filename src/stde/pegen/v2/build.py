@@ -43,7 +43,7 @@ from typing import (TYPE_CHECKING, Any, Literal, NamedTuple, Optional, TextIO,
 from stde.pegen.common import DEFAULT_PARSER_CLASS_NAME
 from stde.pegen.v2.grammar import Grammar
 #from stde.pegen.legacy.parser import Parser
-from stde.pegen.v2.parser import BaseParser, ParseFailure
+from stde.pegen.v2.parser import BaseParser, ParseError, ParseFailure
 from stde.pegen.v2.tokenizer import Tokenizer
 #from stde.pegen.legacy.grammar_parser import GeneratedParser as GrammarParser
 from stde.pegen.v2.grammar_parser import GeneratedParser as GrammarParser
@@ -112,11 +112,10 @@ code --> parser
 class GrammarFromFileProducts(NamedTuple):
     grammar: Grammar
     grammar_parser: BaseParser
-    grammar_tokenizer: Tokenizer
 
 def load_grammar_from_file(
     grammar_file: File,
-    tokenizer_verbose_stream: Optional[TextIO] = None,
+    tokenizer_verbose_stream: Optional[TextIO] = None, #TODO Useless now
     parser_verbose_stream: Optional[TextIO] = None,
     *,
     grammar_file_name: Optional[str] = None,
@@ -124,22 +123,22 @@ def load_grammar_from_file(
     """Returns BuiltProducts with fields grammar, parser and tokenizer filled."""
     grammar_file_name = grammar_file_name_fallback(grammar_file_name, grammar_file)
     with open_file(grammar_file) as file:
-        tokenizer = Tokenizer.from_stream(file, verbose_stream=tokenizer_verbose_stream)
-        parser = GrammarParser(tokenizer, verbose_stream=parser_verbose_stream)
+        parser = GrammarParser.from_stream(file, verbose_stream=parser_verbose_stream)
         grammar = parser.start()
         if isinstance(grammar, ParseFailure):
-            raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
-    return GrammarFromFileProducts(grammar, parser, tokenizer)
+            raise (cast(ParseError, grammar.parse_exc)
+                   if parser.completely_propogate_parse_error
+                   else grammar.make_parse_error("Can't parse grammar file.", grammar_file_name))
+    return GrammarFromFileProducts(grammar, parser,)
 
 
 class GrammarFromStringProducts(NamedTuple):
     grammar: Grammar
     grammar_parser: BaseParser
-    grammar_tokenizer: Tokenizer
 
 def load_grammar_from_string(
     grammar_string: str,
-    tokenizer_verbose_stream: Optional[TextIO] = None,
+    tokenizer_verbose_stream: Optional[TextIO] = None, #TODO Useless now
     parser_verbose_stream: Optional[TextIO] = None,
     *,
     grammar_file_name: Optional[str] = None,
@@ -152,12 +151,13 @@ def load_grammar_from_string(
     # and is different from _from_file functions.
     if grammar_file_name is None:
         grammar_file_name = "<load_grammar_from_string>"
-    tokenizer = Tokenizer.from_text(grammar_string, verbose_stream=tokenizer_verbose_stream)
-    parser = GrammarParser(tokenizer, verbose_stream=parser_verbose_stream)
+    parser = GrammarParser.from_text(grammar_string, verbose_stream=parser_verbose_stream)
     grammar = parser.start()
     if isinstance(grammar, ParseFailure):
-        raise parser.make_syntax_error("Can't parse grammar file.", grammar_file_name)
-    return GrammarFromStringProducts(grammar, parser, tokenizer)
+        raise (cast(ParseError, grammar.parse_exc)
+               if parser.completely_propogate_parse_error
+               else grammar.make_parse_error("Can't parse grammar file.", grammar_file_name))
+    return GrammarFromStringProducts(grammar, parser)
 
 
 class CodeFromGrammarProducts(NamedTuple):
@@ -200,14 +200,13 @@ def generate_parser_from_code(parser_code: str, parser_class_name: str = "Genera
 class CodeFromFileProducts(NamedTuple):
     grammar: Grammar
     grammar_parser: BaseParser
-    grammar_tokenizer: Tokenizer
     parser_code_generator: ParserGenerator
     parser_code: Optional[str]
 
 def generate_code_from_file(
     grammar_file: File,
     output_file: Union[File, Literal[Flags.RETURN]] = Flags.RETURN,
-    tokenizer_verbose_stream: Optional[TextIO] = None,
+    tokenizer_verbose_stream: Optional[TextIO] = None, #TODO Useless now
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
     *,
@@ -217,14 +216,13 @@ def generate_code_from_file(
     p = load_grammar_from_file(grammar_file, tokenizer_verbose_stream, parser_verbose_stream)
     p2 = generate_code_from_grammar(p.grammar, grammar_file_name, output_file,
                                     skip_actions=skip_actions)
-    return CodeFromFileProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
+    return CodeFromFileProducts(p.grammar, p.grammar_parser,
                                 p2.parser_code_generator, p2.parser_code)
 
 
 class ParserFromGrammarProducts(NamedTuple):
     grammar: Optional[Grammar]
     grammar_parser: Optional[BaseParser]
-    grammar_tokenizer: Optional[Tokenizer]
     parser_code_generator: ParserGenerator
     parser_code: str
     parser_class: Type[BaseParser]
@@ -236,7 +234,7 @@ class _NullProducts1(NamedTuple):
 
 def generate_parser_from_grammar(
     grammar: Union[str, Grammar],
-    tokenizer_verbose_stream: Optional[TextIO] = None,
+    tokenizer_verbose_stream: Optional[TextIO] = None, #TODO Useless now
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
     exec_ns: Optional[Dict[str, Any]] = None,
@@ -263,7 +261,7 @@ def generate_parser_from_grammar(
     if TYPE_CHECKING: assert p2.parser_code is not None # mypy knows this but Pylance doesn't
     # Parser code → Parser class
     return ParserFromGrammarProducts(
-        generated_grammar, p.grammar_parser, p.grammar_tokenizer, p2.parser_code_generator,
+        generated_grammar, p.grammar_parser, p2.parser_code_generator,
         p2.parser_code, generate_parser_from_code(
             p2.parser_code, parser_class_name, exec_ns).parser_class)
 
@@ -271,13 +269,12 @@ def generate_parser_from_grammar(
 class ParserFromFileProducts(NamedTuple):
     grammar: Grammar
     grammar_parser: BaseParser
-    grammar_tokenizer: Tokenizer
     parser_code_generator: ParserGenerator
     parser_class: Type[BaseParser]
 
 def generate_parser_from_file(
     grammar_file: File,
-    tokenizer_verbose_stream: Optional[TextIO] = None,
+    tokenizer_verbose_stream: Optional[TextIO] = None, #TODO Useless now
     parser_verbose_stream: Optional[TextIO] = None,
     skip_actions: bool = False,
     exec_ns: Optional[Dict[str, Any]] = None,
@@ -291,6 +288,6 @@ def generate_parser_from_file(
     p2 = generate_parser_from_grammar(
         p.grammar, tokenizer_verbose_stream, parser_verbose_stream, skip_actions,
         exec_ns, grammar_file_name=grammar_file_name)
-    return ParserFromFileProducts(p.grammar, p.grammar_parser, p.grammar_tokenizer,
-                                     p2.parser_code_generator, p2.parser_class)
+    return ParserFromFileProducts(p.grammar, p.grammar_parser,
+                                  p2.parser_code_generator, p2.parser_class)
 

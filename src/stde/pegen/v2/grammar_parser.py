@@ -5,18 +5,22 @@ from typing import Any, Optional, Union
 from stde.pegen.v2.parser import (
     memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser,
     RuleResult, ResultFlag, ParseError, ParseFailure, NO_MATCH, FAILURE)
+\
 #from stde.pegen.v2.parser_old import memoize, memoize_left_rec, logger, DefaultParser, CharBasedParser #type:ignore
 from ast import literal_eval
-from typing import List, Union, Iterable
+import ast
+from typing import List, Union, Iterable, TextIO, Any, Self, Tuple, Protocol
 import token
 import tokenize
+import textwrap
 from tokenize import TokenInfo
+from stde.pegen.v2.parser import ParseError
 
 FAILURE = ResultFlag.FAILURE
 
 from stde.pegen.v2.grammar import (
     Alt,
-    #Action,
+    Action,
     GrammarItem,
     Cut,
     ExternDecl,
@@ -42,7 +46,8 @@ from stde.pegen.v2.grammar import (
     StringLeaf,
 )
 
-#TODO: Blocks (having its own return) vs. expressions
+# XXX: Is there a way to get the mark of the previous token?
+
 def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     if not tokens:
         return []
@@ -60,15 +65,141 @@ def _normalize_linecol(tokens: List[TokenInfo]) -> List[TokenInfo]:
     return list(map(replace, tokens))
 
 
+def _slice_line_col2(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
+    """Slice text from start to end ((line, column) tuples, 1-based line, 0-based column)."""
+    return _slice_line_col(text, (start[0] - 1, start[1]), (end[0] - 1, end[1]))
+
+def _slice_line_col(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> str:
+    """Slice text from start to end ((line, column) tuples, both 0-based)."""
+    st, ed = _start_end_line_col_to_index(text, start, end)
+    return text[st:ed]
+
+def _start_end_line_col_to_index(text: str, start: Tuple[int, int], end: Tuple[int, int]) -> Tuple[int, int]:
+    """Convert (line, col) (both 0-based) to indexes."""
+    # XXX: I think the assumptions of the assertions here still hold
+    # because it's only used from _slice_line_col2
+    # and ultimately `start` and `end` are positions that exist in original text
+    # so return None case won't happen
+    assert (i := _forward_lines(text, 0, start[0], 0)) is not None
+    st = i + 1 + start[1] # Not i + start[1], i is position of newline
+    # Note: It's possible that a newline occurs at index `st`, so `left_limit` is `st`
+    # By the way, replacing `st` with `i + 1` will also work, but I'm not doing that
+    assert (i := _forward_lines(text, st, end[0] - start[0], i)) is not None
+    return (st, i + 1 + end[1])
+
+def _forward_lines(text: str, left_limit: int, n: int, zero_default: int) -> Optional[int]:
+    """Returns the position of the `n`-th newline after `left_limit` in `text`.
+
+    If `text[left_limit]` is `"\n"`, it's included in the count, in the sense that
+    `_forward_lines(text, left_limit, 1, zero_default)` will be `left_limit`.
+
+    If `n` is 0, returns `zero_default`.
+
+    If there are less than `n` newlines after (including) `left_limit`, returns `None`.
+    """
+    if not n:
+        return zero_default
+    while n:
+        i = text.find("\n", left_limit)
+        if i == -1:
+            return None
+        n -= 1
+        left_limit = i + 1
+    return i
+
+
+class _ParseErrorFactory(Protocol):
+    def __call__(self, message: str, lineno: int, offset: int,
+                 text: str, end_lineno: int, end_offset: int,
+                 *, notes: Iterable[str] = ()) -> ParseError: ...
+
+
+def _make_parse_error_factory(filename: str, start_pos: Tuple[int, int]) -> _ParseErrorFactory:
+    """Convenience factory function to create `ParseError`s with the same file name
+    and the same `start_pos` position offsetting
+    (convert positions relative to the sliced text to be relative to the whole grammar file).
+    The returned function makes a ParseError, positions relative to `text`, all 0-based.
+
+    Note: `start_pos` is 0-based line/column. To use a TokenInfo position,
+    subtract its lineno by 1.
+    """
+    def ret(message: str, lineno: int, offset: int,
+            text: str, end_lineno: int, end_offset: int,
+            *, notes: Iterable[str] = ()) -> ParseError:
+        # ParseError (SyntaxError underneath) requires 1-based line/column
+        e = ParseError(message, (
+            filename,
+            start_pos[0] + 1 + lineno,
+            start_pos[1] + 1 + offset,
+            text,
+            start_pos[0] + 1 + end_lineno,
+            start_pos[1] + 1 + end_offset
+        ))
+        for note in notes:
+            e.add_note(note)
+        return e
+    return ret
+
 class Base(DefaultParser):
+    """Note: Do not create an instance by calling __init__.
+    Instead, use class methods from_stream and from_text.
+    """
+
+    _text: str
+    _grammar_file_name: Optional[str]
+    completely_propogate_parse_error: bool
+
+    # In action_contents it's difficult to dedent the text correctly
+    # without knowing the source string,
+    # so we modify the constructors to do that.
+    #
+    # It's theoretically possible to retrieve the source text
+    # by piecing together the `token.line`s.
+    # But I'll just skip that effort.
+    # Furthermore `tokenize` parses the whole PEG grammar
+    # and the PEG grammar is not valid Python
+    # so if we depend on token.line we're experiencing more said (in docs)
+    # "undefined behavior" ... haha
+    #
+    # (And, we can't drop support for parsing grammar with a stream -- yes,
+    # it's arguably esoteric but the python_parser used for testing depends on it)
+
+    @classmethod
+    def from_stream(cls, stream: TextIO, *args: Any, grammar_file_name: Optional[str] = None, **kwargs: Any) -> Self:
+        text = stream.read()
+        stream.seek(0)
+        instance = super().from_stream(stream, *args, **kwargs)
+        cls.__setup(instance, text, grammar_file_name)
+        return instance
+
+    @classmethod
+    def from_text(cls, text: str, *args: Any, grammar_file_name: Optional[str] = None, **kwargs: Any) -> Self:
+        instance = super().from_text(text, *args, **kwargs)
+        cls.__setup(instance, text, grammar_file_name)
+        return instance
+
+    @classmethod
+    def __setup(cls, self: Self, text: str, grammar_file_name: Optional[str]) -> None:
+        self._text = text
+        self._grammar_file_name = grammar_file_name
+        self.completely_propogate_parse_error = False
+
+    @property
+    def effective_file_name(self) -> str:
+        return "<grammar file>" if self._grammar_file_name is None else self._grammar_file_name
+
     @memoize #XXX:?
-    def action_contents(self) -> RuleResult[str]:
+    def action(self) -> RuleResult[Action]:
         """Note: The result should be parsable by ast.parse."""
+        # XXX: Validate with ast.parse at grammar parse time?
         m = self.mark()
+        if (starting_brace := self.match_string("{")) is FAILURE:
+            # XXX: Can hard-fail here to skip backtracking?
+            self.reset(m)
+            return FAILURE
         level = 1
-        has_return_stmt = False
+        is_stmts = False
         tokens = []
-        prevmark = m
         while True:
             t = self._tokenizer.peek()
             if t.type == token.ENDMARKER:
@@ -78,21 +209,227 @@ class Base(DefaultParser):
             if t.string == "}":
                 level -= 1
                 if level == 0:
+                    closing_brace = t
                     break
             tokens.append(t)
             if t.string == "{":
                 level += 1
             elif t.string == "return":
-                has_return_stmt = True
-            prevmark = self.mark()
-        self.reset(prevmark) # Don't consume the last right brace
-        tokens = _normalize_linecol(tokens)
-        s = tokenize.untokenize(tokens)
+                is_stmts = True
+        if not tokens:
+            # XXX: This self.reset is missed in previous versions. We need to
+            # keep an eye on what breaks (nothing problematic so far)
+            self.reset(m)
+            return FAILURE # Don't accept empty actions
         if self._verbose: #XXX: ...
+            import pickle
+            print("  " * self._level + "## Unnormalized:", pickle.dumps(tokens))
+        if is_stmts:
+            if tokens[0].line == starting_brace.line:
+                self.completely_propogate_parse_error = True
+                # (-1, 0) to skip the position correction
+                # (we still want the +1 correction for 0-based `tokenize` colnos)
+                # (`-1` because TokenInfo lineno is already 1-based, offset the +1 correction)
+                raise _make_parse_error_factory(self.effective_file_name, (-1, 0))(
+                    "If the action is statements, it cannot start on the same line as the left brace.",
+                    tokens[0].start[0], tokens[0].start[1], tokens[0].line,
+                    tokens[0].end[0], tokens[0].end[1],
+                    notes=["An action is statements if it contains the keyword 'return'."])
+
+            # The start (line, col) (0-based) of the sliced action text
+            start_pos = (tokens[0].start[0] - 1, 0)
+            # The end (line, col) (0-based) of the sliced action text
+            end_pos = (closing_brace.start[0] - 1, closing_brace.start[1])
+            st, ed = _start_end_line_col_to_index(self._text, start_pos, end_pos)
+            assert ed > st
+            text = self._text[st:ed]
+
+            make_parse_error = _make_parse_error_factory(self.effective_file_name, start_pos)
+
+            # In order to be valid Python, the first line of the
+            # resulting action code must be the least indented
+            # Therefore, any indent present in the first non-empty non-whitespace-only line
+            # is the "common indent" which is stripped from all lines
+            #
+            # Then, the lines are re-joined to form the actual Python code
+            # that is then split into logical lines
+            # then in the final Python code, indent to keep the code syntactically correct
+            # (while also making it look good for debugging afterwards
+            #  thus no rough ast dump or naive join-all-tokens etc if you get me)
+            # will only be added to the start of each logical line
+            # (e.g. instead of inside a triple-string, which would affect the behavior)
+            # Note: (TODO) Let's also call the common indent "stripped indent" in error messages
+            # (makes a lot of sense since it's just stripped)
+
+            # Find the first line (don't forget diagnostic info)
+            if "\n" not in text:
+                first_maybe_indented_lineno = 0
+                first_maybe_indented_line = text
+            else:
+                first_maybe_indented_lineno = 0
+                i = 0 # Now relative to `text`
+                # Note: Can probably rewrite loop with str.splitlines but don't have much motivation now
+                # (Letting the loop stay like this has the benefit of lower memory usage
+                # in the case that we would fail with "Mixed space/tab indent on first line.")
+                while True:
+                    if (j := _forward_lines(text, i, 1, 0)) is None:
+                        assert False, ("no non-empty line found in statements-type action code "
+                                       "with non-empty token list??")
+                    if not text[i:j].isspace():
+                        break
+                    i = j + 1
+                    first_maybe_indented_lineno += 1
+                first_maybe_indented_line = text[i:j]
+
+            # Detect if indent is space or tab or no indent (or invalid whitespace indent)
+            first_char = first_maybe_indented_line[0]
+            if first_char.isspace():
+                if first_char not in " \t":
+                    self.completely_propogate_parse_error = True
+                    raise make_parse_error(
+                        f"Indentation of action code must be space or tab (found {first_char!r}).",
+                        first_maybe_indented_lineno, 0,
+                        first_maybe_indented_line,
+                        first_maybe_indented_lineno, 1)
+                type, other_type = (" ", "\t") if first_char == " " else ("\t", " ")
+
+                # If there is indent, how much is there?
+                # Also check for mixed tab/space indent
+                line_without_indent = first_maybe_indented_line.lstrip(type)
+                assert line_without_indent, f"line is supposed to be non-empty, non-whitespace-only {line_without_indent!r}"
+                dedent_chars = len(first_maybe_indented_line) - len(line_without_indent)
+                if line_without_indent[0].isspace():
+                    self.completely_propogate_parse_error = True
+                    raise make_parse_error(
+                        ("Mixed space/tab indent on first line: "
+                        f"Unexpected {'tab' if type == ' ' else 'space'}."
+                        if line_without_indent[0] == other_type
+                        else "Mixed whitespace indent on first line. "
+                            f"(Found unsupported whitespace char {line_without_indent[0]!r}"),
+                        # Point at the offending character
+                        first_maybe_indented_lineno, dedent_chars - 1,
+                        first_maybe_indented_line,
+                        first_maybe_indented_lineno, dedent_chars - 1)
+                
+                # (I think splitlines is strongly justifiable here :) )
+                lines = text.splitlines()
+                for lineno, line in enumerate(lines):
+                    # Unlike many other parts of the code, it is okay here
+                    # for the line to have less then `dedent_chars` characters
+                    for colno, char in enumerate(line[:dedent_chars]):
+                        if char == type:
+                            continue
+                        if not char.isspace():
+                            plural = "spaces" if type == " " else "tabs"
+                            message = (f"Indent not enough: Expected common indent of {dedent_chars} {plural}, "
+                                       f"got {colno} {plural}.")
+                        elif char == other_type:
+                            name_plural, wrong_name = ("spaces", "tab") if type == " " else ("tabs", "space")
+                            message = f"Mixed indent: Expected indent made of {name_plural}, found {wrong_name}."
+                        else:
+                            message = f"Mixed indent: Unexpected unsupported indent character {line[colno]!r}."
+                        # If some mixed whitespace in common indent is on a whitespace-only line,
+                        # it might not be obvious from the error message
+                        # Note: "Indent not enough" message cannot trigger when line is whitespace-only
+                        notes = (["This line is whitespace-only, but must also have "
+                                  "consistent tab/space for the common indent part "
+                                  f"(here it's first {dedent_chars} chars)."]
+                                 if not line.lstrip() else [])
+
+                        self.completely_propogate_parse_error = True
+                        raise make_parse_error(
+                            message, lineno, colno, line, lineno, colno, notes=notes)
+
+                    lines[lineno] = line[dedent_chars:]
+                
+                code = "\n".join(lines)
+                
+            else:
+                code = text
+
+            # TODO: Put `code` into a Python tokenizer
+            # and split at NEWLINE tokens as strings.
+            #s = ...
+            s = code # for now
+        else:
+            # Transform back to original code.
+            #
+            # The reason we're not doing this:
+            #
+            #     s = _slice_line_col2(self._text, tokens[0].start, tokens[-1].end)
+            #
+            # is to keep compatible with (probably existing somewhere)
+            # code like this, seen in python_v2.gram:
+            #
+            #     slice:
+            #         # ...
+            #         | a=named_expression {
+            #             a
+            #             if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else
+            #             ast.Index(
+            #                 value=a,
+            #                 lineno=a.lineno,
+            #                 col_offset=a.col_offset,
+            #                 end_lineno=a.end_lineno,
+            #                 end_col_offset=a.end_col_offset
+            #             )
+            #         }
+            #
+            # Note the action spans several lines.
+            # - It is illegal to type it out in the REPL without adding brackets.
+            # - Joining token texts with space `" ".join(map(lambda x: x.string, tokens))`
+            #   is the legacy behavior.
+            #   It *works* but looks *bad*, especially in this case,
+            #   9 lines will become all on 1 line, it's harder to map an error location
+            #   back to the original location.
+            # - Adding brackets f"({THE_CODE})": Makes this invalid action
+            #   get parsed as a generator expression, unexpectedly valid.
+            #
+            #       rule: a { x for x in a }
+            #
+            #   We could validate the action code with ast.parse, but it's problematic
+            #   with respect to actions like `ast.Expr(..., LOCATIONS)`
+            #   where the unsubstituted `LOCATIONS` causes the code to be invalid.
+            #   Furthermore, I'd avoid the performance cost if possible.
+            #   (but it's a possible future feature)
+            # - _slice_line_col2 + .replace("\n", "\\\n"): Fails with triple strings.
+            #   You'll have to manually parse tokens.
+            # - _normalize_linecol + tokenize.untokenize fixes this issue by adding `\`:
+            #
+            #       return a\
+            #       if sys.version_info >= (3, 9) or isinstance(a, ast.Slice) else\
+            #       ast.Index(\
+            #           value=a,\
+            #           lineno=a.lineno,\
+            #           col_offset=a.col_offset,\
+            #           end_lineno=a.end_lineno,\
+            #           end_col_offset=a.end_col_offset\
+            #       )
+            #
+            #   Not ideal, but works best.
+            #
+            #   (Technically it's undefined behavior, but pegen has been using
+            #   tokenize.tokenize all the time, so 🤷)
+            #   (Avoiding the undefined behavior as said in the docs
+            #   would require me to build my own tokenizer
+            #   and that feels like a lot of effort
+            #   and will be a breaking change)
+            #   (Though I'm still at v0.x, breaking changes are okay? 😂)
+
+            tokens = _normalize_linecol(tokens)
+            s = tokenize.untokenize(tokens)
+            if self._verbose: #XXX: ...
+                import pickle
+                print("  " * self._level + "## Normalized:", pickle.dumps(tokens))
+        if self._verbose and is_stmts:
             print("  " * self._level + "## Parsed code:", repr(s))
-        return s
+        # TODO: Add a debug flag and clean debug printing around here
+        #if "LOCATIONS" not in s and "UNREACHABLE" not in s and not is_stmts:
+        #    ast.parse(s)
+        return Action(s, is_stmts)
 
     # Temporary trick (plan to make it built-in)
+    # TODO: Remove
     @logger
     def empty(self) -> RuleResult[None]:
         return None
@@ -240,7 +577,7 @@ class GeneratedParser(Base):
             return Rhs((alts.alts if alts else []) + (m[1].alts if m else []))
         self.reset(mark)
         if (
-            (action := (self.r_action())) is not FAILURE
+            (action := (self.action())) is not FAILURE
             and
             (self.newline()) is not FAILURE
         ):
@@ -251,7 +588,7 @@ class GeneratedParser(Base):
             and
             (self.indent()) is not FAILURE
             and
-            (action := (self.r_action())) is not FAILURE
+            (action := (self.action())) is not FAILURE
             and
             (self.newline()) is not FAILURE
             and
@@ -291,7 +628,7 @@ class GeneratedParser(Base):
         # alts: "|".alt+
         mark = self.mark()
         if (
-            (alts := (self._gather_5())) is not FAILURE
+            (alts := (self._gather_6())) is not FAILURE
         ):
             return Rhs(alts)
         self.reset(mark)
@@ -317,14 +654,14 @@ class GeneratedParser(Base):
             and
             (e := (_temp if (_temp := (self.match_string('$'))) is not FAILURE else NO_MATCH)) is not FAILURE
             and
-            (action := (_temp_1 if (_temp_1 := (self.r_action())) is not FAILURE else NO_MATCH)) is not FAILURE
+            (action := (_temp_1 if (_temp_1 := (self.action())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
             return Alt(items + [TopLevelItem(None, NameLeaf('ENDMARKER'))] if e else items, action=action or None)
         self.reset(mark)
         if (
             (self.match_string('$')) is not FAILURE
             and
-            (action := (_temp if (_temp := (self.r_action())) is not FAILURE else NO_MATCH)) is not FAILURE
+            (action := (_temp if (_temp := (self.action())) is not FAILURE else NO_MATCH)) is not FAILURE
         ):
             return Alt([TopLevelItem(None, NameLeaf('ENDMARKER'))], action=action or None)
         self.reset(mark)
@@ -510,26 +847,6 @@ class GeneratedParser(Base):
         ):
             return StringLeaf(string.string)
         self.reset(mark)
-        return FAILURE
-
-    @memoize
-    def r_action(self) -> RuleResult[str]:
-        # action: "{" ~ action_contents "}"
-        mark = self.mark()
-        __cut = False
-        if (
-            (self.match_string("{")) is not FAILURE
-            and
-            (__cut := (None) is not FAILURE)
-            and
-            (action_contents := (self.action_contents())) is not FAILURE
-            and
-            (self.match_string("}")) is not FAILURE
-        ):
-            return action_contents
-        self.reset(mark)
-        if __cut:
-            return FAILURE
         return FAILURE
 
     @memoize
@@ -735,8 +1052,8 @@ class GeneratedParser(Base):
         return FAILURE
 
     @memoize
-    def _loop0_6(self) -> RuleResult[Any]:
-        # _loop0_6: "|" alt
+    def _loop0_5(self) -> RuleResult[Any]:
+        # _loop0_5: "|" alt
         mark = self.mark()
         children = []
         while (
@@ -750,15 +1067,13 @@ class GeneratedParser(Base):
         return children
 
     @memoize
-    def _gather_5(self) -> RuleResult[Any]:
-        # _gather_5: alt _loop0_6
+    def _gather_6(self) -> RuleResult[Any]:
+        # _gather_6: alt _loop0_5
         mark = self.mark()
         if (
             (elem := (self.r_alt())) is not FAILURE
-            is not None
             and
-            (seq := (self._loop0_6())) is not FAILURE
-            is not None
+            (seq := (self._loop0_5())) is not FAILURE
         ):
             return [elem] + seq
         self.reset(mark)
@@ -821,149 +1136,142 @@ class GeneratedParser(Base):
     def start(self) -> Union[Grammar, ParseFailure]:
         try:
             value = self.r_start()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def grammar(self) -> Union[Grammar, ParseFailure]:
         try:
             value = self.r_grammar()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def meta(self) -> Union[MetaTuple, ParseFailure]:
         try:
             value = self.r_meta()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def rule(self) -> Union[Rule, ParseFailure]:
         try:
             value = self.r_rule()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def extern_decl(self) -> Union[ExternDecl, ParseFailure]:
         try:
             value = self.r_extern_decl()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def rulename(self) -> Union[RuleName, ParseFailure]:
         try:
             value = self.r_rulename()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def rule_rhs(self) -> Union[Rhs, ParseFailure]:
         try:
             value = self.r_rule_rhs()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def a(self) -> Union[None, ParseFailure]:
         try:
             value = self.r_a()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def memoflag(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_memoflag()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def alts(self) -> Union[Rhs, ParseFailure]:
         try:
             value = self.r_alts()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def more_alts(self) -> Union[Rhs, ParseFailure]:
         try:
             value = self.r_more_alts()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def alt(self) -> Union[Alt, ParseFailure]:
         try:
             value = self.r_alt()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def top_level_item(self) -> Union[TopLevelItem, ParseFailure]:
         try:
             value = self.r_top_level_item()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def top_level_others(self) -> Union[LookaheadOrCut, ParseFailure]:
         try:
             value = self.r_top_level_others()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def item(self) -> Union[Item, ParseFailure]:
         try:
             value = self.r_item()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def atom(self) -> Union[Plain, ParseFailure]:
         try:
             value = self.r_atom()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
-
-    def action(self) -> Union[str, ParseFailure]:
-        try:
-            value = self.r_action()
-            return ParseFailure() if value is FAILURE else value
-        except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def annotation(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_annotation()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def target_atoms(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_target_atoms()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def target_atom(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_target_atom()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     def target_fstring_middle(self) -> Union[str, ParseFailure]:
         try:
             value = self.r_target_fstring_middle()
-            return ParseFailure() if value is FAILURE else value
+            return ParseFailure.from_general_failure(self.diagnose(), None) if value is FAILURE else value
         except ParseError as e:
-            return ParseFailure(parse_exc=e)
+            return ParseFailure.from_raised_failure(e)
 
     KEYWORDS = ()
     SOFT_KEYWORDS = ('extern', 'memo')

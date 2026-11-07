@@ -33,8 +33,8 @@ def read_def_linenos(path: pathlib.Path) -> Dict[str, int]:
 
 def pytest_pycollect_makeitem(collector: pytest.Module | pytest.Class, name: str, obj: object) -> Any:
     if isinstance(obj, Testcases):
-        print("::", obj)
-        pprint(list(obj))
+        #print("::", obj)
+        #pprint(list(obj))
 
         # Hell of a hack to create a function on the fly
         # Why doesn't pytest officially(?) support this?? QaQ.

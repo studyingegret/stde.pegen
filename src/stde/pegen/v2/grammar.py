@@ -18,6 +18,7 @@ from typing import (
     Union,
     cast,
 )
+from enum import Enum
 from stde.pegen.common import ValidationError # Also re-export
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ class GrammarVisitor(Generic[VisitReturnType]):
     Supports specializing visiting a `node` by its `node.__class__.__name__`
     (see implementation for how to do it).
 
-    Note: The default visitor, generic_visit, flattens items of 
+    Note: The default visitor, generic_visit, flattens items of
     iterable nodes that are `list`s.
     """
     def visit(self, node: Any, *args: Any, **kwargs: Any) -> VisitReturnType:
@@ -119,6 +120,11 @@ class Grammar:
 SIMPLE_STR = True
 
 
+class RuleCompileType(Enum):
+    PLAIN = 1
+    LOOP = 2
+
+
 class Rule:
     def __init__(self, name: str, type: Optional[str], rhs: Rhs, memo: Optional[object] = None):
         self.name = name
@@ -130,11 +136,18 @@ class Rule:
         self.left_recursive = False
         self.leader = False
 
+    # Note: Rules named _loop0_xxx and _loop1_xxx with rhs `x`
+    # have their generated code being a loop returning `x*` or `x+` respectively
     def is_loop(self) -> bool:
         return self.name.startswith("_loop")
 
+    # Note: This method doesn't serve practical purpose any more
     def is_gather(self) -> bool:
         return self.name.startswith("_gather")
+
+    def compile_type(self) -> RuleCompileType:
+        return (RuleCompileType.LOOP if self.name.startswith("_loop")
+                else RuleCompileType.PLAIN)
 
     def __str__(self) -> str:
         if SIMPLE_STR or self.type is None:
@@ -256,24 +269,28 @@ class Rhs:
 
 
 class Alt:
-    #XXX: icut currently unused? (Not even in metagrammar.gram)
-    #XXX: Purpose of icut?
-    def __init__(self, items: List[TopLevelItem], *, icut: int = -1, action: Optional[str] = None):
+    # Note: There was a parameter and field called icut,
+    # but I removed it (along with code that checks it)
+    # because it was unused and there isn't a hint about its purpose.
+    def __init__(self, items: List[TopLevelItem], action: Optional[Action] = None):
         self.items = items
-        self.icut = icut
         self.action = action
 
+    # Rant, the __str__ and __repr__ code feels like annoyance when refactoring
+    #
+    # But do you have a solution?
+    #
+    # Throw it away? No good probably.
+
     def __str__(self) -> str:
-        core = " ".join(str(item) for item in self.items)
+        items = " ".join(str(item) for item in self.items)
         if not SIMPLE_STR and self.action:
-            return f"{core} {{ {self.action} }}"
+            return f"{items} {{ {self.action} }}"
         else:
-            return core
+            return items
 
     def __repr__(self) -> str:
         args = [repr(self.items)]
-        if self.icut >= 0:
-            args.append(f"icut={self.icut}")
         if self.action is not None:
             args.append(f"action={self.action!r}")
         return f"Alt({', '.join(args)})"
@@ -343,6 +360,7 @@ class Forced:
 
 
 class Lookahead:
+    """Shared base class for &node and !node."""
     def __init__(self, node: Plain, sign: str):
         self.node = node
         self.sign = sign
@@ -495,16 +513,17 @@ class Cut:
 
 
 class Action:
-    def __init__(self, code: str, has_return_stmt: bool = False):
+    def __init__(self, code: str, is_stmts: bool = False):
         self.code = code
-        self.has_return_stmt = has_return_stmt
+        self.is_stmts = is_stmts
 
+    #TODO: ...
     def __str__(self) -> str:
-        return "{ " + self.code + " }" #XXX:?
+        return repr(self)
 
     def __repr__(self) -> str:
-        return (f"Action({self.code!r})" if not self.has_return_stmt
-                else f"Action({self.code!r}, has_return_stmt=True)")
+        return (f"Action({self.code!r})" if not self.is_stmts
+                else f"Action({self.code!r}, is_stmts=True)")
 
 
 Plain = Union[Leaf, Group]
