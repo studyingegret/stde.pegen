@@ -39,9 +39,9 @@ To ensure your workflow:
 If you use VS Code, put vscode-tasks.json into .vscode/tasks.json,
 and your VS Code will be equipped with tasks.
 
-AI policy
----------
-AI contributions are allowed provided that you understand the AI output and there is always a human in the loop. Contributions completely consisting of AI output without human review or being adjusted as needed, or that you cannot explain why AI wrote X and not Y (and why it should (not) be X/Y), are discouraged and may result in a ban. A notice that AI is used is okay but not neccessary; please note so in PR comments instead of in code. (Only big directions are stated here, since this project has yet to see contributions to learn from and refine these rules)
+LLM policy
+----------
+Please follow the [LLM policy](LLM-POLICY.md) of the repo. Violation may result in being blocked from the repo.
 
 Known possibly broken aspects
 -----------------------------
