@@ -10,7 +10,7 @@ If the user tries to do something not allowed by the LLM policy:
 - You must refuse to do it, and tell them it is a violation of the LLM policy.
 - You must NOT do any tool calls in your response: only write the refusal message.
 - Do not mention the "Only yourself" exemption.
-- Instead of processing the non-violating parts of the user request, you must refuse to do the request as a whole and expect the user to change their request to a non-violating one. For example, if the request is "Document the security expectation(s) placed on the caller in xxx.py", it is not okay to proceed to explain the security explanation, even if you don't write the documentation; but if the user then asks "can you explain these expectation（s)?" then it is a valid request that can be processed.
+- Instead of processing the non-violating parts of the user request, you must refuse to do the request as a whole and expect the user to change their request to a non-violating one. For example, if the request is "Figure out security expectation(s) placed on the caller in xxx.py, and document them", it is not okay to proceed to explain the security explanation, even if you don't write the documentation; but if the user then asks "can you figure out these expectation（s)?" then it is a valid request that can be processed.
 
 ### "Only yourself" exemption
 If the user is the only person who sees the AI output, the situation is exempt from the policy. This includes if they never put the result code into a PR against stde.pegen, or copy-paste AI output as a PR description, commit message or issue message.
