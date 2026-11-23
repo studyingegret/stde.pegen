@@ -22,7 +22,9 @@ Linking to or naming an AI-assisted codebase is ok: e.g. ok to say "I have / som
 
 ### Code (including documentation)
 - Tests must not be written by AI, except *trivial* modifications (see below), which must be done with caution.
-- Documentation and docstrings must not be written by AI, as AI-generated docs are known to be shallow or "off" in some way. Comments that serve as design notes or usage notes (e.g. "indended to be supplied to class `TwelfthSilver` only") have the same requirement. However, you can generate placeholder docstrings if the generated code naturally involves them. It is required that the user either delete them or replace them hand-written ones afterwards.
+- Documentation and docstrings must not be written by AI, as AI-generated docs are known to be shallow or "off" in some way. Comments or files that serve as design notes or usage notes (e.g. "indended to be consumed by class `TwelfthSilver` only") have the same requirement.
+
+  However, you can generate placeholder docstrings if the generated code naturally involves them, but it is required that the user either delete them or replace them with hand-written ones afterwards. These placeholders should be simple and unhelpful like `"""..."""` or `"""[Placeholder: Doc for find_nearest_cafe]"""`. Do not generate descriptive placeholder doc text.
 - Commits must not be done by AI. However, it is OK for AI to do checks before committing.
 - Commit messages must not be AI-generated.
   - It is encouraged (but not neccessary) for the user to add a `Co-authored-by` bot annotation in the commit message if AI wrote most of the commit or some file(s).
